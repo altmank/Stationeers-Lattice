@@ -62,7 +62,14 @@ internal sealed class Thing
     /// <summary>The placed shape of a placement part; null for an overlay or a piece the catalogue does not hold.</summary>
     public PlacedShape? Shape { get; private init; }
 
+    /// <summary>The piece's narrowest family.</summary>
     public PieceFamily Family { get; set; }
+
+    /// <summary>The piece's family and every family above it, narrowest first.</summary>
+    public ValueList<PieceFamily> Families { get; set; } = ValueList<PieceFamily>.Empty;
+
+    /// <summary>The axis its face is square to, for a piece on a face of a large cell; null otherwise.</summary>
+    public Axis? FaceAxis { get; set; }
 
     public Finding? Finding { get; set; }
 

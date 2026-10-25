@@ -45,11 +45,10 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
-v0.6.0
-- First release of Lattice, the ghost core library other mods build on: it holds planned structures (ghosts) and answers whether they can be built, in what order, the steps and materials each needs, and what a change would look like before it is made. It does nothing on its own: install it when a mod you use asks for it.
-- Plans are saved with the world, in a lattice folder beside the game's saves, never inside a save; each save loads the plans as they were when it was written.
-- Multiplayer: the host and every player need Lattice at the same version. The host decides; players see the host's plans as they change.
-- Ghosts are drawn in game, with a styling system other mods can extend with looks of their own.
+v0.7.0
+- Windows are their own family, under walls: a see-through face that seals air once built. Style rules for walls still cover windows; mods can now style windows alone. Floor gratings stay walls.
+- Style rules can match face pieces by how they lie: flat (floors, ceilings) or upright.
+- The mod author guides are on GitHub (link above).
 </ChangeLog>
   <Visibility>Public</Visibility>
   <WorkshopHandle>3826716939</WorkshopHandle>

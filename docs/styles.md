@@ -11,7 +11,9 @@ everyone should see alike is ghost data a rule reads: tint, label, groups and at
 
 For each property of each drawn thing, every rule of every enabled layer whose match holds is put in order, and the
 last one that sets the property wins. The order is (band, the layer's `Order`, registration, the rule's position).
-There is no specificity: order alone decides, so `Styles.Explain` can name the one rule behind each property.
+There is no specificity: order alone decides, so `Styles.Explain` can name the one rule behind each property. That
+holds for families too: a `Family(window)` rule does not outrank a `Family(wall)` rule. To style windows apart from
+walls, put the window rule after the wall rule.
 
 | Band | For |
 |---|---|
@@ -64,14 +66,28 @@ per ghost. A mod with logic of its own computes a set and pushes it ([sets](#set
 | `State(kind)` | `Planned`, `Started`, `Stale`. |
 | `Finding(kind, code?)` | `Unchecked`, `Passes`, `WaitsFor`, `WillFail`, `Warns`, optionally one reason code. Drawing never starts a check: a pending answer reads as `Unchecked`. |
 | `Status(kind, by?)` | An executor's `Working`, `Waiting`, `Paused`, or `None`. |
-| `Family(family)` | The piece's family, modded pieces included. |
+| `Family(family)` | The piece's family or one above it, modded pieces included: `Family(wall)` holds for windows too ([families](catalogue.md#families)). |
+| `Facing(axis)` | A piece on a face of a large cell whose face, after its turn, is square to the axis: `Facing(Y)` for floors and ceilings, `Facing(X)` and `Facing(Z)` for upright faces. Never a piece in a cell's centre or on the small grid. Contract 0.7. |
 | `InSet(set)` | Members of a ghost set or structure set. |
 | `Mine`, `Tinted`, `Finishes` | Placed by the local viewer; has a tint; asks for a finish. |
 | `Draft`, `Pending`, `Structure` | Shown by a drafts handle; a draft sent to the host and not yet answered; a structure overlay. |
 | `All`, `Any`, `Not` | Combinations. |
 
 `Styles.Matches(match, structure)` asks a match of a built structure, for a mod that styles the built world the same
-way (a faded view of everything but pipes, for example).
+way (a faded view of everything but pipes, for example). `Facing` reads the structure's turn from Lattice's copy of the
+world; a structure Lattice has not seen faces nothing.
+
+A floor is where a face piece lies, not a family: a wall, a window or a grating laid flat holds `Facing(Y)` as well as
+its family. For a floor look that wins over a window look, put the `Facing(Y)` rule after the window rule.
+
+```csharp
+var walls = new StyleLayerDescriptor(layerId, StyleBand.View, 0, ValueList.From(new[]
+{
+    new StyleRule(new StyleMatch.Family(PieceFamilies.Wall), wallLook),
+    new StyleRule(new StyleMatch.Family(PieceFamilies.Window), windowLook),  // after walls: windows take this one
+    new StyleRule(new StyleMatch.Facing(Axis.Y), floorLook),                 // last: anything laid flat
+}));
+```
 
 ## Properties
 

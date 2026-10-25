@@ -39,12 +39,26 @@ public interface IPieceCatalogue
     Result<KitPlace, Reason> KitOf(PrefabKey piece);
 
     /// <summary>
-    /// The family a piece is drawn and filtered by, the same one style rules read: the one a mod registered
+    /// The family a piece is drawn and filtered by: the top of its chain (<see cref="FamiliesOf"/>), so a window answers
+    /// <see cref="PieceFamilies.Wall"/>. The chain starts at the one a mod registered
     /// (<see cref="CatalogueAddition.InFamily"/>) while its handle lives, else the one found by type. The one answer that
     /// changes during a world. Refused <see cref="ReasonCodes.UnknownPiece"/> for an unknown piece. The first ask of a
     /// piece reads its prefab once. Added in contract 0.3.
     /// </summary>
     Result<PieceFamily, Reason> FamilyOf(PrefabKey piece);
+
+    /// <summary>
+    /// A piece's family and every family above it, narrowest first: <c>[window, wall]</c> for a window,
+    /// <c>[frame]</c> for a frame. Style rules match any of them. Refused <see cref="ReasonCodes.UnknownPiece"/> for an
+    /// unknown piece. Allocates nothing. Added in contract 0.7.
+    /// </summary>
+    Result<ValueList<PieceFamily>, Reason> FamiliesOf(PrefabKey piece);
+
+    /// <summary>
+    /// The family a family lies under: <see cref="PieceFamilies.Wall"/> for <see cref="PieceFamilies.Window"/>, none for
+    /// Lattice's other families and for a mod's own. Allocates nothing. Added in contract 0.7.
+    /// </summary>
+    Option<PieceFamily> ParentOf(PieceFamily family);
 }
 
 /// <summary>One structure prefab. Added in contract 0.3.</summary>

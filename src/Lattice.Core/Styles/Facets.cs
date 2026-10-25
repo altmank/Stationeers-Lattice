@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
+using Lattice.Core.Catalogue;
 using Lattice.Core.Selectors;
 
 namespace Lattice.Core.Styles;
@@ -19,7 +20,8 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
     /// <summary>Whether the match is a leaf: not a combinator, not <c>Everything</c>, and a case this Lattice knows.</summary>
     public static bool IsLeaf(StyleMatch match) => match is StyleMatch.Picks or StyleMatch.Intent or StyleMatch.Part
         or StyleMatch.State or StyleMatch.Finding or StyleMatch.Status or StyleMatch.Family or StyleMatch.InSet
-        or StyleMatch.Mine or StyleMatch.Tinted or StyleMatch.Finishes or StyleMatch.Draft or StyleMatch.Pending or StyleMatch.Structure;
+        or StyleMatch.Mine or StyleMatch.Tinted or StyleMatch.Finishes or StyleMatch.Draft or StyleMatch.Pending or StyleMatch.Structure
+        or StyleMatch.Facing;
 
     /// <summary>A selector the board answers as a whole: network, room, run through, or an and/or holding one.</summary>
     public static bool IsRelational(Selector selector) => selector switch
@@ -55,6 +57,7 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
         StyleMatch.Draft => LeafKind.Draft,
         StyleMatch.Pending => LeafKind.Pending,
         StyleMatch.Structure => LeafKind.Structure,
+        StyleMatch.Facing => LeafKind.Facing,
         _ => LeafKind.Unknown,
     };
 
@@ -73,7 +76,8 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
             LeafKind.State => !structure && StateOf(thing) == ((StyleMatch.State)match!).Kind,
             LeafKind.Finding => !structure && FindingHolds((StyleMatch.Finding)match!, thing),
             LeafKind.Status => !structure && StatusHolds((StyleMatch.Status)match!, thing),
-            LeafKind.Family => thing.Family == ((StyleMatch.Family)match!).Of,
+            LeafKind.Family => FamilyTree.Holds(thing.Families, ((StyleMatch.Family)match!).Of),
+            LeafKind.Facing => thing.FaceAxis == ((StyleMatch.Facing)match!).Normal,
             LeafKind.InSet => sets.Holds(((StyleMatch.InSet)match!).Set, thing),
             LeafKind.Mine => !structure && (thing.Kind == ThingKind.Draft || thing.Record is { } ghost && ghost.PlacedBy == Viewer),
             LeafKind.Tinted => !structure && thing.Tint.IsSome,
@@ -126,7 +130,8 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
             StyleMatch.State state => !structure && StateOf(thing) == state.Kind,
             StyleMatch.Finding finding => !structure && FindingHolds(finding, thing),
             StyleMatch.Status status => !structure && StatusHolds(status, thing),
-            StyleMatch.Family family => thing.Family == family.Of,
+            StyleMatch.Family family => FamilyTree.Holds(thing.Families, family.Of),
+            StyleMatch.Facing facing => thing.FaceAxis == facing.Normal,
             StyleMatch.InSet inSet => sets.Holds(inSet.Set, thing),
             StyleMatch.Mine => !structure && (thing.Kind == ThingKind.Draft || thing.Record is { } ghost && ghost.PlacedBy == Viewer),
             StyleMatch.Tinted => !structure && thing.Tint.IsSome,

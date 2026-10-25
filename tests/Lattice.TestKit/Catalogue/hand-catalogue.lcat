@@ -47,7 +47,7 @@ piece StructureWallIron kit=ItemKitWall option=0 grid=large
   rating face=50
   cell 0 0 0 face-z-
 
-piece StructureCompositeWindowIron kit=ItemKitWindowIron option=0 grid=large
+piece StructureCompositeWindowIron kit=ItemKitWindowIron option=0 grid=large family=window
   step entry=ItemKitWindowIron material=ItemKitWindowIron*1 exit=ItemWrench air=no
   step entry=ItemIronSheets material=ItemIronSheets*1 exit=ItemCrowbar air=no
   step entry=ItemCompositeGlass material=ItemCompositeGlass*1 exit=ItemCrowbar air=yes gravity=yes

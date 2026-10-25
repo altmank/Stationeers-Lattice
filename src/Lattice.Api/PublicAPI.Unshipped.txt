@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 6 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 7 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2509,3 +2509,10 @@ Lattice.Api.GroupCount.GroupCount(Lattice.Api.GroupName Name, int Count) -> void
 Lattice.Api.GroupCount.Name.get -> Lattice.Api.GroupName
 Lattice.Api.GroupCount.Name.init -> void
 Lattice.Api.IGhostBoard.Groups.get -> Lattice.Api.ValueList<Lattice.Api.GroupCount!>!
+Lattice.Api.StyleMatch.Facing
+Lattice.Api.StyleMatch.Facing.Facing(Lattice.Api.Axis Normal) -> void
+Lattice.Api.StyleMatch.Facing.Normal.get -> Lattice.Api.Axis
+Lattice.Api.StyleMatch.Facing.Normal.init -> void
+static readonly Lattice.Api.PieceFamilies.Window -> Lattice.Api.PieceFamily
+Lattice.Api.IPieceCatalogue.FamiliesOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.PieceFamily>!, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.ParentOf(Lattice.Api.PieceFamily family) -> Lattice.Api.Option<Lattice.Api.PieceFamily>

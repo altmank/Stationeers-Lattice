@@ -34,6 +34,18 @@ public sealed class CatalogueViewTests
     }
 
     [Fact]
+    public void A_test_piece_put_in_window_is_a_window_under_wall_and_a_wall_rule_matches_it()
+    {
+        var pane = Panel("ModSkyPane").InFamily(PieceFamilies.Window);
+        using var world = Start(TestScenario.Empty.WithPiece(pane));
+        var catalogue = world.System.Catalogue;
+
+        Assert.Equal(new[] { PieceFamilies.Window, PieceFamilies.Wall }, Must(catalogue.FamiliesOf(pane.Key)));
+        Assert.Equal(PieceFamilies.Wall, Must(catalogue.FamilyOf(pane.Key)));
+        Assert.True(world.System.Styles.Matches(new StyleMatch.Family(PieceFamilies.Wall), new StructureRef(new ReferenceId(1), pane.Key, default)));
+    }
+
+    [Fact]
     public void A_piece_in_two_kits_lists_both_its_own_kit_first_and_shows_its_display_name()
     {
         var corner = Panel("ModPanelCorner").AlsoIn("ItemKitModTrim", 1).Named("Panel corner, 45°");

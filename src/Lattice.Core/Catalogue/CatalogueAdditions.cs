@@ -13,13 +13,18 @@ internal interface IMirrorPartners
 }
 
 /// <summary>
-/// The family each piece is drawn and filtered by: the one a mod registered (<see cref="CatalogueAddition.InFamily"/>),
-/// else the one the catalogue found by type, else <see cref="PieceFamilies.Other"/> for a piece the catalogue lacks.
+/// The family each piece is drawn and filtered by, its narrowest: the one a mod registered
+/// (<see cref="CatalogueAddition.InFamily"/>), else the one the catalogue found by type, else
+/// <see cref="PieceFamilies.Other"/> for a piece the catalogue lacks; and its chain, that family and every family above
+/// it (<see cref="FamilyTree"/>).
 /// </summary>
 internal interface IPieceFamilies
 {
-    /// <summary>The piece's family. Main thread; constant cost.</summary>
+    /// <summary>The piece's narrowest family. Main thread; constant cost.</summary>
     PieceFamily FamilyOf(PrefabKey piece);
+
+    /// <summary>The piece's family and every family above it, narrowest first. Main thread; constant cost, allocates nothing once a family has been seen.</summary>
+    ValueList<PieceFamily> ChainOf(PrefabKey piece);
 }
 
 /// <summary>
@@ -37,6 +42,7 @@ internal sealed class CatalogueAdditions(ICatalogue catalogue) : IMirrorPartners
 {
     private readonly Dictionary<PrefabKey, Partnership> _partners = new();
     private readonly Dictionary<PrefabKey, Membership> _families = new();
+    private readonly Dictionary<PieceFamily, ValueList<PieceFamily>> _chains = new();
 
     public Result<IDisposable, Reason> Register(CatalogueAddition addition) => addition switch
     {
@@ -57,6 +63,21 @@ internal sealed class CatalogueAdditions(ICatalogue catalogue) : IMirrorPartners
         return catalogue.Piece(piece).TryGet(out var facts) ? facts.Family : PieceFamilies.Other;
     }
 
+    public ValueList<PieceFamily> ChainOf(PrefabKey piece)
+    {
+        if (_families.TryGetValue(piece, out var membership))
+            return membership.Chain;
+        return Chain(catalogue.Piece(piece).TryGet(out var facts) ? facts.Family : PieceFamilies.Other);
+    }
+
+    /// <summary>A family's chain, made once per family a data file or a mod names.</summary>
+    private ValueList<PieceFamily> Chain(PieceFamily family)
+    {
+        if (!_chains.TryGetValue(family, out var chain))
+            _chains[family] = chain = FamilyTree.ChainOf(family);
+        return chain;
+    }
+
     private Result<IDisposable, Reason> Join(CatalogueAddition.InFamily member)
     {
         if (!catalogue.Piece(member.Piece).IsOk)
@@ -66,7 +87,7 @@ internal sealed class CatalogueAdditions(ICatalogue catalogue) : IMirrorPartners
         if (_families.TryGetValue(member.Piece, out var held))
             return Refuse(ReasonCodes.AlreadyRegistered, Fact(member.Piece).With("family", held.Member.Family.Value));
 
-        var membership = new Membership(this, member);
+        var membership = new Membership(this, member, Chain(member.Family));
         _families.Add(member.Piece, membership);
         return Result<IDisposable, Reason>.Ok(membership);
     }
@@ -124,9 +145,11 @@ internal sealed class CatalogueAdditions(ICatalogue catalogue) : IMirrorPartners
         public void Dispose() => owner.Remove(this);
     }
 
-    private sealed class Membership(CatalogueAdditions owner, CatalogueAddition.InFamily member) : IDisposable
+    private sealed class Membership(CatalogueAdditions owner, CatalogueAddition.InFamily member, ValueList<PieceFamily> chain) : IDisposable
     {
         public CatalogueAddition.InFamily Member { get; } = member;
+
+        public ValueList<PieceFamily> Chain { get; } = chain;
 
         public void Dispose() => owner.Leave(this);
     }

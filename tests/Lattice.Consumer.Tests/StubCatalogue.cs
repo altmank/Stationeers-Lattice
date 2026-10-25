@@ -57,5 +57,9 @@ internal sealed class StubCatalogue : IPieceCatalogue
 
     public Result<PieceFamily, Reason> FamilyOf(PrefabKey piece) => Piece(piece).Map(static _ => PieceFamilies.Other);
 
+    public Result<ValueList<PieceFamily>, Reason> FamiliesOf(PrefabKey piece) => Piece(piece).Map(static _ => ValueList.Of(PieceFamilies.Other));
+
+    public Option<PieceFamily> ParentOf(PieceFamily family) => family == PieceFamilies.Window ? Option.Some(PieceFamilies.Wall) : Option<PieceFamily>.None;
+
     private static Reason Unknown() => Reason.Of(ReasonCodes.UnknownPiece, RuleId.Contract);
 }

@@ -99,10 +99,22 @@ internal sealed class PieceCatalogue : IPieceCatalogue
         _kitOf.TryGetValue(piece, out var place) ? place : Result<KitPlace, Reason>.Error(Unknown(piece));
 
     /// <inheritdoc />
-    public Result<PieceFamily, Reason> FamilyOf(PrefabKey piece) =>
+    public Result<PieceFamily, Reason> FamilyOf(PrefabKey piece)
+    {
+        if (!_pieces.ContainsKey(piece))
+            return Result<PieceFamily, Reason>.Error(Unknown(piece));
+        var chain = _families.ChainOf(piece);
+        return Result<PieceFamily, Reason>.Ok(chain[chain.Count - 1]);
+    }
+
+    /// <inheritdoc />
+    public Result<ValueList<PieceFamily>, Reason> FamiliesOf(PrefabKey piece) =>
         _pieces.ContainsKey(piece)
-            ? Result<PieceFamily, Reason>.Ok(_families.FamilyOf(piece))
-            : Result<PieceFamily, Reason>.Error(Unknown(piece));
+            ? Result<ValueList<PieceFamily>, Reason>.Ok(_families.ChainOf(piece))
+            : Result<ValueList<PieceFamily>, Reason>.Error(Unknown(piece));
+
+    /// <inheritdoc />
+    public Option<PieceFamily> ParentOf(PieceFamily family) => FamilyTree.ParentOf(family);
 
     // The game's choice first, then the others by the sorted kit order and option.
     private static ValueList<KitPlace> Ordered(List<KitPlace> homes, ValueList<ItemKey> firstStep, Dictionary<KitKey, int> rank)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+- **Windows are their own family, under walls.** A see-through face that seals air once built (the game's windows,
+  the shuttered window included) is in the new `window` family, which sits under `wall`: a style rule for walls
+  still covers windows, and a rule for windows alone is now possible. Floor gratings stay walls. Contract 0.7, which
+  only adds: a mod written for 0.6 sees the same answers.
+- **Match a face by how it lies.** A style rule can match face pieces laid flat (floors and ceilings) or upright,
+  whatever their family.
+- **The catalogue answers a piece's family chain** (a window: window, then wall) and a family's parent.
+- Public docs for mod authors: what Lattice does, how to build on it, and a guide per feature.
+
 ## 0.6.0
 
 - **First release of Lattice, the ghost core library other mods build on.** It holds planned structures (ghosts) and

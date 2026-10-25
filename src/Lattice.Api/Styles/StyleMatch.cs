@@ -46,9 +46,21 @@ public abstract record StyleMatch
     /// <param name="By">Only this executor's status; none for any.</param>
     public sealed record Status(StatusKind Kind, Option<ExecutorId> By) : StyleMatch;
 
-    /// <summary>The family of the piece drawn (the target piece of a build, the built piece of an overlay).</summary>
+    /// <summary>
+    /// The family of the piece drawn (the target piece of a build, the built piece of an overlay): the piece's own
+    /// family or one above it, so <c>Family(wall)</c> holds for a window (<see cref="IPieceCatalogue.FamiliesOf"/>).
+    /// </summary>
     /// <param name="Of">The family.</param>
     public sealed record Family(PieceFamily Of) : StyleMatch;
+
+    /// <summary>
+    /// A piece on a face of a large cell whose face, after its turn, is square to the axis: <c>Facing(Y)</c> holds for
+    /// floors and ceilings (any wall, window, grating or platform laid flat), <c>Facing(X)</c> and <c>Facing(Z)</c> for
+    /// upright faces. A piece in a cell's centre or on the small grid never holds it. A built structure faces as the
+    /// world holds it turned; one Lattice has not seen faces nothing. Added in contract 0.7.
+    /// </summary>
+    /// <param name="Normal">The axis the face is square to.</param>
+    public sealed record Facing(Axis Normal) : StyleMatch;
 
     /// <summary>A member of a ghost set or a structure set.</summary>
     /// <param name="Set">The set.</param>

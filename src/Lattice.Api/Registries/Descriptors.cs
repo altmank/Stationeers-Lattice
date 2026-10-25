@@ -196,7 +196,9 @@ public abstract record CatalogueAddition
     /// <summary>
     /// A piece belongs to a family: a modded piece Lattice leaves at <see cref="PieceFamilies.Other"/>, or any piece a
     /// mod wants in another. It comes before the family Lattice finds by type, for every style rule and filter that
-    /// reads families, until the handle is disposed. Refused (<c>unknown-piece</c>) for a piece the catalogue lacks,
+    /// reads families, until the handle is disposed. The family is the piece's narrowest: its chain is that family and
+    /// every family above it, so a piece put in <see cref="PieceFamilies.Window"/> is a wall too, and a piece put in a
+    /// mod's own family has only that one. Refused (<c>unknown-piece</c>) for a piece the catalogue lacks,
     /// (<c>invalid-value</c>) for a <c>default</c> family, (<c>already-registered</c>) while the piece has one.
     /// Added in contract 0.2.
     /// </summary>

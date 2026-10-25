@@ -143,6 +143,10 @@ public abstract class ConsumerFlows
         Assert.Contains(kit, catalogue.Kits);
         Assert.Contains(catalogue.Pieces, entry => entry.Key == piece && entry.Grid is PieceGrid.Small or PieceGrid.Large && entry.PrefabName.Length > 0);
         Assert.NotEqual(default, Must(catalogue.FamilyOf(piece)));
+        var chain = Must(catalogue.FamiliesOf(piece));
+        Assert.Equal(Must(catalogue.FamilyOf(piece)), chain[chain.Count - 1]);
+        Assert.Equal(Option.Some(PieceFamilies.Wall), catalogue.ParentOf(PieceFamilies.Window));
+        Assert.False(catalogue.ParentOf(PieceFamilies.Wall).IsSome);
         Assert.Equal(ReasonCodes.UnknownPiece, Error(catalogue.Piece(default)).Code);
     }
 

@@ -403,7 +403,7 @@ public abstract class StyleFlows
     }
 
     [Fact]
-    public void Fade_ask_2_the_clip_in_force_is_raised_once_a_frame()
+    public void The_clip_in_force_is_raised_once_a_frame()
     {
         var seen = new List<Option<ClipShape>>();
         Action<Option<ClipShape>> onChanged = seen.Add;
@@ -428,17 +428,19 @@ public abstract class StyleFlows
     }
 
     [Fact]
-    public void Fade_ask_3_a_style_match_is_asked_of_a_built_structure()
+    public void A_style_match_is_asked_of_a_built_structure()
     {
         var pipes = new StyleMatch.Family(Must(PieceFamily.Create(Planner, "pipes")));
         WillMatch(pipes, Built);
 
         Assert.True(Styles.Matches(pipes, Built));
         Assert.False(Styles.Matches(new StyleMatch.Family(Must(PieceFamily.Create(Planner, "cables"))), Built));
+        Assert.False(Styles.Matches(new StyleMatch.Facing(Axis.Y), Built));
+        Assert.False(Styles.Matches(new StyleMatch.Family(PieceFamilies.Window), Built));
     }
 
     [Fact]
-    public void Fade_ask_4_a_ghost_on_a_built_structure_names_it_and_the_board_finds_it_from_the_structure()
+    public void A_ghost_on_a_built_structure_names_it_and_the_board_finds_it_from_the_structure()
     {
         var removal = Place(Draft(7) with { Intent = new Intent.Remove(Built) });
 
@@ -449,7 +451,7 @@ public abstract class StyleFlows
     }
 
     [Fact]
-    public void Fade_ask_4_remove_swap_and_finish_each_name_their_built_structure()
+    public void Remove_swap_and_finish_each_name_their_built_structure()
     {
         var placement = Assert.IsType<Intent.Build>(Draft(8).Intent).Target;
         var finish = Must(Finish.Create(Option.Some(Must(PaintColour.Create(1))), Option<ThingName>.None, Option<Setting>.None));

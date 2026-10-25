@@ -269,7 +269,12 @@ public static class MaterialKeys
     public static readonly MaterialKey Faded = MaterialKey.Known("faded");
 }
 
-/// <summary>Lattice's piece families, found by type in the catalogue, so a modded subclass inherits its base's family.</summary>
+/// <summary>
+/// Lattice's piece families, found by type in the catalogue, so a modded subclass inherits its base's family. Families
+/// form a tree: <see cref="Window"/> lies under <see cref="Wall"/>, the others have no parent
+/// (<see cref="IPieceCatalogue.ParentOf"/>), and <see cref="StyleMatch.Family"/> holds for a family and every family
+/// under it.
+/// </summary>
 public static class PieceFamilies
 {
     /// <summary>Cables.</summary>
@@ -284,8 +289,15 @@ public static class PieceFamilies
     /// <summary>Frames.</summary>
     public static readonly PieceFamily Frame = PieceFamily.Known("frame");
 
-    /// <summary>Walls, windows and other faces of a large cell.</summary>
+    /// <summary>Walls and other faces of a large cell; <see cref="Window"/> lies under it, so a window is a wall too.</summary>
     public static readonly PieceFamily Wall = PieceFamily.Known("wall");
+
+    /// <summary>
+    /// Windows: the game's see-through faces in glass, and modded subclasses of them, under <see cref="Wall"/>. Floor
+    /// gratings and other see-through faces not in glass stay walls; a see-through face whose material the catalogue
+    /// does not know is a window. Added in contract 0.7.
+    /// </summary>
+    public static readonly PieceFamily Window = PieceFamily.Known("window");
 
     /// <summary>Devices: pieces with ports.</summary>
     public static readonly PieceFamily Device = PieceFamily.Known("device");

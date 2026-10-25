@@ -96,7 +96,7 @@ internal static class PieceMapper
             Supplies = SuppliesPower(prefab.Types),
             Vents = Has(prefab.Types, PassiveVent),
             ControlFace = ControlFaceOf(prefab.Controls),
-            Family = TypeFamilies.Of(prefab.Types),
+            Family = TypeFamilies.Of(prefab.Types, prefab.States),
             Look = prefab.Look.Map(look => LookOf(look, prefab.GridMetres)),
         });
     }

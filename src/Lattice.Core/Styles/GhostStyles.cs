@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
+using Lattice.Core.Catalogue;
 using Lattice.Core.Ports;
 using Lattice.Core.Slices;
 using Lattice.Core.Styles.Library;
@@ -177,6 +178,7 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     private readonly StyleSets _sets;
     private readonly Relations _relations;
     private readonly Facets _facets;
+    private readonly Dictionary<(PrefabKey Piece, Turn Turn, int X, int Y, int Z), Axis?> _faceAxes = new();
     private readonly Clips _clips = new();
     private readonly PickIndex _pick;
     private readonly PickFilter _pickFilter;
@@ -832,6 +834,10 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
         if (finding.TryGet(out var found))
             thing.Finding = found;
         thing.Family = FamilyOf(thing.Piece);
+        thing.Families = _parts.Looks.Families(thing.Piece);
+        thing.FaceAxis = thing.Shape is { } shape ? FaceAxes.Of(shape.Spots)
+            : thing.Part == PartKind.Existing && Built(thing.Structure).TryGet(out var built) ? FaceAxisOf(thing.Piece, thing.At, built.Turn)
+            : null;
         thing.ListSlot = _all.Count;
         _all.Add(thing);
         Sign(thing);
@@ -908,8 +914,27 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     /// <summary>The piece's family now: constant cost, and a family a mod registers later is seen from then on.</summary>
     private PieceFamily FamilyOf(PrefabKey piece) => _parts.Looks.Family(piece);
 
-    private Turn TurnOf(StructureRef structure) =>
-        _parts.World is { } world && world.Structure(structure.Id).TryGet(out var info) ? info.Turn : Turn.None;
+    private Turn TurnOf(StructureRef structure) => Built(structure).TryGet(out var info) ? info.Turn : Turn.None;
+
+    /// <summary>The structure as Lattice's copy of the world holds it; none when it has not seen it.</summary>
+    private Option<StructureInfo> Built(StructureRef structure) =>
+        _parts.World is { } world ? world.Structure(structure.Id) : Option<StructureInfo>.None;
+
+    /// <summary>
+    /// The axis a piece's face is square to, at a cell and turn; null for a piece off the faces. Kept per piece, turn and
+    /// place within its large cell (the spots move with whole cells), so asking again allocates nothing.
+    /// </summary>
+    private Axis? FaceAxisOf(PrefabKey piece, Cell at, Turn turn)
+    {
+        var key = (piece, turn, Within(at.X), Within(at.Y), Within(at.Z));
+        if (_faceAxes.TryGetValue(key, out var known))
+            return known;
+        var axis = _parts.Shapes.Of(new Placement(piece, at, turn)).TryGet(out var shape) ? FaceAxes.Of(shape.Spots) : null;
+        _faceAxes[key] = axis;
+        return axis;
+    }
+
+    private static int Within(int key) => ((key % 20) + 20) % 20;
 
     private static Option<Placement> Placed(Intent intent) => intent switch
     {
@@ -1057,7 +1082,9 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
             case StyleMatch.Part part:
                 return part.Kind == PartKind.Existing;
             case StyleMatch.Family family:
-                return FamilyOf(structure.Piece) == family.Of;
+                return FamilyTree.Holds(_parts.Looks.Families(structure.Piece), family.Of);
+            case StyleMatch.Facing facing:
+                return Built(structure).TryGet(out var built) && FaceAxisOf(structure.Piece, structure.At, built.Turn) == facing.Normal;
             case StyleMatch.Picks picks:
                 return PieceSelects(picks.Which, structure.Piece);
             case StyleMatch.InSet inSet:

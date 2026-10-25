@@ -39,7 +39,7 @@ public sealed class WorldStylesTests : System.IDisposable
     }
 
     [Fact]
-    public void Fade_ask_4_the_board_finds_remove_swap_and_finish_ghosts_on_a_structure_and_changed_reports_them()
+    public void The_board_finds_remove_swap_and_finish_ghosts_on_a_structure_and_changed_reports_them()
     {
         var removed = _bench.Runs.Real("ModConduitLine", RunBench.At(10, 0, 0));
         var swapped = _bench.Runs.Real("StructureCableStraight", RunBench.At(12, 0, 0));

@@ -88,7 +88,8 @@ public interface IGhostStyles
 
     /// <summary>
     /// Whether a match holds for a built structure: its piece's facets (<see cref="StyleMatch.Family"/>,
-    /// <see cref="Selector.OfPiece"/> in <see cref="StyleMatch.Picks"/>), its structure-set membership and
+    /// <see cref="Selector.OfPiece"/> in <see cref="StyleMatch.Picks"/>), <see cref="StyleMatch.Facing"/> by the turn
+    /// Lattice's copy of the world holds, its structure-set membership and
     /// <see cref="StyleMatch.Structure"/>; ghost-only cases (state, finding, status, draft, mine, tinted) are false.
     /// The same family vocabulary as ghost styles, modded pieces included. Constant cost after the first ask per piece
     /// and match.

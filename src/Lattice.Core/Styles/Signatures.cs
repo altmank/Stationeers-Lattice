@@ -65,6 +65,7 @@ internal enum LeafKind
     Structure = 13,
     Highlight = 14,
     Finishes = 15,
+    Facing = 16,
 }
 
 /// <summary>

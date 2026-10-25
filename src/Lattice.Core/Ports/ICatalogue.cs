@@ -275,7 +275,7 @@ internal sealed record PieceFacts(
     public bool Vents { get; init; }
 
     /// <summary>
-    /// The piece's family found by its type, so a modded subclass inherits its base's; <see cref="PieceFamilies.Other"/>
+    /// The piece's narrowest family, found by its type and build states, so a modded subclass inherits its base's; <see cref="PieceFamilies.Other"/>
     /// when no type says. A mod's <see cref="CatalogueAddition.InFamily"/> comes before this (<c>IPieceFamilies</c>).
     /// </summary>
     public PieceFamily Family { get; init; } = PieceFamilies.Other;

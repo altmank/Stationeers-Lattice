@@ -33,8 +33,11 @@ internal readonly record struct LocalBox
 /// </summary>
 internal interface IPieceLooks
 {
-    /// <summary>The piece's family; <see cref="PieceFamilies.Other"/> for a piece nothing classifies.</summary>
+    /// <summary>The piece's narrowest family; <see cref="PieceFamilies.Other"/> for a piece nothing classifies.</summary>
     PieceFamily Family(PrefabKey piece);
+
+    /// <summary>The piece's family and every family above it, narrowest first; allocates nothing.</summary>
+    ValueList<PieceFamily> Families(PrefabKey piece);
 
     /// <summary>The piece's bounds in its own space; none when unknown (picking then uses whole footprint cells).</summary>
     Option<LocalBox> Bounds(PrefabKey piece);
@@ -44,6 +47,8 @@ internal interface IPieceLooks
 internal sealed class UnknownPieceLooks : IPieceLooks
 {
     public PieceFamily Family(PrefabKey piece) => PieceFamilies.Other;
+
+    public ValueList<PieceFamily> Families(PrefabKey piece) => FamilyTree.ChainOf(PieceFamilies.Other);
 
     public Option<LocalBox> Bounds(PrefabKey piece) => Option<LocalBox>.None;
 }
@@ -55,6 +60,8 @@ internal sealed class UnknownPieceLooks : IPieceLooks
 internal sealed class CataloguePieceLooks(ICatalogue catalogue, IPieceFamilies families) : IPieceLooks
 {
     public PieceFamily Family(PrefabKey piece) => families.FamilyOf(piece);
+
+    public ValueList<PieceFamily> Families(PrefabKey piece) => families.ChainOf(piece);
 
     public Option<LocalBox> Bounds(PrefabKey piece)
     {

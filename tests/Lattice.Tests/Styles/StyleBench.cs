@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
+using Lattice.Core.Catalogue;
 using Lattice.Core.Ports;
 using Lattice.Core.Slices;
 using Lattice.Core.Styles;
@@ -33,6 +34,8 @@ internal sealed class FakePieceLooks(FakeCatalogue catalogue) : IPieceLooks
     {
         return _families.TryGetValue(piece, out var family) ? family : PieceFamilies.Other;
     }
+
+    public ValueList<PieceFamily> Families(PrefabKey piece) => FamilyTree.ChainOf(Family(piece));
 
     public Option<LocalBox> Bounds(PrefabKey piece) => _bounds.TryGetValue(piece, out var box) ? Option.Some(box) : Option<LocalBox>.None;
 }
@@ -113,6 +116,7 @@ internal sealed class StyleBench
         var pieces = new List<NamedPiece>(extra) { ModdedPiece() };
         T = new TestBoard(default, pieces.ToArray());
         Looks = new FakePieceLooks(T.Catalogue);
+        World = new Lattice.TestKit.World.FakeWorld(T.Catalogue);
         Scheduler = new FrameScheduler(Clock, FrameBudgets.Default);
         Styles = new GhostStyles(new StyleParts(T.Board, TestBoard.Alice, new Shapes(T.Catalogue, T.Grid), T.Grid, Scheduler, Clock, Looks)
         {
@@ -121,6 +125,7 @@ internal sealed class StyleBench
             Drawing = drawing,
             Library = library,
             Paints = paints ?? new NoPaintColours(),
+            World = new Lattice.TestKit.World.FakeWorldQuery(World),
         });
     }
 
@@ -131,6 +136,9 @@ internal sealed class StyleBench
     public FrameScheduler Scheduler { get; }
 
     public FakePieceLooks Looks { get; }
+
+    /// <summary>The built world the styles read structures' turns from.</summary>
+    public Lattice.TestKit.World.FakeWorld World { get; }
 
     public FakeVerdicts Verdicts { get; } = new();
 
