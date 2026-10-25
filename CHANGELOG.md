@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1
+
+- **Clients see who works on which ghost.** Executors still run on the host; a client now reads their claims and
+  status through the same `IExecutors`, raises the same `StatusChanged` and `Blocked` events, and shows status
+  looks, a message after the host. A claim's lease is shown on the client's own game clock; the host alone decides
+  when it lapses. A client that joins gets every live claim with the board. Host and clients must run the same
+  Lattice version, as before: the game refuses a join between two versions.
+
 ## 0.10.0
 
 - **Templates can be saved and shared.** A template has a public written form: write one to text and read it back on

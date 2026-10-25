@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Commands;
+using Lattice.Core.Executors;
 using Lattice.Core.Slices;
 
 namespace Lattice.Core.Sync;
@@ -14,7 +15,16 @@ namespace Lattice.Core.Sync;
 /// commits goes to every joined client as its lines; a client that joins gets the board's plans and ghosts in parts
 /// first, then every change set after them. Nothing is sent from inside a call: messages queue per connection and go
 /// out in the sending budget (<see cref="WorkKind.Sending"/>), one message encoded and sent per step, connections
-/// taken in turn, each connection's messages in order. Main thread. Dispose at world end.
+/// taken in turn, each connection's messages in order.
+/// <para>
+/// With executors, every joined client also gets the executors' claims and status as state: a ghost whose claim or
+/// status may have changed is noted, and <see cref="PlaceStatus"/>, once a frame after the board's events (so after
+/// that frame's lines), adds the noted ghosts to the connection's last message when it is a status message not yet
+/// written, else queues a new one. A status message is written when it is first sent, from each ghost's claim at that
+/// moment, so the last word wins and nothing is replayed. A join gets one status message after its ghost parts, for
+/// every live claim. Nothing is noted while no client is joined.
+/// </para>
+/// Main thread. Dispose at world end.
 /// </summary>
 internal sealed class HostSync : ISlicedWork, IDisposable
 {
@@ -29,11 +39,19 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     private readonly Dictionary<CommandId, ConnectionId> _waiting = new();
     private readonly Action<ChangeSet> _onChanged;
     private readonly Action<Ticket, Outcome> _onAnswered;
+    private readonly WorldExecutors? _executors;
+    private readonly HashSet<GhostId> _noted = new();
+    private readonly List<GhostId> _notedOrder = new();
     private SlicedJob? _job;
     private int _turn;
 
-    /// <summary>Sync over the board; <c>report</c> takes what it drops: a message over the size limit or one it cannot read.</summary>
-    public HostSync(CommandService commands, GhostBoard board, FrameScheduler scheduler, ISyncLink link, SyncLimits limits, Action<Reason> report)
+    /// <summary>
+    /// Sync over the board, and over the executors' claims and status when <paramref name="executors"/> is given;
+    /// <c>report</c> takes what it drops: a message over the size limit or one it cannot read.
+    /// </summary>
+    public HostSync(
+        CommandService commands, GhostBoard board, FrameScheduler scheduler, ISyncLink link, SyncLimits limits, Action<Reason> report,
+        WorldExecutors? executors = null)
     {
         _commands = commands;
         _board = board;
@@ -45,7 +63,13 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         _onAnswered = OnAnswered;
         board.Events.Changed += _onChanged;
         board.Events.Answered += _onAnswered;
+        _executors = executors;
+        if (executors is not null)
+            executors.Told = OnTold;
     }
+
+    /// <summary>Ghosts noted for a status message and not placed yet.</summary>
+    public int StatusWaiting => _notedOrder.Count;
 
     /// <summary>Messages queued and not sent yet, over every connection.</summary>
     public int Queued
@@ -71,7 +95,15 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         var peer = new Peer(connection, snapshot.Revision);
         var parts = JoinParts.Count(snapshot.Ghosts.Count, _limits.JoinGhostsPerPart);
         for (var part = 0; part < parts; part++)
-            peer.Outbox.Enqueue(new Outgoing(SyncKind.Join, new JoinText(snapshot, part, _limits.JoinGhostsPerPart)));
+            peer.Enqueue(new Outgoing(SyncKind.Join, new JoinText(snapshot, part, _limits.JoinGhostsPerPart)));
+        if (_executors is not null)
+        {
+            var claimed = new List<GhostId>();
+            _executors.Claimed(claimed);
+            if (claimed.Count > 0)
+                peer.Enqueue(new Outgoing(SyncKind.Status, new StatusText(_executors, join: true, claimed)));
+        }
+
         _peers.Add(connection, peer);
         _order.Add(peer);
         Wake();
@@ -124,6 +156,28 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         }
     }
 
+    /// <summary>
+    /// Places the ghosts noted since the last call for every joined client: into the connection's last message when it
+    /// is a status message not yet written, else into a new one at the end of its queue. Call once a frame after the
+    /// board's events are raised. Linear in the noted ghosts and the clients; does nothing when none were noted.
+    /// </summary>
+    public void PlaceStatus()
+    {
+        if (_notedOrder.Count == 0 || _executors is null)
+            return;
+        foreach (var peer in _order)
+        {
+            if (peer.Last is { Kind: SyncKind.Status, Text: StatusText { Written: false } pending })
+                pending.Add(_notedOrder);
+            else
+                peer.Enqueue(new Outgoing(SyncKind.Status, new StatusText(_executors, join: false, _notedOrder)));
+        }
+
+        _noted.Clear();
+        _notedOrder.Clear();
+        Wake();
+    }
+
     /// <summary>Sends the next queued message. Constant but for writing that message (linear in its size).</summary>
     public StepOutcome Step()
     {
@@ -148,6 +202,8 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     {
         _board.Events.Changed -= _onChanged;
         _board.Events.Answered -= _onAnswered;
+        if (_executors is not null)
+            _executors.Told = null;
         _job?.Cancel();
         _peers.Clear();
         _order.Clear();
@@ -159,7 +215,7 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         LinesText? text = null;
         foreach (var peer in _order)
             if (set.Revision.Value > peer.JoinedAt.Value)
-                peer.Outbox.Enqueue(new Outgoing(SyncKind.Lines, text ??= new LinesText(set)));
+                peer.Enqueue(new Outgoing(SyncKind.Lines, text ??= new LinesText(set)));
         if (text is not null)
             Wake();
     }
@@ -180,8 +236,14 @@ internal sealed class HostSync : ISlicedWork, IDisposable
             Outcome.Refused refused => new Answer.Refused(refused.Why),
             _ => new Answer.Refused(ValueList.Of(new Refusal(Unknown.Kind(outcome), ValueList<GhostId>.Empty))),
         };
-        peer.Outbox.Enqueue(new Outgoing(SyncKind.Answer, new AnswerText(id, answer)));
+        peer.Enqueue(new Outgoing(SyncKind.Answer, new AnswerText(id, answer)));
         Wake();
+    }
+
+    private void OnTold(GhostId ghost)
+    {
+        if (_order.Count > 0 && _noted.Add(ghost))
+            _notedOrder.Add(ghost);
     }
 
     private void Wake()
@@ -212,6 +274,15 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         public Revision JoinedAt { get; } = joinedAt;
 
         public Queue<Outgoing> Outbox { get; } = new();
+
+        /// <summary>The message queued last; it may already be sent.</summary>
+        public Outgoing? Last { get; private set; }
+
+        public void Enqueue(Outgoing outgoing)
+        {
+            Outbox.Enqueue(outgoing);
+            Last = outgoing;
+        }
     }
 
     /// <summary>One queued message and how many of its frames are sent.</summary>
@@ -231,6 +302,9 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     {
         private string? _text;
         private List<int>? _starts;
+
+        /// <summary>Whether the text is written: from then on it no longer changes.</summary>
+        public bool Written => _text is not null;
 
         public int Frames(int maxBytes) => Starts(maxBytes).Count;
 
@@ -256,6 +330,38 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     private sealed class AnswerText(CommandId id, Answer answer) : MessageText
     {
         protected override string Write() => AnswerForm.Write(id, answer);
+    }
+
+    /// <summary>The claims of some ghosts, each listed once, written from their state when the message is first sent.</summary>
+    private sealed class StatusText : MessageText
+    {
+        private readonly WorldExecutors _executors;
+        private readonly bool _join;
+        private readonly List<GhostId> _ghosts;
+        private readonly HashSet<GhostId> _listed;
+
+        public StatusText(WorldExecutors executors, bool join, List<GhostId> ghosts)
+        {
+            _executors = executors;
+            _join = join;
+            _ghosts = new List<GhostId>(ghosts);
+            _listed = new HashSet<GhostId>(ghosts);
+        }
+
+        public void Add(List<GhostId> ghosts)
+        {
+            foreach (var ghost in ghosts)
+                if (_listed.Add(ghost))
+                    _ghosts.Add(ghost);
+        }
+
+        protected override string Write()
+        {
+            var entries = new List<ClaimState>(_ghosts.Count);
+            foreach (var ghost in _ghosts)
+                entries.Add(_executors.StateOf(ghost));
+            return StatusForm.Write(_join, entries);
+        }
     }
 }
 

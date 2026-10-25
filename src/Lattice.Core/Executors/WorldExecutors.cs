@@ -21,7 +21,8 @@ internal enum WorldSeat
 /// <see cref="IGhostEvents.StatusChanged"/> for those that had a status. Status lives with the claim and is never
 /// "done": matching decides that from the world. A ghost's maker hears <see cref="IGhostEvents.Blocked"/> when the
 /// ghost turns stale or its stale reason changes, and when its executor reports <see cref="ExecutorStatus.Waiting"/>
-/// with a status it had not reported just before. Main thread. Dispose at world end.
+/// with a status it had not reported just before. On a client nothing is held here: reads answer from the host's word
+/// (<see cref="Mirror"/>), which sync keeps. Main thread. Dispose at world end.
 /// </summary>
 internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Styles.IStatusReader
 {
@@ -32,6 +33,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
     private readonly Dictionary<GhostId, Hold> _holds = new();
     private readonly SortedSet<(double Until, long Ghost)> _ends = new();
     private readonly ExecutorNotices _notices;
+    private readonly ExecutorMirror? _mirror;
     private readonly Action<ChangeSet> _onBoard;
 
     public WorldExecutors(GhostBoard board, IGameClock clock, WorldSeat seat)
@@ -40,6 +42,8 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         _clock = clock;
         _seat = seat;
         _notices = new ExecutorNotices(board);
+        if (seat == WorldSeat.Client)
+            _mirror = new ExecutorMirror(board, clock, _notices);
         _onBoard = OnBoard;
         board.Events.Changed += _onBoard;
     }
@@ -65,13 +69,40 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         return Result<IExecutorHandle, Reason>.Ok(handle);
     }
 
+    /// <summary>The host's claims and status as this client last heard them; none on the host.</summary>
+    internal ExecutorMirror? Mirror => _mirror;
+
+    /// <summary>
+    /// Called with a ghost each time its claim or status may have changed: a claim made or renewed, a report, a claim
+    /// released, lapsed, or dropped with its executor or its ghost. Sync sets it on the host.
+    /// </summary>
+    internal Action<GhostId>? Told { get; set; }
+
     /// <inheritdoc />
     public Option<Claim> ClaimOn(GhostId ghost) =>
-        Live(ghost, out var hold) ? Option<Claim>.Some(hold.Claim) : Option<Claim>.None;
+        _mirror is not null ? _mirror.ClaimOn(ghost)
+        : Live(ghost, out var hold) ? Option<Claim>.Some(hold.Claim) : Option<Claim>.None;
 
     /// <inheritdoc />
     public ValueList<ExecutorReport> StatusOf(GhostId ghost) =>
-        Live(ghost, out var hold) ? hold.Reports : ValueList<ExecutorReport>.Empty;
+        _mirror is not null ? _mirror.StatusOf(ghost)
+        : Live(ghost, out var hold) ? hold.Reports : ValueList<ExecutorReport>.Empty;
+
+    /// <summary>The ghost's claim as it stands now: held, with the lease seconds left, or gone. Constant cost.</summary>
+    internal ClaimState StateOf(GhostId ghost) =>
+        Live(ghost, out var hold)
+            ? new ClaimState.Held(ghost, hold.By.Info, hold.Claim.Until.Seconds - _clock.Now.Seconds, hold.Status)
+            : new ClaimState.Gone(ghost);
+
+    /// <summary>Adds every ghost with a live claim to <paramref name="into"/>, in id order. Linear in the claims.</summary>
+    internal void Claimed(List<GhostId> into)
+    {
+        var start = into.Count;
+        foreach (var ghost in _holds.Keys)
+            if (Live(ghost, out _))
+                into.Add(ghost);
+        into.Sort(start, into.Count - start, ById.Instance);
+    }
 
     /// <summary>Forgets every claim whose lease has run out. Linear in the claims that lapsed; allocates nothing when none did.</summary>
     public void Lapse()
@@ -119,6 +150,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         _holds.Add(ghost, hold);
         _ends.Add(End(hold));
         by.Held.Add(ghost);
+        Told?.Invoke(ghost);
         return Result<Claim, ClaimRefused>.Ok(hold.Claim);
     }
 
@@ -156,6 +188,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
 
         hold.Status = Option<ExecutorStatus>.Some(status);
         hold.Reports = ValueList.Of(new ExecutorReport(by.Info, status));
+        Told?.Invoke(ghost);
         _notices.StatusChanged(ghost);
         if (status is ExecutorStatus.Waiting waiting)
             _notices.Blocked(ghost, waiting.Why);
@@ -174,8 +207,12 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
     private void OnBoard(ChangeSet changes)
     {
         foreach (var removal in changes.Removed)
+        {
             if (_holds.TryGetValue(removal.Ghost.Id, out var hold))
                 Drop(hold);
+            _mirror?.Forget(removal.Ghost.Id);
+        }
+
         foreach (var added in changes.Added)
             if (added.State is GhostState.Stale stale)
                 _notices.Blocked(added.Id, stale.Why);
@@ -190,6 +227,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         hold.Lease = lease;
         hold.Claim = hold.Claim with { Until = Until(lease) };
         _ends.Add(End(hold));
+        Told?.Invoke(hold.Claim.Ghost);
         return hold.Claim;
     }
 
@@ -199,6 +237,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         _holds.Remove(ghost);
         _ends.Remove(End(hold));
         hold.By.Held.Remove(ghost);
+        Told?.Invoke(ghost);
         if (hold.Status.IsSome)
             _notices.StatusChanged(ghost);
     }
@@ -218,6 +257,13 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         Result<Claim, ClaimRefused>.Error(new ClaimRefused(why, Option<ExecutorId>.None));
 
     private static Result<Claim, ClaimRefused> Refused(ClaimRefused refused) => Result<Claim, ClaimRefused>.Error(refused);
+
+    private sealed class ById : IComparer<GhostId>
+    {
+        public static readonly ById Instance = new();
+
+        public int Compare(GhostId a, GhostId b) => a.Value.CompareTo(b.Value);
+    }
 
     /// <summary>One executor's claim on one ghost, the lease it renews by, and what it last said.</summary>
     private sealed class Hold(Handle by, Lease lease, Claim claim)

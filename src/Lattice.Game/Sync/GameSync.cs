@@ -82,6 +82,12 @@ internal sealed class AnswerMessage : SyncMessage
     public override SyncKind Kind => SyncKind.Answer;
 }
 
+/// <summary>Executors' claims and status on some ghosts, host to client.</summary>
+internal sealed class StatusMessage : SyncMessage
+{
+    public override SyncKind Kind => SyncKind.Status;
+}
+
 /// <summary>
 /// <see cref="ISyncLink"/> over LaunchPadBooster: one message type per kind, to the host or to a client by its
 /// connection (a connection the game no longer lists is skipped). Main thread.
@@ -102,6 +108,7 @@ internal sealed class LaunchPadLink : ISyncLink
         SyncKind.Command => new CommandMessage { Text = text },
         SyncKind.Lines => new LinesMessage { Text = text },
         SyncKind.Join => new JoinMessage { Text = text },
+        SyncKind.Status => new StatusMessage { Text = text },
         _ => new AnswerMessage { Text = text },
     };
 }
@@ -135,13 +142,14 @@ internal sealed class GameSync
     /// <summary>The running world's sync; set when a world runs, cleared when it ends.</summary>
     public static GameSync? Current { get; set; }
 
-    /// <summary>Registers the four message types with Lattice's LaunchPadBooster mod.</summary>
+    /// <summary>Registers the five message types with Lattice's LaunchPadBooster mod.</summary>
     public static void Register(IModNetworking networking)
     {
         networking.RegisterMessage<CommandMessage>();
         networking.RegisterMessage<LinesMessage>();
         networking.RegisterMessage<JoinMessage>();
         networking.RegisterMessage<AnswerMessage>();
+        networking.RegisterMessage<StatusMessage>();
     }
 
     public static GameSync ForHost(HostSync host, Action<Reason> report) => new(Option.Some(host), Option<ClientSync>.None, report);

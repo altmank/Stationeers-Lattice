@@ -32,6 +32,8 @@ The same `CommandId` sent twice applies once, so a client can resend after a dro
 - **Host only:** applying commands, matching built pieces to ghosts, saving, finished plans (`Plans.Finished` is
   empty on a client; finished-plan commands are submitted and worked out on the host), the inspector and executors.
   Clients see their results as change sets and status events.
+- **Executors** run on the host. Clients read their claims and status (`IExecutors.ClaimOn`, `StatusOf`, and
+  status looks), and get their `StatusChanged` and `Blocked` events, a message later.
 - **Drawing seats only:** the `render` module. On a dedicated server or a headless client, style registrations are
   accepted and held, and `Pick` and `Explain` still answer, but nothing is drawn.
 

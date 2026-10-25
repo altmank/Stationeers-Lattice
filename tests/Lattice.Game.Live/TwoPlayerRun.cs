@@ -266,6 +266,12 @@ internal static class TwoPlayerRun
 
         if (Lattice(Line, out world))
         {
+            var claimed = ExecutorSteps.Ghosts(world, static w => GhostsOf(w, "Before join", 5));
+            yield return ExecutorSteps.Host(world, claimed, _tp, (what, ok) => Check(what, ok, Line), Line);
+        }
+
+        if (Lattice(Line, out world))
+        {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             var big = Submit(world, PlanOf("Big set", Cells(BigSet, 1130)));
             var bytes = big is Outcome.Applied applied ? SyncLimits.Bytes(SetLines.Write(applied.Changes)) : 0;
@@ -367,6 +373,13 @@ internal static class TwoPlayerRun
 
         yield return Sync("refused", "client", true, Line);
 
+        var claimed = new List<GhostId>();
+        if (Lattice(Line, out world))
+        {
+            claimed = ExecutorSteps.Ghosts(world, static w => GhostsOf(w, "Before join", 5));
+            yield return ExecutorSteps.Client(world, claimed, _tp, (what, ok) => Check(what, ok, Line), Line);
+        }
+
         SyncHeard.Reset();
         yield return Sync("big-set", "client", false, Line, 600f);
         var bigFrames = SyncHeard.Count(SyncHeard.MostFrames, SyncKind.Lines);
@@ -380,6 +393,8 @@ internal static class TwoPlayerRun
         Check($"the client that left and came back gets a fresh join: {SyncHeard.Count(SyncHeard.Starts, SyncKind.Join)} join messages",
             SyncHeard.Count(SyncHeard.Starts, SyncKind.Join) > 0, Line);
         yield return Sync("rejoined", "client", true, Line, 900f);
+        if (claimed.Count > 3 && Lattice(Line, out world))
+            yield return ExecutorSteps.Rejoined(world, claimed, _tp, (what, ok) => Check(what, ok, Line));
 
         yield return Until(() => GameManager.GameState != GameState.Running || LatticeSystem.Current.IsNone, 300f);
         Line($"client: the host's reload ended the session: state {GameManager.GameState}, network {NetworkManager.NetworkState}");

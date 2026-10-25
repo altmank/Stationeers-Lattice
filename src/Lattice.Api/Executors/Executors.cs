@@ -25,7 +25,10 @@ public readonly record struct Lease
 /// <summary>One executor working on one ghost until a point in game time, unless renewed.</summary>
 /// <param name="Ghost">The ghost.</param>
 /// <param name="By">The executor.</param>
-/// <param name="Until">When it lapses.</param>
+/// <param name="Until">
+/// When it lapses. On a client, the host's lease converted to this seat's game time when it was last told; the host
+/// decides when the claim lapses.
+/// </param>
 public sealed record Claim(GhostId Ghost, ExecutorId By, GameTime Until);
 
 /// <summary>Why a claim was refused, and who holds the ghost if someone does.</summary>

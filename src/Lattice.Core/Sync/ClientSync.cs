@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
+using Lattice.Core.Executors;
 
 namespace Lattice.Core.Sync;
 
@@ -11,7 +12,9 @@ namespace Lattice.Core.Sync;
 /// change set it made has reached the board. The host's answer is the only one: whatever a client showed before it
 /// (a preview, a faint draft) is its owner's to drop. A command this side cannot send (a kind it does not know, a
 /// text over the size limit) is answered refused the same way, never sent. The board holds nothing until the host's
-/// join arrives; from then on it takes the host's change sets in revision order. Main thread.
+/// join arrives; from then on it takes the host's change sets in revision order. The host's status messages (its
+/// executors' claims and status) go to the client seat's <see cref="ExecutorMirror"/>, after the change sets they
+/// follow; a join clears the mirror and the join's own status message rebuilds it. Main thread.
 /// </summary>
 internal sealed class ClientSync : ICommands
 {
@@ -22,15 +25,21 @@ internal sealed class ClientSync : ICommands
     private readonly FrameGather _lines = new();
     private readonly FrameGather _join = new();
     private readonly FrameGather _answers = new();
+    private readonly FrameGather _status = new();
+    private readonly ExecutorMirror? _executors;
     private readonly JoinGather _parts = new();
     private readonly HashSet<CommandId> _pending = new();
     private readonly Dictionary<CommandId, ChangeSet> _applied = new();
     private readonly Dictionary<CommandId, Answer.Applied> _early = new();
 
-    /// <summary>Sync for a client's board; <c>report</c> takes what it drops (a message it cannot read or fit).</summary>
-    public ClientSync(IReplicaBoard board, ISyncLink link, SyncLimits limits, Action<Reason> report)
+    /// <summary>
+    /// Sync for a client's board, and for the executors' mirror when <paramref name="executors"/> is given;
+    /// <c>report</c> takes what it drops (a message it cannot read or fit).
+    /// </summary>
+    public ClientSync(IReplicaBoard board, ISyncLink link, SyncLimits limits, Action<Reason> report, ExecutorMirror? executors = null)
     {
         _board = board;
+        _executors = executors;
         _link = link;
         _limits = limits;
         _report = report;
@@ -70,6 +79,7 @@ internal sealed class ClientSync : ICommands
             SyncKind.Lines => _lines,
             SyncKind.Join => _join,
             SyncKind.Answer => _answers,
+            SyncKind.Status => _status,
             _ => null,
         };
         if (gather is null)
@@ -97,6 +107,9 @@ internal sealed class ClientSync : ICommands
                 break;
             case SyncKind.Answer:
                 Answered(text);
+                break;
+            case SyncKind.Status:
+                Status(text);
                 break;
         }
     }
@@ -148,8 +161,23 @@ internal sealed class ClientSync : ICommands
         if (!seed.TryGet(out var board))
             return;
         _board.Reset(board);
+        _executors?.Clear();
         _applied.Clear();
         Joined = true;
+    }
+
+    private void Status(string text)
+    {
+        if (!Joined)
+            return;
+        var read = StatusForm.Read(text);
+        if (!read.TryGet(out var update))
+        {
+            Report(read);
+            return;
+        }
+
+        _executors?.Take(update.Join, update.Entries);
     }
 
     private void Answered(string text)

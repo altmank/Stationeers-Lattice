@@ -6,7 +6,7 @@ namespace Lattice.Core.Sync;
 /// <summary>A network connection as the game numbers it (<c>Client.connectionId</c>); the host's own is never one.</summary>
 internal readonly record struct ConnectionId(long Value);
 
-/// <summary>The four messages sync sends; each travels as one message type of its own.</summary>
+/// <summary>The five messages sync sends; each travels as one message type of its own.</summary>
 internal enum SyncKind
 {
     /// <summary>A client's command, client to host (<see cref="CommandForm"/>).</summary>
@@ -20,6 +20,9 @@ internal enum SyncKind
 
     /// <summary>The outcome of a client's command, host to that client (<see cref="AnswerForm"/>).</summary>
     Answer = 4,
+
+    /// <summary>Executors' claims and status on some ghosts, host to every joined client (<see cref="StatusForm"/>).</summary>
+    Status = 5,
 }
 
 /// <summary>

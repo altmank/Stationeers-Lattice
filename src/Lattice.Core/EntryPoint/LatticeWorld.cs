@@ -45,6 +45,7 @@ internal sealed class LatticeWorld : IGhostSystem
     private readonly ModuleTable _modules;
     private readonly Action<string> _log;
     private readonly Action _lapse;
+    private readonly Action _placeStatus;
     private readonly Action _validationFrame;
     private readonly Action _planFrame;
     private readonly Action _styleFrame;
@@ -62,6 +63,7 @@ internal sealed class LatticeWorld : IGhostSystem
         Faults = new ModuleFaults(runtime.Log);
         Seat = ports.Seat;
         _lapse = Lapse;
+        _placeStatus = PlaceStatus;
         _validationFrame = ValidationFrame;
         _planFrame = PlanFrame;
         _styleFrame = StyleFrame;
@@ -184,8 +186,9 @@ internal sealed class LatticeWorld : IGhostSystem
     /// <summary>
     /// One frame, main thread: the world's changes reported since the last frame raised (the mirror follows them,
     /// completion notes the ghosts they touch), executors' lapsed claims, validation's frame, plan state's frame (each
-    /// caught per module), the scheduler's slices (Lattice's jobs caught per job), the board's queued events, the styles' own
-    /// frame (caught), then the styles' consumer callbacks last. Consumer code in the slices, event handlers or style
+    /// caught per module), the scheduler's slices (Lattice's jobs caught per job), the board's queued events, the
+    /// host's executor status for its clients (after that frame's lines, caught), the styles' own frame (caught), then
+    /// the styles' consumer callbacks last. Consumer code in the slices, event handlers or style
     /// callbacks is not caught: its exception leaves the frame after the events were raised. An idle frame allocates
     /// nothing.
     /// </summary>
@@ -206,6 +209,7 @@ internal sealed class LatticeWorld : IGhostSystem
             BoardEvents.Flush();
         }
 
+        Faults.Run(LatticeModules.Sync, _placeStatus);
         Faults.Run(LatticeModules.Styles, _styleFrame);
         StyleModule?.RaiseChanges();
     }
@@ -510,7 +514,7 @@ internal sealed class LatticeWorld : IGhostSystem
         Action<Reason> reportSync = why => runtime.Log($"Lattice sync: {why}");
         if (host && link is not null)
         {
-            var hostSync = new HostSync(LocalCommands, Ghosts, Scheduler, link, SyncLimits.Default, reportSync);
+            var hostSync = new HostSync(LocalCommands, Ghosts, Scheduler, link, SyncLimits.Default, reportSync, _executors);
             Stop(LatticeModules.Sync, hostSync.Dispose);
             Host = hostSync;
         }
@@ -522,7 +526,7 @@ internal sealed class LatticeWorld : IGhostSystem
             }
             else
             {
-                Client = new ClientSync(Ghosts, link, SyncLimits.Default, reportSync);
+                Client = new ClientSync(Ghosts, link, SyncLimits.Default, reportSync, _executors?.Mirror);
                 Commands = Client;
             }
         }
@@ -567,6 +571,8 @@ internal sealed class LatticeWorld : IGhostSystem
     }
 
     private void Lapse() => _executors?.Lapse();
+
+    private void PlaceStatus() => Host?.PlaceStatus();
 
     private void ValidationFrame() => ValidationModule?.Frame();
 
