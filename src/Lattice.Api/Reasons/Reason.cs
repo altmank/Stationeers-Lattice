@@ -227,7 +227,8 @@ public static class ReasonCodes
     /// <summary>
     /// A mirror picked a ghost whose piece has no mirror image among its turns (a machine with an uneven port
     /// layout); facts <c>ghosts</c> (ids ascending, comma separated; <c>drafts</c> for a template's drafts by index)
-    /// and <c>pieces</c> (prefab hashes).
+    /// and <c>pieces</c> (prefab hashes). The refused ghosts are also in <see cref="Refusal.Ghosts"/>; a transform that
+    /// meets other problems too answers one refusal for each.
     /// </summary>
     public static readonly ReasonCode NoMirrorImage = ReasonCode.Known("no-mirror-image");
 

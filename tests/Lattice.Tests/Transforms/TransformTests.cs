@@ -76,9 +76,11 @@ public sealed class TransformTests
         b.Build("StructureCableStraight", new Cell(10, 0, 0));
         var before = b.Placed();
 
-        var why = Refusal(b.Transform(All, new Transformation.Mirror(new MirrorPlane(Axis.X, 20)), Copying));
+        var refused = Refused(b.Transform(All, new Transformation.Mirror(new MirrorPlane(Axis.X, 20)), Copying));
+        var why = refused.Why;
 
         Assert.Equal(ReasonCodes.NoMirrorImage, why.Code);
+        Assert.Equal(new[] { machine }, refused.Ghosts);
         Assert.Equal(machine.Value.ToString(), why.Facts["ghosts"]);
         Assert.Equal(b.T.Catalogue.Named("ModChiralMachine").Key.Hash.ToString(), why.Facts["pieces"]);
         Assert.Equal(before, b.Placed());

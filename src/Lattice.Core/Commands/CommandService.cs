@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Slices;
+using Expanding = Lattice.Api.Result<Lattice.Api.Command, Lattice.Api.ValueList<Lattice.Api.Refusal>>;
 
 namespace Lattice.Core.Commands;
 
@@ -79,7 +80,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// expanders see the default command id. Cost: a lookup once ready; else the plain expansions and the set-up of the
     /// next sliced part.
     /// </summary>
-    public Answer<Result<Command, Reason>> Expansion(Command command, Actor actor)
+    public Answer<Expanding> Expansion(Command command, Actor actor)
     {
         var at = board.Revision;
         if (_previewsAt != at)
@@ -92,34 +93,34 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         }
 
         if (previewed.Ready.TryGet(out var ready))
-            return new Answer<Result<Command, Reason>>.Ready(ready, at);
+            return new Answer<Expanding>.Ready(ready, at);
         if (previewed.Searching is not null)
-            return new Answer<Result<Command, Reason>>.Pending(at);
+            return new Answer<Expanding>.Pending(at);
 
         switch (Expand(command, default, actor, previewed.Parts, 0, null))
         {
             case Expanded.Ready done:
-                return Settle(previewed, Result<Command, Reason>.Ok(done.Command));
+                return Settle(previewed, Expanding.Ok(done.Command));
             case Expanded.Waits waits:
                 var scheduled = Schedule(waits, found => FoundForPreview(previewed, waits.Part, found));
                 if (!scheduled.TryGet(out var search))
-                    return Settle(previewed, Result<Command, Reason>.Error(scheduled.ErrorOf()));
+                    return Settle(previewed, Expanding.Error(One(scheduled.ErrorOf())));
                 previewed.Searching = search.Job;
-                return new Answer<Result<Command, Reason>>.Pending(at);
+                return new Answer<Expanding>.Pending(at);
             case Expanded.Refused refused:
-                return Settle(previewed, Result<Command, Reason>.Error(refused.Why));
+                return Settle(previewed, Expanding.Error(refused.Why));
             default:
-                return Settle(previewed, Result<Command, Reason>.Error(Unknown(command)));
+                return Settle(previewed, Expanding.Error(One(Unknown(command))));
         }
     }
 
-    private static Answer<Result<Command, Reason>> Settle(Previewed previewed, Result<Command, Reason> expansion)
+    private static Answer<Expanding> Settle(Previewed previewed, Expanding expansion)
     {
         previewed.Ready = Option.Some(expansion);
-        return new Answer<Result<Command, Reason>>.Ready(expansion, previewed.At);
+        return new Answer<Expanding>.Ready(expansion, previewed.At);
     }
 
-    private void FoundForPreview(Previewed previewed, Command part, Result<Command, Reason> found)
+    private void FoundForPreview(Previewed previewed, Command part, Expanding found)
     {
         previewed.Searching = null;
         previewed.Parts.Add(part, found);
@@ -203,7 +204,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
                 _waitingIds.Add(submitted.Id);
                 return Option<Outcome>.None;
             case Expanded.Refused refused:
-                return Keep(submitted, Refused(refused.Why));
+                return Keep(submitted, new Outcome.Refused(refused.Why));
             default:
                 return Keep(submitted, Refused(Unknown(submitted.Command)));
         }
@@ -216,7 +217,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return Option.Some(outcome);
     }
 
-    private void Resume(Submitted submitted, Command part, Result<Command, Reason> found)
+    private void Resume(Submitted submitted, Command part, Expanding found)
     {
         submitted.Parts.Add(part, found);
         if (_applying)
@@ -229,7 +230,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
             board.Events.Queue(new AnsweredEvent(new Ticket(submitted.Id), outcome));
     }
 
-    private Result<Search, Reason> Schedule(Expanded.Waits waits, Action<Result<Command, Reason>> done)
+    private Result<Search, Reason> Schedule(Expanded.Waits waits, Action<Expanding> done)
     {
         var search = new Search(waits.Work, done, waits.Staging);
         if (!scheduler.Schedule(WorkKind.Checking, search, Priority.Normal).TryGet(out var job))
@@ -264,7 +265,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
             switch (begun)
             {
                 case Begun.Now now:
-                    found = now.Expansion;
+                    found = Lift(now.Expansion);
                     parts.Add(command, found);
                     break;
                 case Begun.Later later:
@@ -293,9 +294,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
                     step = ready.Command;
                     break;
                 case Expanded.Refused refused:
-                    var why = refused.Why;
-                    var at = why.Facts.TryGetValue("step", out var inner) ? i + "." + inner : i.ToString();
-                    return new Expanded.Refused(why with { Facts = why.Facts.With("step", at) });
+                    return new Expanded.Refused(AtStep(refused.Why, i));
                 case Expanded.Waits waits:
                     return waits;
                 default:
@@ -339,6 +338,38 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return new Command.Batch(Lists.Own(earlier));
     }
 
+    // Every refusal of a batch's step names the step: "i", or "i.j" for step j of a batch at step i.
+    private static ValueList<Refusal> AtStep(ValueList<Refusal> refusals, int step)
+    {
+        var named = new Refusal[refusals.Count];
+        for (var r = 0; r < named.Length; r++)
+        {
+            var why = refusals[r].Why;
+            var at = why.Facts.TryGetValue("step", out var inner) ? step + "." + inner : step.ToString();
+            named[r] = refusals[r] with { Why = why with { Facts = why.Facts.With("step", at) } };
+        }
+
+        return Lists.Own(named);
+    }
+
+    /// <summary>An expander's answer as refusals: one with no ghosts, the shape a mod's expander answers in.</summary>
+    private static Expanding Lift(Result<Command, Reason> found) =>
+        found.TryGet(out var command) ? Expanding.Ok(command) : Expanding.Error(One(found.ErrorOf()));
+
+    /// <summary>
+    /// Sliced work's answer as refusals: the ones it names its ghosts in (<see cref="IGhostRefusals"/>) when it has
+    /// them, else its one reason with no ghosts.
+    /// </summary>
+    private static Expanding FoundOf(IExpansionWork work)
+    {
+        var found = work.Found;
+        if (!found.IsOk && work is IGhostRefusals { Refusals.Count: > 0 } named)
+            return Expanding.Error(named.Refusals);
+        return Lift(found);
+    }
+
+    private static ValueList<Refusal> One(Reason why) => ValueList.Of(new Refusal(why, ValueList<GhostId>.Empty));
+
     private static Reason Unknown(Command command) =>
         Reason.Of(ReasonCodes.UnknownKind, LatticeIdentity.Board, ValueMap.Of("command", command.GetType().Name));
 
@@ -357,7 +388,13 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
 
         public sealed record Ready(Command Command) : Expanded;
 
-        public sealed record Refused(Reason Why) : Expanded;
+        public sealed record Refused(ValueList<Refusal> Why) : Expanded
+        {
+            public Refused(Reason why)
+                : this(One(why))
+            {
+            }
+        }
 
         public sealed record Waits(Command Part, IExpansionWork Work, Staging? Staging) : Expanded;
     }
@@ -365,15 +402,15 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// <summary>The expansions found so far for the module-owned parts of one command, by part.</summary>
     private sealed class Parts
     {
-        private Dictionary<Command, Result<Command, Reason>>? _found;
+        private Dictionary<Command, Expanding>? _found;
 
-        public bool TryGet(Command part, out Result<Command, Reason> found)
+        public bool TryGet(Command part, out Expanding found)
         {
             found = default;
             return _found is not null && _found.TryGetValue(part, out found);
         }
 
-        public void Add(Command part, Result<Command, Reason> found) => (_found ??= new Dictionary<Command, Result<Command, Reason>>())[part] = found;
+        public void Add(Command part, Expanding found) => (_found ??= new Dictionary<Command, Expanding>())[part] = found;
 
         public void CopyFrom(Parts other)
         {
@@ -394,7 +431,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
 
         public Parts Parts { get; } = new();
 
-        public Option<Result<Command, Reason>> Ready { get; set; }
+        public Option<Expanding> Ready { get; set; }
 
         public SlicedJob? Searching { get; set; }
     }
@@ -448,7 +485,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// One sliced part's work as the scheduler steps it, each step with the batch's earlier steps staged when it is in
     /// one; hands the expansion on in the step that finds it.
     /// </summary>
-    private sealed class Search(IExpansionWork work, Action<Result<Command, Reason>> done, Staging? staging) : ISlicedWork
+    private sealed class Search(IExpansionWork work, Action<Expanding> done, Staging? staging) : ISlicedWork
     {
         public SlicedJob? Job { get; set; }
 
@@ -456,7 +493,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         {
             var outcome = staging is null ? work.Step() : staging.Run(work.Step);
             if (outcome == StepOutcome.Done)
-                done(work.Found);
+                done(FoundOf(work));
             return outcome;
         }
     }

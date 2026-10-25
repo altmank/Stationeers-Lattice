@@ -88,10 +88,10 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
     private PreviewAnswer? Start(Entry entry)
     {
         var expansion = parts.Commands.Expansion(entry.Command, entry.Actor);
-        if (expansion is not Answer<Result<Command, Reason>>.Ready expanded)
+        if (expansion is not Answer<Result<Command, ValueList<Refusal>>>.Ready expanded)
             return entry.Pending;
         if (!expanded.Value.TryGet(out var primitive))
-            return Settle(entry, Refused(ValueList.Of(new Refusal(expanded.Value.ErrorOf(), ValueList<GhostId>.Empty))));
+            return Settle(entry, Refused(expanded.Value.ErrorOf()));
         var tried = parts.Board.Try(primitive, entry.Actor);
         if (!tried.TryGet(out var trial))
             return Settle(entry, Refused(tried.ErrorOf()));

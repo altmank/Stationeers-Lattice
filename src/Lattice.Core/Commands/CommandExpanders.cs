@@ -116,6 +116,17 @@ internal interface IExpansionWork : ISlicedWork
 }
 
 /// <summary>
+/// Work whose refusal names the ghosts it concerns: Lattice's own modules answer one refusal per problem, each listing
+/// its ghosts in <see cref="Refusal.Ghosts"/>; its <see cref="IExpansionWork.Found"/> error is the first of them. A
+/// mod's expander answers one <see cref="Reason"/>, which reaches the caller with no ghosts.
+/// </summary>
+internal interface IGhostRefusals
+{
+    /// <summary>The refusals once <see cref="IExpansionWork.Found"/> is an error; empty otherwise.</summary>
+    ValueList<Refusal> Refusals { get; }
+}
+
+/// <summary>
 /// Expands a module-owned command over several frames: <paramref name="Start"/> sets the work up from the input and
 /// does no search itself. Lattice's own modules use it for searches longer than a frame; on the host a command with
 /// such a step is answered once its work finishes.

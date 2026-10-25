@@ -181,12 +181,12 @@ public sealed class SlicedExpansionTests
         var run = Run(From, To);
 
         var first = c.Service.Expansion(run, Alice);
-        Assert.Equal(new Answer<Result<Command, Reason>>.Pending(c.T.Board.Revision), first);
-        Assert.IsType<Answer<Result<Command, Reason>>.Pending>(c.Service.Expansion(run, Alice));
+        Assert.Equal(new Answer<Result<Command, ValueList<Refusal>>>.Pending(c.T.Board.Revision), first);
+        Assert.IsType<Answer<Result<Command, ValueList<Refusal>>>.Pending>(c.Service.Expansion(run, Alice));
         FramesUntil(c, () => ready.Count > 0);
 
         Assert.Equal(c.T.Board.Revision, Assert.Single(ready));
-        var answer = Assert.IsType<Answer<Result<Command, Reason>>.Ready>(c.Service.Expansion(run, Alice));
+        var answer = Assert.IsType<Answer<Result<Command, ValueList<Refusal>>>.Ready>(c.Service.Expansion(run, Alice));
         Assert.True(answer.Value.IsOk);
         Assert.Equal(answer, c.Service.Expansion(run, Alice));
         Assert.Single(started);
@@ -200,7 +200,7 @@ public sealed class SlicedExpansionTests
         var started = Register(c);
         var run = Run(From, To);
         c.Service.Expansion(run, Alice);
-        FramesUntil(c, () => c.Service.Expansion(run, Alice) is Answer<Result<Command, Reason>>.Ready);
+        FramesUntil(c, () => c.Service.Expansion(run, Alice) is Answer<Result<Command, ValueList<Refusal>>>.Ready);
 
         var outcome = c.Submit(run);
 
@@ -215,13 +215,13 @@ public sealed class SlicedExpansionTests
         var started = Register(c);
         var run = Run(From, To);
         c.Service.Expansion(run, Alice);
-        FramesUntil(c, () => c.Service.Expansion(run, Alice) is Answer<Result<Command, Reason>>.Ready);
+        FramesUntil(c, () => c.Service.Expansion(run, Alice) is Answer<Result<Command, ValueList<Refusal>>>.Ready);
 
         c.Service.Expansion(run, Bob);
         c.Submit(new Command.Place(ValueList.Of(c.T.Draft("StructureCableStraight", new Cell(300, 100, 100)))));
         var after = c.Service.Expansion(run, Alice);
 
-        Assert.Equal(new Answer<Result<Command, Reason>>.Pending(new Revision(1)), after);
+        Assert.Equal(new Answer<Result<Command, ValueList<Refusal>>>.Pending(new Revision(1)), after);
         Assert.Equal(3, started.Count);
     }
 
@@ -232,9 +232,9 @@ public sealed class SlicedExpansionTests
         Register(c);
         var place = new Command.Place(ValueList.Of(c.T.Draft("StructureCableStraight", From)));
 
-        var answer = Assert.IsType<Answer<Result<Command, Reason>>.Ready>(c.Service.Expansion(place, Alice));
+        var answer = Assert.IsType<Answer<Result<Command, ValueList<Refusal>>>.Ready>(c.Service.Expansion(place, Alice));
 
-        Assert.Equal(Result<Command, Reason>.Ok(place), answer.Value);
+        Assert.Equal(Result<Command, ValueList<Refusal>>.Ok(place), answer.Value);
     }
 
     [Fact]

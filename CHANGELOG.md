@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+- **A refused move, turn or mirror names exactly the ghosts in the way.** A mirror whose selection holds pieces with
+  no mirror image is still refused as a whole, and now each problem comes as its own refusal listing exactly its
+  ghosts, so a mod can resubmit without them in one round trip.
+
 ## 0.8.0
 
 - **Every placed piece's ports.** The catalogue answers the ports of any piece at a cell and turn: a ghost, a draft, a

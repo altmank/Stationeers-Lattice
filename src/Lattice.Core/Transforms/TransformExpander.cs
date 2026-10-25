@@ -31,6 +31,23 @@ internal sealed class Problems(string listName)
             return TransformCodes.Refusal(pair.Key, listName, pair.Value.Which, pair.Value.Pieces);
         throw new InvalidOperationException("no problem found");
     }
+
+    /// <summary>One refusal per kind of problem, in the enum's order, each listing its ghosts ascending.</summary>
+    public ValueList<Refusal> ForGhosts()
+    {
+        var refusals = new Refusal[_found.Count];
+        var at = 0;
+        foreach (var pair in _found)
+        {
+            var why = TransformCodes.Refusal(pair.Key, listName, pair.Value.Which, pair.Value.Pieces);
+            var ghosts = new GhostId[pair.Value.Which.Count];
+            for (var i = 0; i < ghosts.Length; i++)
+                ghosts[i] = new GhostId(pair.Value.Which[i]);
+            refusals[at++] = new Refusal(why, Lists.Own(ghosts));
+        }
+
+        return Lists.Own(refusals);
+    }
 }
 
 /// <summary>
@@ -38,14 +55,15 @@ internal sealed class Problems(string listName)
 /// selector picks for the submitting actor, each build ghost's placement transformed (<see cref="Placements"/>).
 /// <see cref="TransformMode.Copy"/> places the images as ordinary ghosts in their originals' plans, made by the copy's
 /// maker, with the originals' looks, groups and attached data; <see cref="TransformMode.Move"/> moves the ghosts
-/// themselves, ids and makers kept, all at once (<see cref="Command.Move"/>). All or nothing: when any picked ghost cannot be transformed (a remove, swap or finish ghost,
-/// an unknown piece, a piece with no mirror image, a result off its grid) the command is refused with one reason naming
-/// every ghost of the first such problem (<see cref="TransformCodes.Refusal"/>), so the caller can narrow the selector;
-/// a selection of no ghosts is refused not-found.
+/// themselves, ids and makers kept, all at once (<see cref="Command.Move"/>). All or nothing: when any picked ghost
+/// cannot be transformed (a remove, swap or finish ghost, an unknown piece, a piece with no mirror image, a result off
+/// its grid) the command is refused, never applied in part, with one refusal per kind of problem, each listing exactly
+/// its ghosts, ascending, in <see cref="Refusal.Ghosts"/> and in its facts (<see cref="TransformCodes.Refusal"/>), so the
+/// caller can narrow the selector in one round trip; a selection of no ghosts is refused not-found.
 /// If the board moved while the work ran, the step that would finish works the whole selection out again on the board
 /// as it stands, so the expansion always matches the board it is applied to.
 /// </summary>
-internal sealed class TransformWork(Placements placements, Command.Transform command, IGhostBoard board) : IExpansionWork
+internal sealed class TransformWork(Placements placements, Command.Transform command, IGhostBoard board) : IExpansionWork, IGhostRefusals
 {
     /// <summary>Ghosts transformed per step.</summary>
     public const int PerStep = 64;
@@ -61,6 +79,9 @@ internal sealed class TransformWork(Placements placements, Command.Transform com
     public Result<Command, Reason> Found => _found.TryGet(out var found)
         ? found
         : Result<Command, Reason>.Error(Reason.Of(ReasonCodes.UnknownKind, TransformCodes.Transforms, ValueMap.Of("problem", "not-done")));
+
+    /// <inheritdoc />
+    public ValueList<Refusal> Refusals { get; private set; } = ValueList<Refusal>.Empty;
 
     public StepOutcome Step()
     {
@@ -144,7 +165,11 @@ internal sealed class TransformWork(Placements placements, Command.Transform com
     private Result<Command, Reason> Finish(ValueList<Ghost> ghosts)
     {
         if (_problems.Any)
-            return Result<Command, Reason>.Error(_problems.First());
+        {
+            Refusals = _problems.ForGhosts();
+            return Result<Command, Reason>.Error(Refusals[0].Why);
+        }
+
         var place = new Command.Place(Lists.Own(_drafts.ToArray()));
         if (command.Mode is TransformMode.Copy)
             return Result<Command, Reason>.Ok(place);
