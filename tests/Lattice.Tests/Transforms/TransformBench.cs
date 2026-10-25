@@ -61,6 +61,7 @@ internal sealed class TransformBench
         Placements = new Placements(C.T.Catalogue, C.T.Grid, Additions);
         Assert.True(C.Expanders.RegisterSliced(new TransformExpander(Placements).Descriptor).IsOk);
         Assert.True(C.Expanders.RegisterSliced(new TemplateExpander(Placements).Descriptor).IsOk);
+        Assert.True(C.Expanders.RegisterSliced(new TemplateInExpander(Placements, C.T.Board).Descriptor).IsOk);
         C.T.Events.Answered += (_, outcome) => Answers.Add(outcome);
     }
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0
+
+- **Templates can be saved and shared.** A template has a public written form: write one to text and read it back on
+  any seat or world. A damaged or unknown form is refused, saying which line and why.
+- **Place a template into a plan you already have.** The placement is one change in that plan and undoes like any
+  other.
+- **Access policies see the plan.** A request to change a plan's ghosts, reopening a finished plan included, carries
+  the plan's record, so a mod's policy can apply that plan's own access setting.
+- **Finished plans are the host's.** The docs now say so: a client lists none, and its requests to repair, take down
+  or reopen one are applied by the host.
+- Contract 0.10, which only adds: a mod written for 0.9 sees the same answers.
+
 ## 0.9.0
 
 - **Route choices.** A route can go up or down first, or across first, and can keep to frames and walls instead of

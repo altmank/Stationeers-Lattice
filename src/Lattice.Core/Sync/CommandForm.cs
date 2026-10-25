@@ -249,6 +249,12 @@ internal static class CommandForm
                         .Add("origin", WrittenValues.Cell(template.Origin)).Add("turn", template.Turn.Index).Add("as", Ref(plan));
                     return Drafts("place-template", fields, template.Template.Ghosts);
                 }
+                case Api.Command.PlaceTemplateIn template:
+                {
+                    var fields = new FieldList().Add("name", template.Template.Name.Value)
+                        .Add("origin", WrittenValues.Cell(template.Origin)).Add("turn", template.Turn.Index);
+                    return Drafts("place-template-in", Into(fields, template.Into), template.Template.Ghosts);
+                }
                 case Api.Command.Repair repair:
                     return Node("repair", new FieldList().Add("plan", repair.Plan.Value).Add("made", repair.MadeBy.Value));
                 case Api.Command.TakeDown takeDown:
@@ -545,6 +551,7 @@ internal static class CommandForm
             "transform" => Use<Selector>(read, "which").Bind(which => Transformation(read)
                 .Bind(how => Mode(read).Map(mode => (object)new Command.Transform(which, how, mode)))),
             "place-template" => PlaceTemplate(read),
+            "place-template-in" => PlaceTemplateIn(read),
             "repair" => Need(read, "plan", PlanOf).Bind(p => Made(read).Map(made => (object)new Command.Repair(p, made))),
             "take-down" => Need(read, "plan", PlanOf).Bind(p => Made(read).Map(made => (object)new Command.TakeDown(p, made))),
             "reopen" => Need(read, "plan", PlanOf).Map(static p => (object)new Command.Reopen(p)),
@@ -748,6 +755,18 @@ internal static class CommandForm
                 !Common.Get(Ghosts(read), out var ghosts, ref problem))
                 return Result<object, string>.Error(problem);
             return Result<object, string>.Ok(new Command.PlaceTemplate(new Template(name, ghosts), origin, turn, plan));
+        }
+
+        private Result<object, string> PlaceTemplateIn(FieldReader read)
+        {
+            var problem = "";
+            if (!Common.Get(read.Need("name").Bind(static t => WrittenValues.Checked(TemplateName.Create(t), "template name", t)), out var name, ref problem) ||
+                !Common.Get(read.Need("origin").Bind(WrittenValues.Cell), out var origin, ref problem) ||
+                !Common.Get(read.Need("turn").Bind(TurnOf), out var turn, ref problem) ||
+                !Common.Get(Into(read), out var into, ref problem) ||
+                !Common.Get(Ghosts(read), out var ghosts, ref problem))
+                return Result<object, string>.Error(problem);
+            return Result<object, string>.Ok(new Command.PlaceTemplateIn(new Template(name, ghosts), origin, turn, into));
         }
 
         private static Result<object, string> Ids(FieldReader read)

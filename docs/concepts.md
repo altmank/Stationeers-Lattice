@@ -104,11 +104,11 @@ var submission = lattice.Commands.Submit(CommandId.New(), new Command.Place(draf
 - The **primitive** commands are applied by the board itself: `Place`, `Remove`, `Change`, `Move`, `CreatePlan`,
   `EditPlan`, `MoveToPlan`, `Revert`, `FinishPlan`, `CatchUp`, and a `Batch` of them (all or none).
 - The others are **expanded** into primitive ones by the module that owns them: `MarkRemoval`, `PlanSwap`,
-  `PlanFinish`, `PlanRun`, `PlanRoute`, `PlanSplit`, `Transform`, `PlaceTemplate`, `Repair`, `TakeDown`, `Reopen`.
+  `PlanFinish`, `PlanRun`, `PlanRoute`, `PlanSplit`, `Transform`, `PlaceTemplate`, `PlaceTemplateIn`, `Repair`, `TakeDown`, `Reopen`.
 - `Submit` returns a `Submission`. On the host it is usually `Answered`, with an `Outcome`: `Applied` with the
   `ChangeSet`, or `Refused` with the reasons. On a client it is `Sent`, and the outcome arrives later as
   `Events.Answered`. Commands worked out over several frames (`PlanRoute`, `PlanSwap`, `Transform`, `PlaceTemplate`,
-  `Repair`, `TakeDown`) can answer `Sent` on the host too. Handle both everywhere.
+  `PlaceTemplateIn`, `Repair`, `TakeDown`) can answer `Sent` on the host too. Handle both everywhere.
 - The same `CommandId` sent twice applies once.
 - A `ChangeSet` lists the ghosts added, changed (before and after) and removed (with the cause), and the plans
   opened, changed and finished. It is the unit of sync, events and undo.

@@ -29,8 +29,9 @@ The same `CommandId` sent twice applies once, so a client can resend after a dro
 
 - **Every seat:** the board, the catalogue, validation, steps, bills, previews, analysis, selectors and styles.
   Previews and validation on a client run against its local copy of the board and world.
-- **Host only:** applying commands, matching built pieces to ghosts, saving, finished plans, the inspector and
-  executors. Clients see their results as change sets and status events.
+- **Host only:** applying commands, matching built pieces to ghosts, saving, finished plans (`Plans.Finished` is
+  empty on a client; finished-plan commands are submitted and worked out on the host), the inspector and executors.
+  Clients see their results as change sets and status events.
 - **Drawing seats only:** the `render` module. On a dedicated server or a headless client, style registrations are
   accepted and held, and `Pick` and `Explain` still answer, but nothing is drawn.
 
@@ -67,7 +68,14 @@ var handle = Must(lattice.Registries.Install(policy));   // refused while anothe
 ```
 
 - The host asks `MayChange` for every primitive command, after expansion, with the plan it lands in and the ghost it
-  changes.
+  changes. `request.PlanRecord` (contract 0.10) is that plan as it stands before the change, or as it opens: a
+  reopened plan as it was finished, a new plan as its draft makes it. Read it to judge by the plan's own setting, even
+  for a plan not on the board yet:
+
+  ```csharp
+  bool OwnerReopens(AccessRequest request) =>
+      request.Command is not Command.Reopen || request.PlanRecord.Match(plan => plan.Owner == request.Actor, () => false);
+  ```
 - Reads filter by `MaySeeGhost` and `MaySeePlan`, per ghost per read. They run on the main thread and must not
   allocate.
 - `Visibility` (`Everyone`, `OwnerOnly`, `Team(name)`) is data on each ghost and plan. It means something only when

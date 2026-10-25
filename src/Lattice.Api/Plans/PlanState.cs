@@ -85,7 +85,12 @@ public interface IPlans
     /// <summary>A plan's state, derived from its facts, or pending with them; refused for an unknown plan.</summary>
     Result<Answer<PlanState>, Reason> State(PlanId plan);
 
-    /// <summary>The index of finished plans. Read from the index file once per world.</summary>
+    /// <summary>
+    /// The index of finished plans. Read from the index file once per world. On the host only: empty on a client in this
+    /// version, where no plan files are kept. A client can still submit <see cref="Command.Repair"/>,
+    /// <see cref="Command.TakeDown"/> and <see cref="Command.Reopen"/> for a finished plan it knows the id of (from
+    /// <see cref="ChangeSet.PlansFinished"/>); the host works them out.
+    /// </summary>
     ValueList<FinishedPlan> Finished { get; }
 
     /// <summary>
@@ -98,8 +103,29 @@ public interface IPlans
     /// <summary>What the last world load found, once a world has loaded; also raised once as <see cref="IGhostEvents.Loaded"/>.</summary>
     Option<LoadReport> LastLoad { get; }
 
-    /// <summary>What a plan (active or finished) holds, as a template; refused for an unknown plan. Reads a finished plan's file.</summary>
+    /// <summary>
+    /// What a plan (active or finished) holds, as a template; refused for an unknown plan. Reads a finished plan's file.
+    /// On a client, a finished plan is refused <see cref="ReasonCodes.ModuleMissing"/> (<c>module=saving</c>).
+    /// </summary>
     Result<Template, Reason> AsTemplate(PlanId plan, TemplateName name);
+
+    /// <summary>
+    /// The template as text in Lattice's template form: a header (<c>lattice-template</c>, schema, name), then one draft
+    /// per line. Plan fields are not written (placing ignores them). Every later Lattice version reads it. Pure: reads no
+    /// board or world state, the same on every seat and in every world. Linear in the drafts. Added in contract 0.10.
+    /// </summary>
+    string WriteTemplate(Template template);
+
+    /// <summary>
+    /// A template read from text <see cref="WriteTemplate"/> wrote, by this version or an earlier one. Drafts come back
+    /// with no plan. Refused <see cref="ReasonCodes.InvalidValue"/> (fact <c>problem</c>, and <c>line</c> where there is
+    /// one) for text that is not a template, a bad header or name, or a cut or damaged line. Refused
+    /// <see cref="ReasonCodes.UnknownKind"/> (fact <c>drafts</c>: their indexes) for drafts this version cannot read in
+    /// full: an unknown intent, or a field it does not know. Never a partial template. A piece this world does not hold
+    /// reads, and placing it is refused as <see cref="Command.PlaceTemplate"/> says. Pure, as
+    /// <see cref="WriteTemplate"/>. Added in contract 0.10.
+    /// </summary>
+    Result<Template, Reason> ReadTemplate(string text);
 }
 
 /// <summary>Whether the loaded save had a record of how far through each plan file it had got.</summary>

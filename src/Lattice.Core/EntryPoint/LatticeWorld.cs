@@ -377,6 +377,7 @@ internal sealed class LatticeWorld : IGhostSystem
         {
             _starting = LatticeModules.Templates;
             Must(expanders.RegisterSliced(new TemplateExpander(placements).Descriptor));
+            Must(expanders.RegisterSliced(new TemplateInExpander(placements, Ghosts).Descriptor));
         }
 
         if (on.IsOn(LatticeModules.FinishedPlans) && mirror is not null && saved is not null)

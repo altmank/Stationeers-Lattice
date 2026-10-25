@@ -44,8 +44,8 @@ Preview a transform like any command to see where things land and what fails the
 
 ## Templates
 
-A `Template` is a plan in local coordinates: its origin is cell 0,0,0. It is a value your mod holds, stores and shares
-as it likes.
+A `Template` is a plan in local coordinates: its origin is cell 0,0,0. It is a value your mod holds. To save or share
+it, write it with `lattice.Plans.WriteTemplate(template)` and read it back with `ReadTemplate(text)` (contract 0.10).
 
 ```csharp
 var template = Must(lattice.Plans.AsTemplate(plan, Must(TemplateName.Create("Airlock"))));
@@ -61,5 +61,35 @@ var place = new Command.PlaceTemplate(
 - `Plans.AsTemplate` reads an active or a finished plan.
 - `PlaceTemplate` makes a new plan of ordinary ghosts. They are not linked to the template: editing one changes
   nothing else.
+- `PlaceTemplateIn(template, origin, turn, into)` (contract 0.10) places the same ghosts into a plan that is already
+  there, or the default plan. It opens no plan, so `Revert` undoes it like any place, and a ghost it replaced comes
+  back. It is refused as `PlaceTemplate` is (fact `drafts`), and `not-found` (fact `plan`) for a plan the actor may not
+  see or the board does not hold. The plan's size cap and your access policy apply as for any place.
 - You can also build a `Template` yourself from `GhostDraft`s in local coordinates. Their plan fields are ignored
   when it is placed.
+
+### Saving and sharing a template
+
+`WriteTemplate` gives the template as text in Lattice's template form: a header line (`lattice-template`, the schema,
+the name), then one draft per line. Pieces are written as prefab hashes, so the text means the same in every world and
+on every seat, and every later Lattice version reads it. Plan fields are not written.
+
+```csharp
+var text = lattice.Plans.WriteTemplate(template);
+File.WriteAllText(path, text);
+
+// Later, in any world:
+if (lattice.Plans.ReadTemplate(File.ReadAllText(path)).TryGet(out var read))
+    Stamp(read);
+```
+
+`ReadTemplate` gives the whole template or a refusal, never part of one:
+
+- `invalid-value` (fact `problem`, and `line` where there is one): not a template, a bad header or name, or a cut or
+  damaged line.
+- `unknown-kind` (fact `drafts`, their indexes): drafts this version cannot read in full, written by a newer Lattice
+  with an intent or a field it does not know.
+- A piece this world does not hold still reads. Placing it is refused, naming the draft (`drafts`).
+
+Both calls are pure: they read no board or world state, work with every module off, and give the same answer on the
+host and on a client.

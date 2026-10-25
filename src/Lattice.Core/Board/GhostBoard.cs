@@ -198,7 +198,7 @@ internal sealed partial class GhostBoard
         Command.Reopen reopen => PrepareReopen(reopen, actor, pending),
         Command.MarkRemoval or Command.PlanSwap or Command.PlanFinish
             or Command.PlanRun or Command.PlanRoute or Command.Transform or Command.PlaceTemplate or Command.Repair
-            or Command.TakeDown or Command.PlanSplit => Fail(ModuleMissing(command)),
+            or Command.TakeDown or Command.PlanSplit or Command.PlaceTemplateIn => Fail(ModuleMissing(command)),
         _ => Fail(Unknown.Kind(command)),
     };
 
@@ -417,13 +417,13 @@ internal sealed partial class GhostBoard
                 return Fail(tooLarge);
 
         foreach (var (entry, _) in pending.Removed)
-            pending.Asks.Add((new AccessRequest(actor, revert, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, revert, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         foreach (var entry in pending.Added)
-            pending.Asks.Add((new AccessRequest(actor, revert, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, revert, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         foreach (var (before, _) in pending.Changed)
-            pending.Asks.Add((new AccessRequest(actor, revert, before.Ghost.Plan, Option.Some(before.Ghost)), ValueList.Of(before.Id)));
+            Ask(pending, new AccessRequest(actor, revert, before.Ghost.Plan, Option.Some(before.Ghost)), ValueList.Of(before.Id));
         foreach (var (before, _) in pending.PlansChanged)
-            pending.Asks.Add((new AccessRequest(actor, revert, before.Id, Option<Ghost>.None), ValueList<GhostId>.Empty));
+            Ask(pending, new AccessRequest(actor, revert, before.Id, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -520,11 +520,11 @@ internal sealed partial class GhostBoard
             var plan = new PlanId(planValue);
             if (Admit(plan, pending) is { } tooLarge)
                 return Fail(tooLarge);
-            pending.Asks.Add((new AccessRequest(actor, place, plan, Option<Ghost>.None), ValueList<GhostId>.Empty));
+            Ask(pending, new AccessRequest(actor, place, plan, Option<Ghost>.None), ValueList<GhostId>.Empty);
         }
 
         foreach (var (entry, _) in pending.Removed)
-            pending.Asks.Add((new AccessRequest(actor, place, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, place, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         return Ok(pending);
     }
 
@@ -536,7 +536,7 @@ internal sealed partial class GhostBoard
         foreach (var entry in entries)
         {
             pending.Removed.Add((entry, new RemovalCause.Removed()));
-            pending.Asks.Add((new AccessRequest(actor, remove, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, remove, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         }
 
         return Ok(pending);
@@ -556,7 +556,7 @@ internal sealed partial class GhostBoard
             if (!edited.TryGet(out var after))
                 return Fail(new Refusal(edited.ErrorOf(), ValueList.Of(entry.Id)));
             pending.Changed.Add((entry, entry.With(after, Option.Some(pending.At))));
-            pending.Asks.Add((new AccessRequest(actor, change, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, change, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         }
 
         return Ok(pending);
@@ -574,12 +574,12 @@ internal sealed partial class GhostBoard
         {
             var after = entry.Ghost with { Plan = move.To, Revision = pending.At };
             pending.Changed.Add((entry, entry.With(after, Option.Some(pending.At))));
-            pending.Asks.Add((new AccessRequest(actor, move, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, move, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         }
 
         if (Admit(move.To, pending) is { } tooLarge)
             return Fail(tooLarge);
-        pending.Asks.Add((new AccessRequest(actor, move, move.To, Option<Ghost>.None), ValueList<GhostId>.Empty));
+        Ask(pending, new AccessRequest(actor, move, move.To, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -591,7 +591,7 @@ internal sealed partial class GhostBoard
         var plan = new Plan(new PlanId(_nextPlan), pending.At, draft.Name, actor, draft.MadeBy, draft.Visibility, draft.HigherLayerData);
         pending.PlansTaken = 1;
         pending.PlansOpened.Add(plan);
-        pending.Asks.Add((new AccessRequest(actor, create, plan.Id, Option<Ghost>.None), ValueList<GhostId>.Empty));
+        Ask(pending, new AccessRequest(actor, create, plan.Id, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -605,7 +605,7 @@ internal sealed partial class GhostBoard
         if (!edited.TryGet(out var after))
             return Fail(edited.ErrorOf());
         pending.PlansChanged.Add((entry.Plan, after));
-        pending.Asks.Add((new AccessRequest(actor, edit, edit.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty));
+        Ask(pending, new AccessRequest(actor, edit, edit.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -711,7 +711,7 @@ internal sealed partial class GhostBoard
 
             var after = entry.Ghost with { Intent = build with { Target = to }, Revision = pending.At };
             pending.Changed.Add((entry, new GhostEntry(after, Option.Some(shape), Option<StructureRef>.None, pending.At)));
-            pending.Asks.Add((new AccessRequest(actor, move, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, move, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         }
 
         replacedOrder.Sort(static (a, b) => a.Value.CompareTo(b.Value));
@@ -719,7 +719,7 @@ internal sealed partial class GhostBoard
         {
             var entry = Index.Ghosts[old];
             pending.Removed.Add((entry, new RemovalCause.Replaced(replaced[old])));
-            pending.Asks.Add((new AccessRequest(actor, move, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(old)));
+            Ask(pending, new AccessRequest(actor, move, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(old));
         }
 
         return Ok(pending);
@@ -740,11 +740,11 @@ internal sealed partial class GhostBoard
         {
             var entry = Index.Ghosts[id];
             pending.Removed.Add((entry, new RemovalCause.Removed()));
-            pending.Asks.Add((new AccessRequest(actor, finish, finish.Plan, Option.Some(entry.Ghost)), ValueList.Of(id)));
+            Ask(pending, new AccessRequest(actor, finish, finish.Plan, Option.Some(entry.Ghost)), ValueList.Of(id));
         }
 
         pending.PlansFinished.Add(plan);
-        pending.Asks.Add((new AccessRequest(actor, finish, finish.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty));
+        Ask(pending, new AccessRequest(actor, finish, finish.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -819,12 +819,12 @@ internal sealed partial class GhostBoard
         pending.CaughtUp.Add(catchUp.Plan);
 
         foreach (var (entry, _) in pending.Removed)
-            pending.Asks.Add((new AccessRequest(actor, catchUp, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, catchUp, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         foreach (var (before, _) in pending.Changed)
-            pending.Asks.Add((new AccessRequest(actor, catchUp, before.Ghost.Plan, Option.Some(before.Ghost)), ValueList.Of(before.Id)));
+            Ask(pending, new AccessRequest(actor, catchUp, before.Ghost.Plan, Option.Some(before.Ghost)), ValueList.Of(before.Id));
         foreach (var entry in pending.Added)
-            pending.Asks.Add((new AccessRequest(actor, catchUp, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
-        pending.Asks.Add((new AccessRequest(actor, catchUp, catchUp.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty));
+            Ask(pending, new AccessRequest(actor, catchUp, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
+        Ask(pending, new AccessRequest(actor, catchUp, catchUp.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -866,10 +866,10 @@ internal sealed partial class GhostBoard
         }
 
         foreach (var (entry, _) in pending.Removed)
-            pending.Asks.Add((new AccessRequest(actor, reopen, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
+            Ask(pending, new AccessRequest(actor, reopen, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
         foreach (var entry in pending.Added)
-            pending.Asks.Add((new AccessRequest(actor, reopen, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id)));
-        pending.Asks.Add((new AccessRequest(actor, reopen, reopen.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty));
+            Ask(pending, new AccessRequest(actor, reopen, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
+        Ask(pending, new AccessRequest(actor, reopen, reopen.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
 
@@ -1156,6 +1156,27 @@ internal sealed partial class GhostBoard
     private static Outcome Refused(Reason why) => new Outcome.Refused(ValueList.Of(new Refusal(why, ValueList<GhostId>.Empty)));
 
     private static Result<Pending, Refusal> Ok(Pending pending) => Result<Pending, Refusal>.Ok(pending);
+
+    /// <summary>
+    /// Adds an ask with the plan's record as it stands before this change (<see cref="AccessRequest.PlanRecord"/>): a
+    /// plan this change opens as it opens; else as the board holds it, a batch's earlier steps staged; else as this
+    /// change found it leaving. Constant cost.
+    /// </summary>
+    private void Ask(Pending pending, AccessRequest request, ValueList<GhostId> ghosts) =>
+        pending.Asks.Add((request with { PlanRecord = RecordOf(pending, request.Plan) }, ghosts));
+
+    private Option<Plan> RecordOf(Pending pending, PlanId id)
+    {
+        foreach (var opened in pending.PlansOpened)
+            if (opened.Id == id)
+                return Option.Some(opened);
+        if (Index.Plans.TryGetValue(id, out var entry))
+            return Option.Some(entry.Plan);
+        foreach (var finished in pending.PlansFinished)
+            if (finished.Plan.Id == id)
+                return Option.Some(finished.Plan);
+        return Option<Plan>.None;
+    }
 
     private static Result<Pending, Refusal> Fail(Refusal refusal) => Result<Pending, Refusal>.Error(refusal);
 

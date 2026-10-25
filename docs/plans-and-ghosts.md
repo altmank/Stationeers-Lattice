@@ -111,7 +111,7 @@ These are worked out by a module into primitive commands. With the module off th
 | `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8): the end piece joins that port. `Lay` chooses the pieces (contract 0.9, [below](#choosing-the-pieces)). |
 | `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging; and from contract 0.9 which leg first and hugging frames and walls ([below](#route-choices)). `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. `Branches` and `Lay` from contract 0.9. |
 | `PlanSplit(which, into, madeBy)` | `runs` | Long straights planned as single pieces (contract 0.9, [below](#splitting-long-straights)). |
-| `Transform`, `PlaceTemplate` | `transforms`, `templates` | See [transforms and templates](transforms-and-templates.md). |
+| `Transform`, `PlaceTemplate`, `PlaceTemplateIn` | `transforms`, `templates` | See [transforms and templates](transforms-and-templates.md). `PlaceTemplate` makes a new plan; `PlaceTemplateIn` (contract 0.10) places into a plan that is already there, and reverts like a place. |
 | `Repair`, `TakeDown`, `Reopen` | `finished-plans` | See [finished plans](#finished-plans) below. |
 
 Preview a run or route before you submit it: the preview carries a `RunReport` with its cells, the pieces placed, the
@@ -220,6 +220,9 @@ out in the background for every plan. `Plans.State(plan)` derives `Empty`, `HasE
 - `Command.TakeDown(plan, madeBy)` makes remove ghosts for everything it built that still stands.
 - `Command.Reopen(plan)` makes it active again, history intact.
 - `lattice.Plans.AsTemplate(plan, name)` gives what a plan holds as a template to place again.
+- Finished plans live on the host. On a client, `Plans.Finished` is empty and `AsTemplate` of a finished plan is
+  refused `module-missing`. A client can still submit `Repair`, `TakeDown` and `Reopen` for a finished plan id it
+  learned from `ChangeSet.PlansFinished`; the host works them out. See [multiplayer](multiplayer.md#what-runs-where).
 
 ## Limits
 

@@ -133,6 +133,7 @@ internal sealed class ClientChecks(CommandLimits limits, ICatalogue catalogue, A
             },
             Api.Command.Transform transform => Selector(transform.Which, 1) ?? (transform.How is Transformation.Rotate rotate ? Cell(rotate.Pivot) : null),
             Api.Command.PlaceTemplate template => Cell(template.Origin) ?? Data(template.As.HigherLayerData) ?? Drafts(template.Template.Ghosts, cells: false),
+            Api.Command.PlaceTemplateIn template => Cell(template.Origin) ?? Drafts(template.Template.Ghosts, cells: false),
             _ => null,
         };
 

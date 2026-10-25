@@ -130,6 +130,21 @@ public abstract record Command
     /// <param name="As">The new plan.</param>
     public sealed record PlaceTemplate(Template Template, Cell Origin, Turn Turn, PlanDraft As) : Command;
 
+    /// <summary>
+    /// Places a template's ghosts into an existing plan, or the default plan, as ordinary unlinked ghosts: one change
+    /// set that opens no plan, so <see cref="Revert"/> undoes it like a <see cref="Place"/>. The drafts keep their looks,
+    /// maker, groups and attached data; their plan fields are ignored. Refused as <see cref="PlaceTemplate"/> (fact
+    /// <c>drafts</c>), and <see cref="ReasonCodes.NotFound"/> (fact <c>plan</c>) for a plan the actor may not see or the
+    /// board does not hold. A ghost in a spot that already holds one replaces it, as <see cref="Place"/>. Expanded by
+    /// the templates module.
+    /// Added in contract 0.10.
+    /// </summary>
+    /// <param name="Template">The template.</param>
+    /// <param name="Origin">The cell its origin lands on.</param>
+    /// <param name="Turn">Its turn about the origin.</param>
+    /// <param name="Into">The plan, or the default plan.</param>
+    public sealed record PlaceTemplateIn(Template Template, Cell Origin, Turn Turn, Option<PlanId> Into) : Command;
+
     /// <summary>Ghosts for whatever a finished plan built that has gone or changed since. Expanded by the finished-plans module.</summary>
     /// <param name="Plan">The finished plan.</param>
     /// <param name="MadeBy">What makes the repair plan and its ghosts.</param>

@@ -8,13 +8,6 @@ namespace Lattice.Tests.Contract;
 /// <summary>Contract 0.9: route toggles, branches, how pieces are chosen, and splitting long straights, each documented as added in 0.9.</summary>
 public sealed class ContractNineTests
 {
-    [Fact]
-    public void The_contract_is_zero_nine()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(9, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("T:Lattice.Api.FirstLeg")]
     [InlineData("P:Lattice.Api.RouteToggles.First")]

@@ -200,6 +200,12 @@ internal sealed class PlansView(GhostBoard board, Actor viewer) : IPlans
     /// (<see cref="FinishedPlans.FinishedPlanFiles"/>): a template of the pieces it built, in the order it built them;
     /// linear in its file's lines. Refused as that read is (not-found for a plan the viewer may not see).
     /// </summary>
+    /// <inheritdoc />
+    public string WriteTemplate(Template template) => Lattice.Core.Written.TemplateText.Write(template);
+
+    /// <inheritdoc />
+    public Result<Template, Reason> ReadTemplate(string text) => Lattice.Core.Written.TemplateText.Read(text);
+
     public Result<Template, Reason> AsTemplate(PlanId plan, TemplateName name)
     {
         if (!board.Index.Plans.TryGetValue(plan, out var entry))

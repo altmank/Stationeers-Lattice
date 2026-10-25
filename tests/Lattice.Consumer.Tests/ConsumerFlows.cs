@@ -82,6 +82,16 @@ public abstract class ConsumerFlows
         }
     }
 
+    /// <summary>A policy that lets only a plan's owner reopen it, judged by the plan's own record.</summary>
+    private protected static Result<Unit, Reason> OwnerReopens(AccessRequest request, ReasonCode refused) =>
+        request.Command is not Command.Reopen || request.PlanRecord.Match(plan => plan.Owner == request.Actor, () => false)
+            ? Result<Unit, Reason>.Ok(Unit.Value)
+            : Result<Unit, Reason>.Error(Reason.Of(refused, RuleId.Contract));
+
+    /// <summary>A template saved as text and read back, as a consumer stores one.</summary>
+    private protected static Result<Template, Reason> SavedAndRead(IPlans plans, Template template) =>
+        plans.ReadTemplate(plans.WriteTemplate(template));
+
     /// <summary>What a consumer shows for each port end a run report names.</summary>
     private protected static IEnumerable<string> PortEndLines(RunReport report)
     {

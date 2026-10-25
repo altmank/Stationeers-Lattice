@@ -9,13 +9,6 @@ namespace Lattice.Tests.Contract;
 public sealed class ContractNineFacingTests
 {
     [Fact]
-    public void The_contract_is_zero_nine()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(9, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void FacingOf_says_it_was_added_in_zero_nine()
     {
         var docs = XDocument.Load(Path.ChangeExtension(typeof(ApiVersion).Assembly.Location, ".xml"));

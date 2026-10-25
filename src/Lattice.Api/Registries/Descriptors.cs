@@ -141,7 +141,16 @@ public sealed record AnalyzerDescriptor(RuleId Id, Func<AnalyzerInput, ValueList
 /// <param name="Command">The command (primitive, after expansion).</param>
 /// <param name="Plan">The plan the change lands in.</param>
 /// <param name="Ghost">The existing ghost it changes, if any.</param>
-public sealed record AccessRequest(Actor Actor, Command Command, PlanId Plan, Option<Ghost> Ghost);
+public sealed record AccessRequest(Actor Actor, Command Command, PlanId Plan, Option<Ghost> Ghost)
+{
+    /// <summary>
+    /// The plan the change lands in (its id is <see cref="Plan"/>), as it stands before this change: inside a batch, as
+    /// the earlier steps leave it. A plan this change opens is given as it opens: a reopened plan as it was finished, a
+    /// new plan as its draft makes it. Always some when Lattice asks; none only in a request a consumer builds without
+    /// it. Lattice never reads it: it is a fact for the policy. Added in contract 0.10.
+    /// </summary>
+    public Option<Plan> PlanRecord { get; init; }
+}
 
 /// <summary>
 /// The one installed access policy: may this actor see this ghost or plan, and may it make this change. The host asks

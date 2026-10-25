@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 9 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 10 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2630,3 +2630,17 @@ Lattice.Api.SplitTargets.Structures.Structures(Lattice.Api.StructureSelector! Wh
 Lattice.Api.SplitTargets.Structures.Which.get -> Lattice.Api.StructureSelector!
 Lattice.Api.SplitTargets.Structures.Which.init -> void
 Lattice.Api.IPieceCatalogue.FacingOf(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.Option<Lattice.Api.Axis>, Lattice.Api.Reason!>
+Lattice.Api.AccessRequest.PlanRecord.get -> Lattice.Api.Option<Lattice.Api.Plan!>
+Lattice.Api.AccessRequest.PlanRecord.init -> void
+Lattice.Api.IPlans.ReadTemplate(string! text) -> Lattice.Api.Result<Lattice.Api.Template!, Lattice.Api.Reason!>
+Lattice.Api.IPlans.WriteTemplate(Lattice.Api.Template! template) -> string!
+Lattice.Api.Command.PlaceTemplateIn
+Lattice.Api.Command.PlaceTemplateIn.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.Command.PlaceTemplateIn.Into.init -> void
+Lattice.Api.Command.PlaceTemplateIn.Origin.get -> Lattice.Api.Cell
+Lattice.Api.Command.PlaceTemplateIn.Origin.init -> void
+Lattice.Api.Command.PlaceTemplateIn.PlaceTemplateIn(Lattice.Api.Template! Template, Lattice.Api.Cell Origin, Lattice.Api.Turn Turn, Lattice.Api.Option<Lattice.Api.PlanId> Into) -> void
+Lattice.Api.Command.PlaceTemplateIn.Template.get -> Lattice.Api.Template!
+Lattice.Api.Command.PlaceTemplateIn.Template.init -> void
+Lattice.Api.Command.PlaceTemplateIn.Turn.get -> Lattice.Api.Turn
+Lattice.Api.Command.PlaceTemplateIn.Turn.init -> void

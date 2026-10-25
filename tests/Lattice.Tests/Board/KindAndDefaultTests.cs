@@ -142,6 +142,7 @@ public sealed class KindAndDefaultTests
             [typeof(Command.PlaceTemplate)] = () => Run(new Command.PlaceTemplate(new Template(TestKitIds.Must(TemplateName.Create("T")), ValueList<GhostDraft>.Empty), At, default, draftPlan)),
             [typeof(Command.Repair)] = () => Run(new Command.Repair(GhostBoard.DefaultPlan, TestMaker)),
             [typeof(Command.TakeDown)] = () => Run(new Command.TakeDown(GhostBoard.DefaultPlan, TestMaker)),
+            [typeof(Command.PlaceTemplateIn)] = () => Run(new Command.PlaceTemplateIn(new Template(TestKitIds.Must(TemplateName.Create("t")), ValueList<GhostDraft>.Empty), At, Turn.None, Option<PlanId>.None)),
             [typeof(Command.PlanSplit)] = () => Run(new Command.PlanSplit(new SplitTargets.Ghosts(ids), Option<PlanId>.None, TestMaker)),
             [typeof(Command.Reopen)] = () => Run(new Command.Reopen(GhostBoard.DefaultPlan)),
 
