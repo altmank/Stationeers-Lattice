@@ -1,12 +1,13 @@
-// Material key `see-through`: the part of a thing hidden behind walls and terrain, drawn faintly. Draws only where
-// something nearer is already in the depth buffer (ZTest Greater), fading out over the style's range.
+// Material key `see-through`: the part of a thing hidden behind walls and terrain. Draws only where something nearer
+// is already in the depth buffer (ZTest Greater), fading out over the style's range. The outline shows at the style's
+// strength and a face seen square-on at the square-on share of it (_LatticeSeeThrough.z), which Render sets.
 Shader "Lattice/SeeThrough"
 {
     Properties
     {
         _Color ("Colour", Color) = (0.25, 0.45, 1, 0.3)
         _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
-        _LatticeSeeThrough ("See-through: strength, range m", Vector) = (0.6, 80, 0, 0)
+        _LatticeSeeThrough ("See-through: strength, range m, square-on share", Vector) = (0.6, 80, 0.42, 0)
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
         _LatticeOffsetUnits ("Depth offset units", Float) = 0
         _RimPower ("Rim power", Range(0.5, 8)) = 2
@@ -41,7 +42,7 @@ Shader "Lattice/SeeThrough"
                 float distance = length(_WorldSpaceCameraPos - i.worldPos);
                 float rim = LatticeRim(i.worldPos, i.worldNormal, _RimPower);
                 fixed4 colour = _Color;
-                colour.a *= strength * saturate(1 - distance / range) * (0.35 + 0.65 * rim);
+                colour.a *= strength * saturate(1 - distance / range) * lerp(_LatticeSeeThrough.z, 1, rim);
                 clip(colour.a - 0.002);
                 return LatticeApplyBeyond(colour, i.worldPos);
             }

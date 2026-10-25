@@ -99,7 +99,7 @@ property's explicit none case (`EdgeLook.None`, `GlowLook.None`, ...).
 | Body | `Presence` (drawn, hidden), `Fill` (ghost, solid, wire, none), `FillPaint`, `FillOpacity`, `Material` |
 | Lines and marks | `Edge` (solid, dashed, dotted, a width, a paint), `Pattern` (hatch, cross-hatch, dots), `Glow` |
 | Motion | `Effect` (steady, pulse, blink), `Enter` (flash when a thing comes to match), `Ease`, `Appear`, `Vanish` |
-| Depth and distance | `SeeThrough` (through walls, with a strength and range), `BeyondClip`, `DistanceFade`, `NearLimit`, `Dim` |
+| Depth and distance | `SeeThrough` (through walls, with a strength, a range and optionally its own opacity), `BeyondClip`, `DistanceFade`, `NearLimit`, `Dim` |
 | Words and icons | `Label` (what it says, text style, anchor, priority, range), `Icon` |
 | From the catalogue | `OpenEnds`, `Ports`, `FlowArrows`, `WaitsLinks` (links to the ghosts it waits for) |
 | Decorations | `Mark` (a registered mesh) |

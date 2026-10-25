@@ -15,13 +15,6 @@ public sealed class ContractTenTests
         return string.Join(" ", text.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
     }
 
-    [Fact]
-    public void The_contract_is_zero_ten()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(10, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("M:Lattice.Api.IPlans.WriteTemplate(Lattice.Api.Template)")]
     [InlineData("M:Lattice.Api.IPlans.ReadTemplate(System.String)")]

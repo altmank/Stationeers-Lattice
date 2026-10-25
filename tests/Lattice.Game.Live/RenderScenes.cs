@@ -65,6 +65,7 @@ internal sealed class Scenes(LatticeWorld world, RenderHost host, LiveCamera rig
         yield return Grid(styles, ox, oy, oz);
         yield return Proofs(styles, ox, oy, oz);
         yield return Marks(styles, ox - 40f, oy, oz);
+        yield return XRay(styles, ox - 70f, oy, oz);
         rig.EachFrame = DrawFaded;
     }
 
@@ -410,6 +411,56 @@ internal sealed class Scenes(LatticeWorld world, RenderHost host, LiveCamera rig
             }
         }
 
+        yield return RenderRun.Frames(10);
+    }
+
+    // X-ray: three built frames side by side, each with a frame ghost hidden behind it, seen through at strength 0.6,
+    // at 1, and at 1 with its own opacity 0.7; beside each hidden ghost a visible one with the same look, to compare
+    // the hidden part with the visible fill.
+    private IEnumerator XRay(GhostStyles styles, float x, float y, float z)
+    {
+        var frame = Piece(FrameName) ?? throw new InvalidOperationException("no " + FrameName);
+        var range = Lattice.Api.Metres.Create(80f).Match(static m => m, static r => throw new InvalidOperationException(r.ToString()));
+        var looks = new (string Name, SeeThroughLook.Through Look)[]
+        {
+            ("strength 0.6", new SeeThroughLook.Through(Fraction.Create(0.6f).Match(static f => f, static r => throw new InvalidOperationException(r.ToString())), range)),
+            ("strength 1", new SeeThroughLook.Through(Fraction.One, range)),
+            ("strength 1, opacity 0.7", new SeeThroughLook.Through(Fraction.One, range)
+            {
+                Opacity = Option.Some(Fraction.Create(0.7f).Match(static f => f, static r => throw new InvalidOperationException(r.ToString()))),
+            }),
+        };
+
+        var drafts = new List<GhostDraft>(looks.Length * 2);
+        var pairs = new List<(Intent Hidden, Intent Visible)>(looks.Length);
+        var walls = 0;
+        for (var k = 0; k < looks.Length; k++)
+        {
+            var cx = x + 8f * k;
+            if (Scene.Spawn(FrameName, new Vector3(cx, y, z), Quaternion.identity, int.MaxValue) != null)
+                walls++;
+            var hidden = new Intent.Build(new Placement(frame, At(cx, y, z + 2f), Turn.None), Option<Finish>.None);
+            var visible = new Intent.Build(new Placement(frame, At(cx + 2f, y, z + 2f), Turn.None), Option<Finish>.None);
+            drafts.Add(Draft(hidden));
+            drafts.Add(Draft(visible));
+            pairs.Add((hidden, visible));
+            rig.Name(new Vector3(cx + 1f, y + 2.5f, z), looks[k].Name.ToUpperInvariant());
+        }
+
+        line($"scenes: x-ray plan of {drafts.Count} ghosts: {Submit(world, PlanOf("X-ray", drafts))}; {walls} of {looks.Length} frames spawned in front");
+        var ids = GhostsOf(world, "X-ray");
+        var rules = new StyleRule[looks.Length];
+        for (var k = 0; k < looks.Length; k++)
+        {
+            var set = Set("live-xray-" + k);
+            Put(styles, set, Ids(ids, pairs[k].Hidden, pairs[k].Visible));
+            rules[k] = new StyleRule(new StyleMatch.InSet(set), new Style { SeeThrough = Option.Some<SeeThroughLook>(looks[k].Look) });
+        }
+
+        Hold(styles.Add(new StyleLayerDescriptor(StyleLayerId.Create(LatticeIdentity.Mod, "live-xray").Match(static l => l, static r => throw new InvalidOperationException(r.ToString())),
+            StyleBand.Highlight, 21, ValueList.From(rules))), "layer live-xray");
+        Views.Add(new View("xray-strength", new Vector3(x + 9f, y + 2.5f, z - 15f), new Vector3(x + 9f, y + 0.5f, z + 2f),
+            "x-ray through a built frame: strength 0.6, strength 1, strength 1 with opacity 0.7; each beside a visible ghost with the same look"));
         yield return RenderRun.Frames(10);
     }
 

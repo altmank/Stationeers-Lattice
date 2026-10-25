@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+
+- **See-through strength now reaches the full look.** Above 0.5, faces seen square-on show more strongly, and at 1
+  the hidden part shows like the visible ghost; 0.5 and below are unchanged.
+- **`SeeThroughLook.Through.Opacity`** sets the hidden part's own opacity, in place of the fill's, so x-ray can be
+  stronger than the visible ghost and a look with no fill can show through.
+- The see-through material's `_LatticeSeeThrough` carries a third value, the share of the strength a face seen
+  square-on shows, for override shaders.
+
 ## 0.10.5
 
 - **A device on a planned wall or frame waits for it.** A wall-mounted piece planned on the face of a frame or wall

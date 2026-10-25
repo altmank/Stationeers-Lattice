@@ -9,13 +9,6 @@ namespace Lattice.Tests.Contract;
 public sealed class ContractTenTemplateTests
 {
     [Fact]
-    public void The_contract_is_zero_ten()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(10, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void Placing_a_template_into_a_plan_says_it_was_added_in_zero_ten()
     {
         var docs = XDocument.Load(Path.ChangeExtension(typeof(ApiVersion).Assembly.Location, ".xml"));

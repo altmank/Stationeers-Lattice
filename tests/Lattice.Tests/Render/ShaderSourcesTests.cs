@@ -64,6 +64,18 @@ public sealed class ShaderSourcesTests
     }
 
     [Fact]
+    public void The_see_through_fragment_takes_its_square_on_share_from_render()
+    {
+        var text = File.ReadAllText(Path.Combine(RenderDir(), "Shaders", "LatticeSeeThrough.shader"));
+        var at = text.IndexOf("frag(", StringComparison.Ordinal);
+        Assert.True(at >= 0, "LatticeSeeThrough.shader has no frag");
+        var frag = text.Substring(at, text.IndexOf("ENDCG", at, StringComparison.Ordinal) - at);
+
+        Assert.Contains("_LatticeSeeThrough.z", frag);
+        Assert.DoesNotContain("0.35", frag);
+    }
+
+    [Fact]
     public void The_bundle_ships_beside_its_manifest()
     {
         Assert.True(new FileInfo(Path.Combine(RenderDir(), "Bundle", "lattice.shaders")).Length > 0);

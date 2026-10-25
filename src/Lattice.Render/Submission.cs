@@ -1019,9 +1019,13 @@ internal sealed class Submission
 
         var through = style.SeeThrough.TryGet(out var seeThrough) && seeThrough is SeeThroughLook.Through t ? t : null;
         var see = group.Layer[SeeThrough];
-        Set(group, see, through is not null ? MaterialKeys.SeeThrough : default, Colour(look.Fill), beyond, ref needsPages);
+        var seeColour = through is not null ? SeeThroughColour(look, through) : default;
+        Set(group, see, seeColour.w > 0f ? MaterialKeys.SeeThrough : default, seeColour, beyond, ref needsPages);
         if (see.On && through is not null)
-            see.Block.Set(ShaderProp.SeeThrough, new Vector4(through.Strength.Value, through.Range.Value, 0f, 0f));
+        {
+            var strength = through.Strength.Value;
+            see.Block.Set(ShaderProp.SeeThrough, new Vector4(strength, through.Range.Value, SeeThroughCurve.SquareOn(strength), 0f));
+        }
 
         // Port marks and flow arrows in the look's edge colour (its fill without an edge); open ends and waits links in
         // its glow colour, else its fill (then edge), so they stand apart from the port marks on a look without a glow.
@@ -1051,7 +1055,17 @@ internal sealed class Submission
         return Instanced(group, fillKey) && !combined
             || look.Edge.A > 0 && !combined && Instanced(group, MaterialKeys.Edge)
             || look.Glow.A > 0 && Instanced(group, MaterialKeys.Glow)
-            || style.SeeThrough.TryGet(out var through) && through is SeeThroughLook.Through && Instanced(group, MaterialKeys.SeeThrough);
+            || style.SeeThrough.TryGet(out var through) && through is SeeThroughLook.Through t && SeeThroughColour(look, t).w > 0f
+                && Instanced(group, MaterialKeys.SeeThrough);
+    }
+
+    /// <summary>The hidden part's colour: the fill paint at the look's own see-through opacity (times its dim), else the fill as it is.</summary>
+    private static Vector4 SeeThroughColour(ResolvedLook look, SeeThroughLook.Through through)
+    {
+        var fill = Colour(look.Fill);
+        return through.Opacity.TryGet(out var opacity)
+            ? new Vector4(fill.x, fill.y, fill.z, opacity.Value * look.Style.Dim.Reduce(Fraction.One).Value)
+            : fill;
     }
 
     /// <summary>The fill's material key; none for a look without fill or a mesh a claim draws.</summary>

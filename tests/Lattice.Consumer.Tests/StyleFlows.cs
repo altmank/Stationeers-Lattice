@@ -301,6 +301,27 @@ public abstract class StyleFlows
     }
 
     [Fact]
+    public void See_through_takes_its_own_opacity_at_full_strength()
+    {
+        var plain = new SeeThroughLook.Through(Must(Fraction.Create(1f)), Must(Metres.Create(40f)));
+        var strong = plain with { Opacity = Option.Some(Must(Fraction.Create(0.7f))) };
+        var edges = new Style
+        {
+            Fill = Option.Some(FillMode.None),
+            SeeThrough = Option.Some<SeeThroughLook>(new SeeThroughLook.Through(Must(Fraction.Create(1f)), Must(Metres.Create(40f)))
+            {
+                Opacity = Option.Some(Must(Fraction.Create(0.5f))),
+            }),
+        };
+
+        Assert.False(plain.Opacity.TryGet(out _));
+        Assert.NotEqual(plain, strong);
+        var (strength, range) = strong;
+        Assert.Equal((plain.Strength, plain.Range), (strength, range));
+        Must(Styles.Add(Layer("x-ray", StyleBand.Theme, new StyleRule(new StyleMatch.Everything(), edges))));
+    }
+
+    [Fact]
     public void Need_11_and_gap_7_labels_name_a_text_style_and_ease_in_and_out()
     {
         var label = new Style

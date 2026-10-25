@@ -214,8 +214,8 @@ public static class LibraryIcons
 /// <item>Also set, for shaders that declare them: <c>_LatticePattern</c> (0 none, 1 hatch, 2 cross-hatch, 3 dots),
 /// <c>_LatticePatternColor</c>, <c>_LatticeEffect</c> (x kind: 0 steady, 1 pulse, 2 blink; y period in seconds; z the
 /// low opacity or the duty; w phase in seconds), <c>_LatticeTime</c> (seconds, unscaled), <c>_LatticeSeeThrough</c>
-/// (strength, range), and on edge materials <c>_LatticeEdge</c> (x line style: 0 solid, 1 dashed, 2 dotted; y width in
-/// pixels).</item>
+/// (x strength, y range in metres, z the share of the strength a face seen square-on shows), and on edge materials
+/// <c>_LatticeEdge</c> (x line style: 0 solid, 1 dashed, 2 dotted; y width in pixels).</item>
 /// <item>The clip, as globals: <c>_LatticeClipPlane</c> (xyz unit normal, w = dot(normal, a point on the plane); a
 /// point p is beyond when dot(normal, p) &gt; w) or <c>_LatticeClipMin</c> and <c>_LatticeClipMax</c> (beyond is
 /// outside the box), with <c>_LatticeClipMode</c> (0 none, 1 plane, 2 box) and <c>_LatticeBeyond</c> (x mode: 0 drawn,

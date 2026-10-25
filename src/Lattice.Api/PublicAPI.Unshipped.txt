@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 10 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 11 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -1554,6 +1554,8 @@ Lattice.Api.SaveRecord.Missing
 Lattice.Api.SeeThroughLook
 Lattice.Api.SeeThroughLook.None
 Lattice.Api.SeeThroughLook.Through
+Lattice.Api.SeeThroughLook.Through.Opacity.get -> Lattice.Api.Option<Lattice.Api.Fraction>
+Lattice.Api.SeeThroughLook.Through.Opacity.init -> void
 Lattice.Api.SeeThroughLook.Through.Range.get -> Lattice.Api.Metres
 Lattice.Api.SeeThroughLook.Through.Range.init -> void
 Lattice.Api.SeeThroughLook.Through.Strength.get -> Lattice.Api.Fraction

@@ -191,10 +191,19 @@ public abstract record SeeThroughLook
     /// <summary>Hidden behind what is in front of it.</summary>
     public sealed record None : SeeThroughLook;
 
-    /// <summary>Shows through, faintly.</summary>
-    /// <param name="Strength">How strongly it shows through, 0 to 1.</param>
-    /// <param name="Range">How far from the camera it shows through.</param>
-    public sealed record Through(Fraction Strength, Metres Range) : SeeThroughLook;
+    /// <summary>Shows through walls and terrain in front of it.</summary>
+    /// <param name="Strength">How strongly it shows through, 0 to 1. The outline shows at this strength; a face seen
+    /// square-on shows at about a third of it up to 0.5, rising to all of it at 1, where the hidden part looks like
+    /// the visible ghost.</param>
+    /// <param name="Range">How far from the camera it shows through: full at the camera, fading evenly to nothing at
+    /// the range.</param>
+    public sealed record Through(Fraction Strength, Metres Range) : SeeThroughLook
+    {
+        /// <summary>The hidden part's opacity at full strength, in place of the look's fill opacity (dim still
+        /// applies). With it, a look with no fill shows through in its fill paint. Without an opinion: the fill's
+        /// opacity. Added in contract 0.11.</summary>
+        public Option<Fraction> Opacity { get; init; }
+    }
 }
 
 /// <summary>How a thing beyond the viewer's clip (<see cref="IGhostStyles.Clip"/>) looks. Without an opinion: <see cref="Drawn"/>.</summary>

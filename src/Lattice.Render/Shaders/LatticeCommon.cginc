@@ -13,7 +13,7 @@ float _LatticePattern;       // 0 none, 1 hatch, 2 cross-hatch, 3 dots
 fixed4 _LatticePatternColor;
 float4 _LatticeEffect;       // kind (0 steady, 1 pulse, 2 blink), period s, low or duty, phase s
 float _LatticeTime;          // seconds, unscaled
-float4 _LatticeSeeThrough;   // strength 0..1, range m
+float4 _LatticeSeeThrough;   // strength 0..1, range m, square-on share
 float4 _LatticeEdge;         // line style (0 solid, 1 dashed, 2 dotted), width px
 fixed4 _LatticeEdgeColor;    // the edge colour when one material draws fill and edge (keyword LATTICE_EDGE_OWN_COLOUR)
 

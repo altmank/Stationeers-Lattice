@@ -40,7 +40,8 @@ fill), `solid`, `wire`, `edge` (outlines), `see-through`, `glow`, `label` and `f
 - `_Color`, the final colour with opacity, with eases, effects and dim already applied. A material that reads only
   `_Color` looks right.
 - For shaders that declare them: `_LatticePattern`, `_LatticePatternColor`, `_LatticeEffect`, `_LatticeTime`,
-  `_LatticeSeeThrough`, and on edge materials `_LatticeEdge`.
+  `_LatticeSeeThrough` (strength, range in metres, and the share of the strength a face seen square-on shows), and on
+  edge materials `_LatticeEdge`.
 - The clip as globals, set once a frame before any camera renders: `_LatticeClipMode`, `_LatticeClipPlane` or
   `_LatticeClipMin` and `_LatticeClipMax`, and `_LatticeBeyond`. Your own shaders can read them all frame.
 - Overlays on built structures draw from Lattice's copy at the overlays queue. A shader that declares

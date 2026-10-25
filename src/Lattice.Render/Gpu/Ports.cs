@@ -25,7 +25,7 @@ internal enum ShaderProp
     /// <summary><c>_LatticeTime</c>, a float: seconds, unscaled.</summary>
     Time = 4,
 
-    /// <summary><c>_LatticeSeeThrough</c>: strength, range.</summary>
+    /// <summary><c>_LatticeSeeThrough</c>: strength, range, square-on share.</summary>
     SeeThrough = 5,
 
     /// <summary><c>_LatticeEdge</c>: line style, width in pixels.</summary>
