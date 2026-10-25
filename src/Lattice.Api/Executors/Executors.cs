@@ -60,9 +60,9 @@ public abstract record ExecutorStatus
 public sealed record ExecutorReport(ExecutorInfo By, ExecutorStatus Status);
 
 /// <summary>
-/// Executors: who works on which ghost (claims with leases) and what each says (status providers). Main thread.
-/// Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it are not covered by
-/// compatibility.
+/// Executors: who works on which ghost (claims with leases) and what each says (status providers). Main thread. Lattice
+/// implements this; consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubExecutors</c>, which gains every added member in the same release.
 /// </summary>
 public interface IExecutors
 {
@@ -78,7 +78,8 @@ public interface IExecutors
 
 /// <summary>
 /// A registered executor. Disposing it releases every claim it holds. Main thread. Lattice implements this; consumers
-/// call it. A minor may add members, so consumer fakes of it are not covered by compatibility.
+/// call it. A minor may add members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubExecutorHandle</c>,
+/// which gains every added member in the same release.
 /// </summary>
 public interface IExecutorHandle : IDisposable
 {

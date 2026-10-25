@@ -3,11 +3,11 @@ using System;
 namespace Lattice.Api;
 
 /// <summary>
-/// Where other mods extend Lattice. Every registration belongs to the current world: it returns an
-/// <see cref="IDisposable"/> that ends it early, and it ends with the world. Register when
-/// <see cref="LatticeSystem.Started"/> is raised. Status providers register through <see cref="IGhostSystem.Executors"/>.
-/// Main thread. Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it are not
-/// covered by compatibility.
+/// Where other mods extend Lattice. Every registration belongs to the current world: it returns an <see
+/// cref="IDisposable"/> that ends it early, and it ends with the world. Register when <see
+/// cref="LatticeSystem.Started"/> is raised. Status providers register through <see cref="IGhostSystem.Executors"/>.
+/// Main thread. Lattice implements this; consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubRegistries</c>, which gains every added member in the same release.
 /// </summary>
 public interface IRegistries
 {
@@ -43,8 +43,8 @@ public interface IRegistries
 }
 
 /// <summary>
-/// An installed access policy. Lattice implements this; consumers call it. A minor may add members, so consumer fakes of
-/// it are not covered by compatibility.
+/// An installed access policy. Lattice implements this; consumers call it. A minor may add members: to fake it in a
+/// test, inherit <c>Lattice.Testing.Stubs.StubPolicyHandle</c>, which gains every added member in the same release.
 /// </summary>
 public interface IPolicyHandle : IDisposable
 {

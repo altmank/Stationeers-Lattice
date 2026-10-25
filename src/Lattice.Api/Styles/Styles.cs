@@ -6,15 +6,15 @@ namespace Lattice.Api;
 /// How ghosts look to the local viewer: layers of style rules, sets, highlights, drafts, the viewer's clip, picking and
 /// the story behind a look. Everything here is the local process's: it never syncs, never saves and never changes what
 /// another player or agent sees (what everyone should see alike is ghost data a rule reads: tint, label, groups,
-/// attachments). Main thread. Results are <see cref="Result{T, E}"/>; registrations end with the world.
-/// Styles are data Lattice evaluates itself, so a consumer's style is never timed, checked or switched off; it changes
-/// one viewer's picture only. Runs on every seat (module <c>styles</c>); drawing is module <c>render</c>, off in batch
-/// mode (dedicated server, headless clients), where registrations are still accepted and held, and
-/// <see cref="Pick"/> and <see cref="Explain"/> still answer.
-/// Cost: a look is resolved per signature (the facts it depends on), not per ghost. Toggle layers; do not re-add
-/// them: adding, replacing or removing a layer re-signatures every drawn thing in drawing-budget slices.
-/// Added in contract 0.2. Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it
-/// are not covered by compatibility.
+/// attachments). Main thread. Results are <see cref="Result{T, E}"/>; registrations end with the world. Styles are data
+/// Lattice evaluates itself, so a consumer's style is never timed, checked or switched off; it changes one viewer's
+/// picture only. Runs on every seat (module <c>styles</c>); drawing is module <c>render</c>, off in batch mode
+/// (dedicated server, headless clients), where registrations are still accepted and held, and <see cref="Pick"/> and
+/// <see cref="Explain"/> still answer. Cost: a look is resolved per signature (the facts it depends on), not per ghost.
+/// Toggle layers; do not re-add them: adding, replacing or removing a layer re-signatures every drawn thing in
+/// drawing-budget slices. Added in contract 0.2. Lattice implements this; consumers call it. A minor may add members:
+/// to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubGhostStyles</c>, which gains every added member in the
+/// same release.
 /// </summary>
 public interface IGhostStyles
 {
@@ -176,9 +176,9 @@ public sealed record StyleLayerDescriptor(StyleLayerId Id, StyleBand Band, int O
 }
 
 /// <summary>
-/// An added layer. Enabling and disabling cost one resolve per live signature; disposing removes it (a re-signature
-/// of every drawn thing). Main thread. Lattice implements this; consumers call it. A minor may add members, so consumer
-/// fakes of it are not covered by compatibility.
+/// An added layer. Enabling and disabling cost one resolve per live signature; disposing removes it (a re-signature of
+/// every drawn thing). Main thread. Lattice implements this; consumers call it. A minor may add members: to fake it in
+/// a test, inherit <c>Lattice.Testing.Stubs.StubStyleLayer</c>, which gains every added member in the same release.
 /// </summary>
 public interface IStyleLayer : IDisposable
 {
@@ -196,10 +196,10 @@ public interface IStyleLayer : IDisposable
 }
 
 /// <summary>
-/// A set of ghost ids a rule matches with <see cref="StyleMatch.InSet"/> (hover, selection, a mod's own). Ids of
-/// ghosts that leave the board leave the set. Each change costs the ghosts entering and leaving. Main thread. Lattice
-/// implements this; consumers call it. A minor may add members, so consumer fakes of it are not covered by
-/// compatibility.
+/// A set of ghost ids a rule matches with <see cref="StyleMatch.InSet"/> (hover, selection, a mod's own). Ids of ghosts
+/// that leave the board leave the set. Each change costs the ghosts entering and leaving. Main thread. Lattice
+/// implements this; consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubStyleSet</c>, which gains every added member in the same release.
 /// </summary>
 public interface IStyleSet
 {
@@ -231,8 +231,8 @@ public interface IStyleSet
 /// <summary>
 /// A set of built structures drawn as overlays while they are members (box select of built things). Overlays read only
 /// Lattice's own data: never a structure's renderer state, materials or batch membership. Main thread. Lattice
-/// implements this; consumers call it. A minor may add members, so consumer fakes of it are not covered by
-/// compatibility.
+/// implements this; consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubStructureSet</c>, which gains every added member in the same release.
 /// </summary>
 public interface IStructureSet
 {
@@ -286,10 +286,11 @@ public abstract record HighlightTargets
 public sealed record HighlightRequest(HighlightTargets Targets, Style Style, Duration For);
 
 /// <summary>
-/// One stream of uncommitted ghosts a consumer shows (the piece at the cursor, a run being dragged), drawn with
-/// <see cref="StyleMatch.Draft"/> facets. Each <c>Show</c> replaces everything the handle showed. Disposing clears it
-/// and frees the id. Drafts end with the world. Main thread. Lattice implements this; consumers call it. A minor may add
-/// members, so consumer fakes of it are not covered by compatibility.
+/// One stream of uncommitted ghosts a consumer shows (the piece at the cursor, a run being dragged), drawn with <see
+/// cref="StyleMatch.Draft"/> facets. Each <c>Show</c> replaces everything the handle showed. Disposing clears it and
+/// frees the id. Drafts end with the world. Main thread. Lattice implements this; consumers call it. A minor may add
+/// members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubDrafts</c>, which gains every added member in
+/// the same release.
 /// </summary>
 public interface IDrafts : IDisposable
 {
@@ -367,8 +368,8 @@ public abstract record ClipShape
 }
 
 /// <summary>
-/// An installed clip. Main thread. Lattice implements this; consumers call it. A minor may add members, so consumer
-/// fakes of it are not covered by compatibility.
+/// An installed clip. Main thread. Lattice implements this; consumers call it. A minor may add members: to fake it in a
+/// test, inherit <c>Lattice.Testing.Stubs.StubClip</c>, which gains every added member in the same release.
 /// </summary>
 public interface IClip : IDisposable
 {

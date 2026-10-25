@@ -37,8 +37,9 @@ public sealed record ValidationReport(Revision At, ValueList<Finding> Findings);
 
 /// <summary>
 /// Validates ghosts in build order on the world plus the ghosts before them assumed built. Main thread; heavy checks
-/// run on Lattice's worker and the answer is cached per revision. Lattice implements this; consumers call it.
-/// A minor may add members, so consumer fakes of it are not covered by compatibility.
+/// run on Lattice's worker and the answer is cached per revision. Lattice implements this; consumers call it. A minor
+/// may add members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubValidation</c>, which gains every added
+/// member in the same release.
 /// </summary>
 public interface IValidation
 {

@@ -178,6 +178,9 @@ public sealed class SavingSideTests
 
         public ValueList<FinishedPlan> Finished => ValueList.From(FinishedPlans);
 
+        public Option<Plan> FinishedRecord(PlanId plan) => Option<Plan>.None;
+
+
         public Result<int, Reason> AheadOfSave(PlanId plan) => Result<int, Reason>.Ok(Ahead);
 
         Result<NewestPlan, Reason> ISavedPlans.Newest(PlanId plan) => Newest.TryGetValue(plan, out var newest)

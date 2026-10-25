@@ -15,8 +15,14 @@ internal readonly record struct SaveKey(string Path, string Fingerprint);
 /// <summary>What a save remembers: the save, and the line each plan was at (its head). Plans not listed did not exist.</summary>
 internal sealed record SavePoint(SaveKey Save, DateTimeOffset At, ValueMap<PlanId, long> Heads);
 
-/// <summary>A finished plan in the index: what the board lists (<see cref="FinishedPlan"/>) and the line that finished it.</summary>
-internal sealed record FinishedEntry(FinishedPlan Plan, long Line);
+/// <summary>
+/// A finished plan in the index: what the board lists (<see cref="FinishedPlan"/>), the line that finished it, and the
+/// plan's record at that line (what the access policy judges; none in an index written before it kept them).
+/// </summary>
+internal sealed record FinishedEntry(FinishedPlan Plan, long Line)
+{
+    public Option<Plan> Record { get; init; }
+}
 
 /// <summary>
 /// Lattice's own folder for one world, never inside a game save:
@@ -275,6 +281,9 @@ internal sealed class WorldFolder
         WriteIndex(index);
     }
 
+    /// <summary>Writes the finished plans index anew with these entries.</summary>
+    public void ReplaceFinished(List<FinishedEntry> index) => WriteIndex(index);
+
     /// <summary>Drops a plan's entry from the finished plans index (it is active again).</summary>
     public void RemoveFinished(PlanId plan)
     {
@@ -289,7 +298,7 @@ internal sealed class WorldFolder
         foreach (var each in index)
         {
             var plan = each.Plan;
-            items.Add(Entry.Of(new FieldList()
+            items.Add(new Entry(new FieldList()
                 .Add("plan", plan.Id.Value)
                 .Add("name", plan.Name.Value)
                 .Add("owner", WrittenValues.Actor(plan.Owner))
@@ -298,7 +307,10 @@ internal sealed class WorldFolder
                 .Add("min", WrittenValues.Cell(plan.Min))
                 .Add("max", WrittenValues.Cell(plan.Max))
                 .Add("line", each.Line)
-                .ToList()));
+                .ToList(),
+                each.Record.TryGet(out var record)
+                    ? ValueList.Of(new Group("record", PlanForm.Write(record, ValueList<Field>.Empty, LineContext.None)))
+                    : ValueList<Group>.Empty));
         }
 
         WriteWhole(IndexPath, Documents.Text(new Document(Headers.Entry(IndexForm, 1, ValueList<Field>.Empty), ValueList.From(items))));
@@ -321,10 +333,19 @@ internal sealed class WorldFolder
                 && f.Need("min").Bind(WrittenValues.Cell).TryGet(out var min)
                 && f.Need("max").Bind(WrittenValues.Cell).TryGet(out var max)
                 && f.Need("line").Bind(WrittenValues.Long).TryGet(out var line))
-                index.Add(new FinishedEntry(new FinishedPlan(new PlanId(plan), name, owner, at, pieces, min, max), line));
+                index.Add(new FinishedEntry(new FinishedPlan(new PlanId(plan), name, owner, at, pieces, min, max), line) { Record = RecordOf(item) });
         }
 
         return index;
+    }
+
+    // The plan record an index item keeps under its "record" group; none when it has none or it does not read.
+    private static Option<Plan> RecordOf(Entry item)
+    {
+        foreach (var group in item.Groups)
+            if (group.Word == "record" && PlanForm.Read(group.Fields, LineContext.None) is PlanRecord.Known known)
+                return Option.Some(known.Plan);
+        return Option<Plan>.None;
     }
 
     /// <summary>The file name of a save's record: a hash of its full path, case folded.</summary>

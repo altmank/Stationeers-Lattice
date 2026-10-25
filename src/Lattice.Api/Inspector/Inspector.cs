@@ -30,8 +30,8 @@ public sealed record PlanStory(PlanId Plan, ValueList<HistoryEntry> Entries, Val
 
 /// <summary>
 /// A ghost's or plan's story from its plan file, and change-log export. Main thread; reads plan files, so cost is
-/// linear in the file's lines. Lattice implements this; consumers call it. A minor may add members, so consumer fakes
-/// of it are not covered by compatibility.
+/// linear in the file's lines. Lattice implements this; consumers call it. A minor may add members: to fake it in a
+/// test, inherit <c>Lattice.Testing.Stubs.StubInspector</c>, which gains every added member in the same release.
 /// </summary>
 public interface IInspector
 {

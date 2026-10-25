@@ -65,8 +65,8 @@ public abstract record PlanState
 }
 
 /// <summary>
-/// Plan-level answers. Main thread. Lattice implements this; consumers call it. A minor may add members, so consumer
-/// fakes of it are not covered by compatibility.
+/// Plan-level answers. Main thread. Lattice implements this; consumers call it. A minor may add members: to fake it in
+/// a test, inherit <c>Lattice.Testing.Stubs.StubPlans</c>, which gains every added member in the same release.
 /// </summary>
 public interface IPlans
 {
@@ -86,7 +86,8 @@ public interface IPlans
     Result<Answer<PlanState>, Reason> State(PlanId plan);
 
     /// <summary>
-    /// The index of finished plans. Read from the index file once per world. On the host only: empty on a client in this
+    /// The index of finished plans the local side may see: the access policy judges each plan as it was when it
+    /// finished. Read from the index file once per world. On the host only: empty on a client in this
     /// version, where no plan files are kept. A client can still submit <see cref="Command.Repair"/>,
     /// <see cref="Command.TakeDown"/> and <see cref="Command.Reopen"/> for a finished plan it knows the id of (from
     /// <see cref="ChangeSet.PlansFinished"/>); the host works them out.

@@ -4,9 +4,10 @@ namespace Lattice.Api;
 /// The pieces and kits the game holds, read by kind: every structure prefab and every kit, modded ones found by type
 /// like the game's own. Built once at world load on every seat; every peer holds the same prefabs, so every seat reads
 /// the same view except <see cref="PieceEntry.Name"/>. Fixed for the world except <see cref="FamilyOf"/>. Main thread;
-/// every member but <see cref="PortsAt"/> is constant cost and allocates nothing once a piece's family has been read. Lattice implements this;
-/// consumers call it. A minor may add members, so consumer fakes of it are not covered by compatibility.
-/// Added in contract 0.3: read <see cref="IGhostSystem.Version"/> first.
+/// every member but <see cref="PortsAt"/> is constant cost and allocates nothing once a piece's family has been read.
+/// Lattice implements this; consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubPieceCatalogue</c>, which gains every added member in the same release. Added in
+/// contract 0.3: read <see cref="IGhostSystem.Version"/> first.
 /// </summary>
 public interface IPieceCatalogue
 {

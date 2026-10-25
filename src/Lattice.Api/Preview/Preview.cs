@@ -52,9 +52,9 @@ public sealed record PortJoin(PortEnd End, Port Port, Option<Placement> JoinedBy
 public sealed record CellFailure(Cell At, Reason Why);
 
 /// <summary>
-/// What a change would do. Main thread; runs on clients too, against the local board and world copy, and never
-/// changes anything. Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it are
-/// not covered by compatibility.
+/// What a change would do. Main thread; runs on clients too, against the local board and world copy, and never changes
+/// anything. Lattice implements this; consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubPreview</c>, which gains every added member in the same release.
 /// </summary>
 public interface IPreview
 {

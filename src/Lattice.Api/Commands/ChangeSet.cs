@@ -103,9 +103,10 @@ public abstract record Submission
 
 /// <summary>
 /// Changes the board. Main thread. A command submitted from inside a Lattice callback is queued and applied after the
-/// current one, never nested. A command still being worked out in slices when the world ends is dropped with the
-/// world: its <see cref="IGhostEvents.Answered"/> never comes. Lattice implements this; consumers call it. A minor may add members, so consumer fakes
-/// of it are not covered by compatibility.
+/// current one, never nested. A command still being worked out in slices when the world ends is dropped with the world:
+/// its <see cref="IGhostEvents.Answered"/> never comes. Lattice implements this; consumers call it. A minor may add
+/// members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubCommands</c>, which gains every added member in
+/// the same release.
 /// </summary>
 public interface ICommands
 {

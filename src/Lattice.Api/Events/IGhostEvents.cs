@@ -11,9 +11,9 @@ public sealed record BlockedGhost(GhostId Ghost, Reason Why);
 /// What happened on the board. Every event is raised on the main thread, in revision order, batched to at most one
 /// burst per frame, to each subscriber in subscription order. A command submitted from a handler is queued and applied
 /// after the current burst, never nested; reads in a handler see the board as of the event. Handlers receive immutable
-/// values. Subscriptions end with the world. A handler's failure is its own mod's to handle.
-/// Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it are not covered by
-/// compatibility.
+/// values. Subscriptions end with the world. A handler's failure is its own mod's to handle. Lattice implements this;
+/// consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubGhostEvents</c>, which gains every added member in the same release.
 /// </summary>
 public interface IGhostEvents
 {

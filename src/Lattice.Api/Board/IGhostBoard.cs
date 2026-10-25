@@ -1,10 +1,10 @@
 namespace Lattice.Api;
 
 /// <summary>
-/// The ghosts of one world, as one viewer may see them (the installed access policy filters every read).
-/// Main thread. Results are cached per revision: a repeated read on an unchanged board allocates nothing.
-/// Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it are not covered by
-/// compatibility.
+/// The ghosts of one world, as one viewer may see them (the installed access policy filters every read). Main thread.
+/// Results are cached per revision: a repeated read on an unchanged board allocates nothing. Lattice implements this;
+/// consumers call it. A minor may add members: to fake it in a test, inherit
+/// <c>Lattice.Testing.Stubs.StubGhostBoard</c>, which gains every added member in the same release.
 /// </summary>
 public interface IGhostBoard
 {
@@ -45,8 +45,10 @@ public interface IGhostBoard
 public sealed record GroupCount(GroupName Name, int Count);
 
 /// <summary>
-/// The built world as consumers read it: structures, rooms and networks, plus which structures are only assumed
-/// (ghosts treated as built, during validation). Lattice implements this; consumers call it. A minor may add members.
+/// The built world as consumers read it: structures, rooms and networks, plus which structures are only assumed (ghosts
+/// treated as built, during validation). Lattice implements this; consumers call it. A minor may add members: to fake
+/// it in a test, inherit <c>Lattice.Testing.Stubs.StubWorldQuery</c>, which gains every added member in the same
+/// release.
 /// </summary>
 public interface IWorldQuery
 {

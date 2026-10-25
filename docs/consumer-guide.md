@@ -154,6 +154,10 @@ void OnWorld(IGhostSystem lattice)
 - `lattice.Version` is the running contract; `ApiVersion.Current` is the one you compiled against. A minor only adds;
   a major may break. A member added after the first contract says in its XML doc which minor added it ("Added in
   contract 0.3"), so compare before you call it.
+- Every interface in the contract is Lattice's to implement. A minor may add members to any of them, so a class of
+  yours that implements one can stop compiling against a newer minor. To fake one in a test, inherit its stub in
+  `Lattice.Testing.Stubs` (`StubPlans` for `IPlans`): a minor adds its new members there too, so your fake keeps
+  compiling. "A minor only adds" is a promise to callers, not to implementers.
 - `lattice.Has(kind)` tells you whether this Lattice knows an intent kind. Skip and report kinds you don't know.
 - `lattice.Modules` lists each module, on or off with the reason. A module turns itself off when a game update
   removes members it uses, or when it is host only and you are on a client. Calls into an off module answer
@@ -271,3 +275,21 @@ reads on an unchanged board allocate nothing.
 passes; Lattice's own rules run), and saves plans only in a temporary folder deleted at `Dispose`, never in the game's
 folders. `TestWorld.System.Styles` is Lattice's own style resolution (nothing is drawn); `FakeGhostStyles` only records
 style calls, for tests that need no world. `TestWorld.Log` holds what Lattice logged.
+
+**Fakes.** Test behaviour against `TestWorld` first: it is Lattice's real answers. For an isolated test that needs
+one or two answers (a UI that lists plans, a tool that reads one cell), inherit the interface's stub in
+`Lattice.Testing.Stubs` and override only what the test reads. A member you did not override throws
+`NotSupportedException` naming itself, so a test that reaches further than it set up fails loudly. Each stub gains the
+members a later minor adds, in the same release, so your fake keeps compiling; a class that implements the interface
+itself does not. Events on a stub keep their subscribers, and its `Raise` methods fire them.
+
+```csharp
+sealed class PlansFake : StubPlans
+{
+    public override ValueList<Plan> All => ValueList.Of(hall);
+}
+
+var names = new PlanList(new PlansFake()).Names();   // your code under test reads only IPlans.All
+```
+
+`FakeGhostStyles` stays the fake for style calls: it records what your layer asks of Lattice's styles.

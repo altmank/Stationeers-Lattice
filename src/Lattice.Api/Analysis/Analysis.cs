@@ -88,7 +88,8 @@ public sealed record AnalysisReport(
 
 /// <summary>
 /// What ghosts would do to the world if built. Main thread; cached per revision. Lattice implements this; consumers
-/// call it. A minor may add members, so consumer fakes of it are not covered by compatibility.
+/// call it. A minor may add members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubAnalysis</c>, which
+/// gains every added member in the same release.
 /// </summary>
 public interface IAnalysis
 {

@@ -20,11 +20,22 @@ public sealed class SurfaceTests
 
     private const BindingFlags Declared = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
+    /// <summary>The stubs a consumer's fakes inherit: the one namespace whose classes are unsealed by design.</summary>
+    private const string Stubs = "Lattice.Testing.Stubs";
+
     [Fact]
-    public void Public_classes_are_sealed_and_abstract_types_are_static()
+    public void Public_classes_are_sealed_and_abstract_types_are_static_but_the_stubs()
     {
-        foreach (var type in Public.Where(static t => t.IsClass))
+        foreach (var type in Public.Where(static t => t.IsClass && t.Namespace != Stubs))
             Assert.True(type.IsSealed, $"{type} is not sealed");
+    }
+
+    [Fact]
+    public void Unsealed_public_classes_live_only_with_the_stubs()
+    {
+        foreach (var type in Public.Where(static t => t.IsClass && !t.IsSealed))
+            Assert.Equal(Stubs, type.Namespace);
+        Assert.Equal(25, Public.Count(static t => t.Namespace == Stubs));
     }
 
     [Fact]

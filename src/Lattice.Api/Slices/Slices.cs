@@ -5,7 +5,8 @@ namespace Lattice.Api;
 /// <summary>
 /// Long main-thread drawing work, run inside Lattice's drawing budget per frame so it never stalls a frame (a planner's
 /// overlays of a very large plan, for example). Main thread. Lattice implements this; consumers call it. A minor may
-/// add members, so consumer fakes of it are not covered by compatibility.
+/// add members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubSlices</c>, which gains every added member
+/// in the same release.
 /// </summary>
 public interface ISlices
 {

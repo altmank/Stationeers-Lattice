@@ -1,8 +1,9 @@
 namespace Lattice.Api;
 
 /// <summary>
-/// What a built structure can become in place. Main thread. Lattice implements this; consumers call it. A minor may
-/// add members, so consumer fakes of it are not covered by compatibility.
+/// What a built structure can become in place. Main thread. Lattice implements this; consumers call it. A minor may add
+/// members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubSwaps</c>, which gains every added member in the
+/// same release.
 /// </summary>
 public interface ISwaps
 {

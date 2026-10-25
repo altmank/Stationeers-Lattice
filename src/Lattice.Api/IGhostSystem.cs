@@ -3,10 +3,10 @@ using System;
 namespace Lattice.Api;
 
 /// <summary>
-/// Lattice for one running world: every service in one place. Published through <see cref="LatticeSystem"/> when
-/// the world starts; stale once it ends. Main thread unless a member says otherwise.
-/// Lattice implements this; consumers call it. A minor may add members, so consumer fakes of it are not covered by
-/// compatibility.
+/// Lattice for one running world: every service in one place. Published through <see cref="LatticeSystem"/> when the
+/// world starts; stale once it ends. Main thread unless a member says otherwise. Lattice implements this; consumers
+/// call it. A minor may add members: to fake it in a test, inherit <c>Lattice.Testing.Stubs.StubGhostSystem</c>, which
+/// gains every added member in the same release.
 /// </summary>
 public interface IGhostSystem
 {

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- A consumer of the contract: references Lattice.Api and nothing else of Lattice. -->
+  <!-- A consumer of the contract: references Lattice.Api, and Lattice.Testing as a consumer's tests do, for the stubs its fakes inherit. -->
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -12,5 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Testing\Lattice.Testing.csproj" />
   </ItemGroup>
 </Project>

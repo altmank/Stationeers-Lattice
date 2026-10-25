@@ -187,3 +187,200 @@ Lattice.Testing.TestPiece.Named(string! displayName) -> Lattice.Testing.TestPiec
 Lattice.Testing.TestPiece.OtherKits.get -> Lattice.Api.ValueList<Lattice.Testing.TestKitPlace!>!
 Lattice.Testing.FakeGhostStyles.TryPick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options, out Lattice.Api.PickResult hit) -> bool
 Lattice.Testing.TestPiece.WithPort(Lattice.Api.CellOffset at, Lattice.Api.SignedAxis facing, Lattice.Api.ValueSet<Lattice.Testing.TestNetwork>! networks, Lattice.Api.PortRole role) -> Lattice.Testing.TestPiece!
+Lattice.Testing.Stubs.StubAnalysis
+Lattice.Testing.Stubs.StubAnalysis.StubAnalysis() -> void
+virtual Lattice.Testing.Stubs.StubAnalysis.Of(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.AnalysisReport!>!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubGhostBoard
+Lattice.Testing.Stubs.StubGhostBoard.StubGhostBoard() -> void
+virtual Lattice.Testing.Stubs.StubGhostBoard.As(Lattice.Api.Actor! viewer) -> Lattice.Api.IGhostBoard!
+virtual Lattice.Testing.Stubs.StubGhostBoard.At(Lattice.Api.Cell cell) -> Lattice.Api.ValueList<Lattice.Api.Ghost!>!
+virtual Lattice.Testing.Stubs.StubGhostBoard.Find(Lattice.Api.GhostId id) -> Lattice.Api.Option<Lattice.Api.Ghost!>
+virtual Lattice.Testing.Stubs.StubGhostBoard.On(Lattice.Api.StructureRef structure) -> Lattice.Api.ValueList<Lattice.Api.Ghost!>!
+virtual Lattice.Testing.Stubs.StubGhostBoard.Revision.get -> Lattice.Api.Revision
+virtual Lattice.Testing.Stubs.StubGhostBoard.Select(Lattice.Api.Selector! selector) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Ghost!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostBoard.Groups.get -> Lattice.Api.ValueList<Lattice.Api.GroupCount!>!
+Lattice.Testing.Stubs.StubWorldQuery
+Lattice.Testing.Stubs.StubWorldQuery.StubWorldQuery() -> void
+virtual Lattice.Testing.Stubs.StubWorldQuery.AssumedFrom(Lattice.Api.StructureRef structure) -> Lattice.Api.Option<Lattice.Api.GhostId>
+virtual Lattice.Testing.Stubs.StubWorldQuery.At(Lattice.Api.Cell cell) -> Lattice.Api.ValueList<Lattice.Api.StructureInfo!>!
+virtual Lattice.Testing.Stubs.StubWorldQuery.NetworkOf(Lattice.Api.ReferenceId id) -> Lattice.Api.Option<Lattice.Api.NetworkRef>
+virtual Lattice.Testing.Stubs.StubWorldQuery.RoomAt(Lattice.Api.Cell cell) -> Lattice.Api.Option<Lattice.Api.RoomRef>
+virtual Lattice.Testing.Stubs.StubWorldQuery.Select(Lattice.Api.StructureSelector! selector) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.StructureRef>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubWorldQuery.Structure(Lattice.Api.ReferenceId id) -> Lattice.Api.Option<Lattice.Api.StructureInfo!>
+Lattice.Testing.Stubs.StubPieceCatalogue
+Lattice.Testing.Stubs.StubPieceCatalogue.StubPieceCatalogue() -> void
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.FamilyOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.PieceFamily, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.Kit(Lattice.Api.KitKey kit) -> Lattice.Api.Result<Lattice.Api.KitEntry!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.KitOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.KitPlace, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.Kits.get -> Lattice.Api.ValueList<Lattice.Api.KitEntry!>!
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.Piece(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.PieceEntry!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.PieceOf(Lattice.Api.KitKey kit, Lattice.Api.KitOption option) -> Lattice.Api.Result<Lattice.Api.PrefabKey, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.Pieces.get -> Lattice.Api.ValueList<Lattice.Api.PieceEntry!>!
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.FamiliesOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.PieceFamily>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.ParentOf(Lattice.Api.PieceFamily family) -> Lattice.Api.Option<Lattice.Api.PieceFamily>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.PortsAt(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Port!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.FacingOf(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.Option<Lattice.Api.Axis>, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubCommands
+Lattice.Testing.Stubs.StubCommands.StubCommands() -> void
+virtual Lattice.Testing.Stubs.StubCommands.Submit(Lattice.Api.CommandId id, Lattice.Api.Command! command, Lattice.Api.Actor! actor) -> Lattice.Api.Submission!
+Lattice.Testing.Stubs.StubGhostEvents
+Lattice.Testing.Stubs.StubGhostEvents.StubGhostEvents() -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.Answered -> System.Action<Lattice.Api.Ticket, Lattice.Api.Outcome!>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseAnswered(Lattice.Api.Ticket ticket, Lattice.Api.Outcome! outcome) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.AnswersReady -> System.Action<Lattice.Api.Revision>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseAnswersReady(Lattice.Api.Revision revision) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.Blocked -> System.Action<Lattice.Api.Maker, Lattice.Api.ValueList<Lattice.Api.BlockedGhost!>!>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseBlocked(Lattice.Api.Maker maker, Lattice.Api.ValueList<Lattice.Api.BlockedGhost!>! ghosts) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.BoardReset -> System.Action!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseBoardReset() -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.Changed -> System.Action<Lattice.Api.ChangeSet!>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseChanged(Lattice.Api.ChangeSet! changes) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.Completed -> System.Action<Lattice.Api.GhostId, Lattice.Api.Completion!>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseCompleted(Lattice.Api.GhostId ghost, Lattice.Api.Completion! completion) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.Loaded -> System.Action<Lattice.Api.LoadReport!>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseLoaded(Lattice.Api.LoadReport! report) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.PlanStateChanged -> System.Action<Lattice.Api.PlanId>!
+Lattice.Testing.Stubs.StubGhostEvents.RaisePlanStateChanged(Lattice.Api.PlanId plan) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.StatusChanged -> System.Action<Lattice.Api.GhostId>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseStatusChanged(Lattice.Api.GhostId ghost) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.StructuresMoved -> System.Action<Lattice.Api.ValueList<Lattice.Api.StructureMove!>!>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseStructuresMoved(Lattice.Api.ValueList<Lattice.Api.StructureMove!>! moves) -> void
+Lattice.Testing.Stubs.StubExecutors
+Lattice.Testing.Stubs.StubExecutors.StubExecutors() -> void
+virtual Lattice.Testing.Stubs.StubExecutors.ClaimOn(Lattice.Api.GhostId ghost) -> Lattice.Api.Option<Lattice.Api.Claim!>
+virtual Lattice.Testing.Stubs.StubExecutors.Register(Lattice.Api.ExecutorInfo! info) -> Lattice.Api.Result<Lattice.Api.IExecutorHandle!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutors.StatusOf(Lattice.Api.GhostId ghost) -> Lattice.Api.ValueList<Lattice.Api.ExecutorReport!>!
+Lattice.Testing.Stubs.StubExecutorHandle
+Lattice.Testing.Stubs.StubExecutorHandle.StubExecutorHandle() -> void
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Claim(Lattice.Api.GhostId ghost, Lattice.Api.Lease lease) -> Lattice.Api.Result<Lattice.Api.Claim!, Lattice.Api.ClaimRefused!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Release(Lattice.Api.Claim! claim) -> void
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Renew(Lattice.Api.Claim! claim) -> Lattice.Api.Result<Lattice.Api.Claim!, Lattice.Api.ClaimRefused!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Report(Lattice.Api.GhostId ghost, Lattice.Api.ExecutorStatus! status) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Dispose() -> void
+Lattice.Testing.Stubs.StubGhostSystem
+Lattice.Testing.Stubs.StubGhostSystem.StubGhostSystem() -> void
+virtual Lattice.Testing.Stubs.StubGhostSystem.Analysis.get -> Lattice.Api.IAnalysis!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Bills.get -> Lattice.Api.IBills!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Board.get -> Lattice.Api.IGhostBoard!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Commands.get -> Lattice.Api.ICommands!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Events.get -> Lattice.Api.IGhostEvents!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Executors.get -> Lattice.Api.IExecutors!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Has(Lattice.Api.IntentKind kind) -> bool
+virtual Lattice.Testing.Stubs.StubGhostSystem.Inspector.get -> Lattice.Api.IInspector!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Modules.get -> Lattice.Api.ValueList<Lattice.Api.ModuleStatus!>!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Plans.get -> Lattice.Api.IPlans!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Preview.get -> Lattice.Api.IPreview!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Registries.get -> Lattice.Api.IRegistries!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Slices.get -> Lattice.Api.ISlices!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Steps.get -> Lattice.Api.ISteps!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Styles.get -> Lattice.Api.IGhostStyles!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Swaps.get -> Lattice.Api.ISwaps!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Validation.get -> Lattice.Api.IValidation!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Version.get -> Lattice.Api.ApiVersion
+virtual Lattice.Testing.Stubs.StubGhostSystem.World.get -> Lattice.Api.IWorldQuery!
+virtual Lattice.Testing.Stubs.StubGhostSystem.Catalogue.get -> Lattice.Api.IPieceCatalogue!
+Lattice.Testing.Stubs.StubInspector
+Lattice.Testing.Stubs.StubInspector.StubInspector() -> void
+virtual Lattice.Testing.Stubs.StubInspector.Export(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.ValueList<string!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubInspector.Story(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.GhostStory!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubInspector.Story(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.PlanStory!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubPlans
+Lattice.Testing.Stubs.StubPlans.StubPlans() -> void
+virtual Lattice.Testing.Stubs.StubPlans.AheadOfSave(Lattice.Api.PlanId plan) -> Lattice.Api.Result<int, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPlans.All.get -> Lattice.Api.ValueList<Lattice.Api.Plan!>!
+virtual Lattice.Testing.Stubs.StubPlans.AsTemplate(Lattice.Api.PlanId plan, Lattice.Api.TemplateName name) -> Lattice.Api.Result<Lattice.Api.Template!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPlans.Default.get -> Lattice.Api.PlanId
+virtual Lattice.Testing.Stubs.StubPlans.Facts(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.PlanFacts!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPlans.Find(Lattice.Api.PlanId plan) -> Lattice.Api.Option<Lattice.Api.Plan!>
+virtual Lattice.Testing.Stubs.StubPlans.Finished.get -> Lattice.Api.ValueList<Lattice.Api.FinishedPlan!>!
+virtual Lattice.Testing.Stubs.StubPlans.LastLoad.get -> Lattice.Api.Option<Lattice.Api.LoadReport!>
+virtual Lattice.Testing.Stubs.StubPlans.State(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.PlanState!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPlans.ReadTemplate(string! text) -> Lattice.Api.Result<Lattice.Api.Template!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPlans.WriteTemplate(Lattice.Api.Template! template) -> string!
+Lattice.Testing.Stubs.StubSwaps
+Lattice.Testing.Stubs.StubSwaps.StubSwaps() -> void
+virtual Lattice.Testing.Stubs.StubSwaps.OptionsFor(Lattice.Api.StructureRef structure) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.SwapOption!>!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubPreview
+Lattice.Testing.Stubs.StubPreview.StubPreview() -> void
+virtual Lattice.Testing.Stubs.StubPreview.Of(Lattice.Api.Command! command, Lattice.Api.Actor! actor) -> Lattice.Api.Answer<Lattice.Api.Result<Lattice.Api.Preview!, Lattice.Api.ValueList<Lattice.Api.Refusal!>!>>!
+Lattice.Testing.Stubs.StubRegistries
+Lattice.Testing.Stubs.StubRegistries.StubRegistries() -> void
+virtual Lattice.Testing.Stubs.StubRegistries.Install(Lattice.Api.AccessPolicy! policy) -> Lattice.Api.Result<Lattice.Api.IPolicyHandle!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.LimitPlanSize(int maxGhosts) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.Register(Lattice.Api.AnalyzerDescriptor! analyzer) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.Register(Lattice.Api.AttachmentDescriptor! attachment) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.Register(Lattice.Api.CatalogueAddition! addition) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.Register(Lattice.Api.RuleDescriptor! rule) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.Register(Lattice.Api.SupportRuleDescriptor! rule) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubRegistries.Register<TCommand>(Lattice.Api.CommandExpander<TCommand!>! expander) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubPolicyHandle
+Lattice.Testing.Stubs.StubPolicyHandle.StubPolicyHandle() -> void
+virtual Lattice.Testing.Stubs.StubPolicyHandle.Changed() -> void
+virtual Lattice.Testing.Stubs.StubPolicyHandle.Dispose() -> void
+Lattice.Testing.Stubs.StubSlices
+Lattice.Testing.Stubs.StubSlices.StubSlices() -> void
+virtual Lattice.Testing.Stubs.StubSlices.Schedule(Lattice.Api.SlicedWorkDescriptor! work) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubSteps
+Lattice.Testing.Stubs.StubSteps.StubSteps() -> void
+virtual Lattice.Testing.Stubs.StubSteps.For(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.StepPlan!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubBills
+Lattice.Testing.Stubs.StubBills.StubBills() -> void
+virtual Lattice.Testing.Stubs.StubBills.For(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Bill!, Lattice.Api.Reason!>
+Lattice.Testing.Stubs.StubGhostStyles
+Lattice.Testing.Stubs.StubGhostStyles.StubGhostStyles() -> void
+virtual Lattice.Testing.Stubs.StubGhostStyles.Add(Lattice.Api.StyleLayerDescriptor! layer) -> Lattice.Api.Result<Lattice.Api.IStyleLayer!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.Clip(Lattice.Api.ClipShape! shape) -> Lattice.Api.Result<Lattice.Api.IClip!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.ClipChanged -> System.Action<Lattice.Api.Option<Lattice.Api.ClipShape!>>!
+Lattice.Testing.Stubs.StubGhostStyles.RaiseClipChanged(Lattice.Api.Option<Lattice.Api.ClipShape!> shape) -> void
+virtual Lattice.Testing.Stubs.StubGhostStyles.Drafts(Lattice.Api.DraftsId id) -> Lattice.Api.Result<Lattice.Api.IDrafts!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.Explain(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.StyleStory!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.Highlight(Lattice.Api.HighlightRequest! request) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.InForce.get -> Lattice.Api.Option<Lattice.Api.ClipShape!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.Matches(Lattice.Api.StyleMatch! match, Lattice.Api.StructureRef structure) -> bool
+virtual Lattice.Testing.Stubs.StubGhostStyles.Pick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options) -> Lattice.Api.Option<Lattice.Api.PickHit!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.Set(Lattice.Api.StyleSetId id) -> Lattice.Api.Result<Lattice.Api.IStyleSet!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.StructureSet(Lattice.Api.StyleSetId id) -> Lattice.Api.Result<Lattice.Api.IStructureSet!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubGhostStyles.TryPick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options, out Lattice.Api.PickResult hit) -> bool
+Lattice.Testing.Stubs.StubStyleLayer
+Lattice.Testing.Stubs.StubStyleLayer.StubStyleLayer() -> void
+virtual Lattice.Testing.Stubs.StubStyleLayer.Disable() -> void
+virtual Lattice.Testing.Stubs.StubStyleLayer.Enable() -> void
+virtual Lattice.Testing.Stubs.StubStyleLayer.Enabled.get -> bool
+virtual Lattice.Testing.Stubs.StubStyleLayer.Id.get -> Lattice.Api.StyleLayerId
+virtual Lattice.Testing.Stubs.StubStyleLayer.Dispose() -> void
+Lattice.Testing.Stubs.StubStyleSet
+Lattice.Testing.Stubs.StubStyleSet.StubStyleSet() -> void
+virtual Lattice.Testing.Stubs.StubStyleSet.Add(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+virtual Lattice.Testing.Stubs.StubStyleSet.Clear() -> void
+virtual Lattice.Testing.Stubs.StubStyleSet.Contains(Lattice.Api.GhostId ghost) -> bool
+virtual Lattice.Testing.Stubs.StubStyleSet.Count.get -> int
+virtual Lattice.Testing.Stubs.StubStyleSet.Id.get -> Lattice.Api.StyleSetId
+virtual Lattice.Testing.Stubs.StubStyleSet.Put(Lattice.Api.GhostId ghost) -> void
+virtual Lattice.Testing.Stubs.StubStyleSet.Remove(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+virtual Lattice.Testing.Stubs.StubStyleSet.Replace(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Testing.Stubs.StubStructureSet
+Lattice.Testing.Stubs.StubStructureSet.StubStructureSet() -> void
+virtual Lattice.Testing.Stubs.StubStructureSet.Add(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+virtual Lattice.Testing.Stubs.StubStructureSet.Clear() -> void
+virtual Lattice.Testing.Stubs.StubStructureSet.Contains(Lattice.Api.StructureRef structure) -> bool
+virtual Lattice.Testing.Stubs.StubStructureSet.Count.get -> int
+virtual Lattice.Testing.Stubs.StubStructureSet.Id.get -> Lattice.Api.StyleSetId
+virtual Lattice.Testing.Stubs.StubStructureSet.Put(Lattice.Api.StructureRef structure) -> void
+virtual Lattice.Testing.Stubs.StubStructureSet.Remove(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+virtual Lattice.Testing.Stubs.StubStructureSet.Replace(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Testing.Stubs.StubDrafts
+Lattice.Testing.Stubs.StubDrafts.StubDrafts() -> void
+virtual Lattice.Testing.Stubs.StubDrafts.Clear() -> void
+virtual Lattice.Testing.Stubs.StubDrafts.Hand(Lattice.Api.Submission! submission) -> void
+virtual Lattice.Testing.Stubs.StubDrafts.Id.get -> Lattice.Api.DraftsId
+virtual Lattice.Testing.Stubs.StubDrafts.Show(Lattice.Api.Preview! preview) -> void
+virtual Lattice.Testing.Stubs.StubDrafts.Show(Lattice.Api.ValueList<Lattice.Api.GhostDraft!>! drafts) -> void
+virtual Lattice.Testing.Stubs.StubDrafts.Dispose() -> void
+Lattice.Testing.Stubs.StubClip
+Lattice.Testing.Stubs.StubClip.StubClip() -> void
+virtual Lattice.Testing.Stubs.StubClip.Move(Lattice.Api.ClipShape! to) -> void
+virtual Lattice.Testing.Stubs.StubClip.Shape.get -> Lattice.Api.ClipShape!
+virtual Lattice.Testing.Stubs.StubClip.Dispose() -> void
+Lattice.Testing.Stubs.StubValidation
+Lattice.Testing.Stubs.StubValidation.StubValidation() -> void
+virtual Lattice.Testing.Stubs.StubValidation.Check(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.ValidationReport!>!, Lattice.Api.Reason!>

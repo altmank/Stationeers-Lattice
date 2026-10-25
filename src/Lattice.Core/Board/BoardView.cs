@@ -142,6 +142,9 @@ internal sealed class PlansView(GhostBoard board, Actor viewer) : IPlans
     private ValueList<Plan> _all = ValueList<Plan>.Empty;
     private int _epoch = -1;
     private int _policyEpoch = -1;
+    private ValueList<FinishedPlan> _finished = ValueList<FinishedPlan>.Empty;
+    private ValueList<FinishedPlan>? _finishedFrom;
+    private int _finishedPolicyEpoch = -1;
 
     public ValueList<Plan> All
     {
@@ -184,8 +187,30 @@ internal sealed class PlansView(GhostBoard board, Actor viewer) : IPlans
         : Find(plan).IsSome ? states.State(plan)
         : Result<Answer<PlanState>, Reason>.Error(NotFound(plan));
 
-    /// <summary>Saving's finished-plans index; empty until saving is installed.</summary>
-    public ValueList<FinishedPlan> Finished => board.Saved?.Finished ?? ValueList<FinishedPlan>.Empty;
+    /// <summary>
+    /// Saving's finished-plans index, only the plans whose record at finish the access policy lets the viewer see (a
+    /// plan with no record is left out while a policy is installed); empty until saving is installed. Cached until the
+    /// index or the policy's answers change.
+    /// </summary>
+    public ValueList<FinishedPlan> Finished
+    {
+        get
+        {
+            if (board.Saved is not { } saved)
+                return ValueList<FinishedPlan>.Empty;
+            var index = saved.Finished;
+            if (board.Policies.AllowsEverything)
+                return index;
+            if (ReferenceEquals(index, _finishedFrom) && _finishedPolicyEpoch == board.Policies.Epoch)
+                return _finished;
+            var seen = new List<FinishedPlan>(index.Count);
+            foreach (var plan in index)
+                if (saved.FinishedRecord(plan.Id).TryGet(out var record) && board.Policies.MaySee(viewer, record))
+                    seen.Add(plan);
+            (_finished, _finishedFrom, _finishedPolicyEpoch) = (seen.Count == index.Count ? index : ValueList.From(seen), index, board.Policies.Epoch);
+            return _finished;
+        }
+    }
 
     /// <summary>Saving's count for the plan; module-missing until saving is installed.</summary>
     public Result<int, Reason> AheadOfSave(PlanId plan) =>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.2
+
+- **Test fakes that keep compiling.** `Lattice.Testing.Stubs` has a base stub for every contract interface, every
+  member virtual. A mod's fake that inherits one keeps compiling when a later minor adds a member. A minor adds to
+  Lattice's interfaces for callers; it promises nothing to code that implements them, so fake them through the stubs.
+- **The finished-plans list follows the access policy.** With a policy installed, `Plans.Finished` lists only the
+  plans the viewer may see.
+
 ## 0.10.1
 
 - **Clients see who works on which ghost.** Executors still run on the host; a client now reads their claims and

@@ -86,7 +86,8 @@ public sealed class MyLayer
 
 - Ask `LatticeSystem.Current` when you need it, never at load, so load order between mods does not matter.
 - Check `Version` before you use a member a later minor added (its XML doc says "Added in contract 0.x"), and
-  `lattice.Modules` for a module you depend on.
+  `lattice.Modules` for a module you depend on. A minor may add members to Lattice's interfaces: fake them in tests
+  through the stubs ([versions and features](consumer-guide.md#4-versions-and-features)).
 - Everything you register ends with the world. After the world ends, drop your handles; do not dispose them.
 - `BoardReset` is also raised when the board is replaced inside a world. `Current` is still set then: drop cached
   answers and keep going.

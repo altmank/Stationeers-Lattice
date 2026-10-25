@@ -75,6 +75,12 @@ internal interface ISavedPlans
 
     ValueList<FinishedPlan> Finished { get; }
 
+    /// <summary>
+    /// A finished plan's record at its finishing line, as the index keeps it: what the access policy judges for the
+    /// finished list. None for a plan the index does not list or holds no record for. Constant cost.
+    /// </summary>
+    Option<Plan> FinishedRecord(PlanId plan);
+
     Result<int, Reason> AheadOfSave(PlanId plan);
 
     /// <summary>
@@ -148,6 +154,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     private IdCounters _next = new(1, GhostBoard.DefaultPlan.Value + 1, 1);
     private Option<LoadReport> _lastLoad;
     private ValueList<FinishedPlan>? _finished;
+    private Dictionary<PlanId, Plan> _finishedRecords = new();
     private Revision _revision;
 
     public PlanSaving(WorldFolder folder, int checkpointEvery = 2000)
@@ -181,10 +188,23 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
                 return known;
             var index = _folder.Finished();
             var plans = new List<FinishedPlan>(index.Count);
+            var records = new Dictionary<PlanId, Plan>(index.Count);
             foreach (var entry in index)
+            {
                 plans.Add(entry.Plan);
+                if (entry.Record.TryGet(out var record))
+                    records[entry.Plan.Id] = record;
+            }
+
+            _finishedRecords = records;
             return _finished = ValueList.From(plans);
         }
+    }
+
+    public Option<Plan> FinishedRecord(PlanId plan)
+    {
+        _ = Finished;
+        return _finishedRecords.TryGetValue(plan, out var record) ? Option.Some(record) : Option<Plan>.None;
     }
 
     public Result<int, Reason> AheadOfSave(PlanId plan)
@@ -290,6 +310,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         foreach (var plan in archivedOnly.Keys)
             finishedPlans.Add(plan);
 
+        FillFinishedRecords();
         hidden.Sort(static (a, b) => a.Value.CompareTo(b.Value));
         finishedPlans.Sort(static (a, b) => a.Value.CompareTo(b.Value));
         var report = new OpenReport(
@@ -572,7 +593,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         var entry = state.Record.Map(record =>
         {
             var box = state.Bounds.Reduce((default(Cell), default(Cell)));
-            return new FinishedEntry(new FinishedPlan(plan, record.Name, record.Owner, state.LineAt, state.Built, box.Item1, box.Item2), line);
+            return new FinishedEntry(new FinishedPlan(plan, record.Name, record.Owner, state.LineAt, state.Built, box.Item1, box.Item2), line) { Record = Option.Some(record) };
         });
         _pending.Enqueue(new Queued.Archive(plan, entry));
     }
@@ -709,6 +730,37 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
 
     private static ValueMap<string, string> PlanFact(PlanId plan) =>
         ValueMap.Of("plan", plan.Value.ToString(CultureInfo.InvariantCulture));
+
+    // An index written before it kept plan records: each entry without one gets its plan's record at the finishing
+    // line, read from the plan's file, and the index is written again. An entry whose file or line is gone stays
+    // without one. Linear in those plans' lines; nothing to do for an index that has every record.
+    private void FillFinishedRecords()
+    {
+        var index = _folder.Finished();
+        var filled = false;
+        for (var i = 0; i < index.Count; i++)
+        {
+            var entry = index[i];
+            if (entry.Record.IsSome)
+                continue;
+            var tree = _trees.TryGetValue(entry.Plan.Id, out var held) ? held : ReadTree(entry.Plan.Id);
+            if (!tree.Has(entry.Line) || !Rebuild(tree, entry.Line, new List<FileProblem>()).Record.TryGet(out var record))
+                continue;
+            index[i] = entry with { Record = Option.Some(record) };
+            filled = true;
+        }
+
+        if (filled)
+            _folder.ReplaceFinished(index);
+    }
+
+    private PlanTree ReadTree(PlanId plan)
+    {
+        var path = System.IO.File.Exists(_folder.PlanPath(plan)) ? _folder.PlanPath(plan)
+            : System.IO.File.Exists(_folder.ArchivedPath(plan)) ? _folder.ArchivedPath(plan)
+            : null;
+        return path == null ? PlanTree.Empty(plan) : PlanTree.Read(plan, _folder.ReadText(path)).Tree;
+    }
 
     private PlanTree TreeFor(PlanId plan)
     {
