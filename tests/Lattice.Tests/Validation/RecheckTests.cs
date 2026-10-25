@@ -215,7 +215,7 @@ public sealed class RecheckTests
     }
 
     [Fact]
-    public void An_answer_that_comes_after_its_ghost_left_is_not_asked_again_by_a_sweep()
+    public void A_ghost_that_left_before_its_facts_were_answered_is_asked_about_neither_then_nor_by_a_sweep()
     {
         var bench = new ValidationBench().Start();
         var stays = bench.Ghost("StructureFrameIron", Large(0, 0, 0));
@@ -230,8 +230,8 @@ public sealed class RecheckTests
         bench.Service.Frame();
         bench.Apply(new Command.Remove(new Selector.Ids(ValueList.Of(leaves))));
         bench.Scheduler.RunFrame();
-        Assert.Contains(at, bench.Placement.Calls);
         bench.Pump();
+        Assert.DoesNotContain(at, bench.Placement.Calls);
         var settled = bench.Placement.Calls.Count;
         bench.Clock.Advance(TimeSpan.FromSeconds(10));
         bench.Pump();

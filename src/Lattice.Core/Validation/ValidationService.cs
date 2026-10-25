@@ -690,7 +690,9 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
 
     // The next ask not answered already (an answer on its way to the worker), passing over at most SkippedPerStep
     // answered ones (more is false then: look again next step); none, with more false, when every list is done. A
-    // main-thread rule is not asked about a board ghost that has left the board: no judgement waits for it.
+    // main-thread rule, or the game about a board ghost's placement, is not asked once the ghost has left the board
+    // (removed or done): no judgement reads that answer. A trial's game asks are about ghosts not on the board, and
+    // are always asked.
     private (Ask Ask, bool Trial)? NextAsk(out bool more)
     {
         more = false;
@@ -713,6 +715,8 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
                     return (ask, true);
                 if (ask is Ask.MainSupport or Ask.MainRule && !_parts.Board.Index.Ghosts.ContainsKey(new GhostId(ask.Key.Id)))
                     continue;
+                if (!trial && ask is Ask.Game game && !OnTheBoard(game.At))
+                    continue;
                 if (!_book.OnItsWay(ask.Key, _settled))
                     return (ask, trial);
             }
@@ -724,6 +728,17 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
         _asksLeft = 0;
         _mainWaiting = false;
         return null;
+    }
+
+    // Whether a board ghost is placed there. The game is asked about a ghost's own placement, so a ghost there is in
+    // the board's index of the placement's cell.
+    private bool OnTheBoard(Placement at)
+    {
+        var index = _parts.Board.Index;
+        foreach (var id in index.InCell(at.At))
+            if (index.Ghosts.TryGetValue(id, out var entry) && entry.Shape.TryGet(out var shape) && shape.Placement == at)
+                return true;
+        return false;
     }
 
     private void Answer(Ask ask, bool trial)

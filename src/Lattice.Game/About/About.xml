@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.7.1
+- Validation stops asking the game about ghosts that are already gone, so a finished plan settles faster on a large base.
+
 v0.7.0
 - Windows are their own family, under walls: a see-through face that seals air once built. Style rules for walls still cover windows; mods can now style windows alone. Floor gratings stay walls.
 - Style rules can match face pieces by how they lie: flat (floors, ceilings) or upright.
