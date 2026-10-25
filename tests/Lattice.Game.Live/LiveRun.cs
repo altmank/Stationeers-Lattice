@@ -77,7 +77,9 @@ internal sealed class LiveRunner : MonoBehaviour
         _mode = mode;
         Directory.CreateDirectory(outDir);
         _log = new StreamWriter(Path.Combine(outDir, $"live-bridge-{mode}.log"), append: false) { AutoFlush = true };
-        _limit = mode.StartsWith("bigbase", StringComparison.Ordinal) || mode.StartsWith("two-player", StringComparison.Ordinal) ? LongLimitSeconds : TimeLimitSeconds;
+        _limit = mode == "render-look" ? LookLimitSeconds
+            : mode.StartsWith("bigbase", StringComparison.Ordinal) || mode.StartsWith("two-player", StringComparison.Ordinal) || mode.StartsWith("render-", StringComparison.Ordinal) || mode == "render" ? LongLimitSeconds
+            : TimeLimitSeconds;
         _deadline = Time.realtimeSinceStartup + _limit;
         StartCoroutine(Guarded(Run()));
     }
@@ -120,6 +122,9 @@ internal sealed class LiveRunner : MonoBehaviour
 
     /// <summary>The limit of the base-sized and two-player runs, which load and save a large real base more than once.</summary>
     private const float LongLimitSeconds = 1800f;
+
+    /// <summary>The limit of the look session, which ends on its stop file.</summary>
+    private const float LookLimitSeconds = 4 * 3600f;
 
     private float _limit = TimeLimitSeconds;
 
@@ -178,6 +183,14 @@ internal sealed class LiveRunner : MonoBehaviour
         {
             _step = "render-timing";
             yield return DrawTimingRun.Run(Path.Combine(_outDir, "lattice.shaders"), Line);
+            Finish();
+            yield break;
+        }
+
+        if (_mode.StartsWith("render", StringComparison.Ordinal))
+        {
+            _step = _mode;
+            yield return RenderRun.Run(_mode, _outDir, Line);
             Finish();
             yield break;
         }

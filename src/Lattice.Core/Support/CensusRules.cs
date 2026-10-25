@@ -81,7 +81,10 @@ internal static class FrameBelow
 /// blocked (<c>InvalidBlocked</c>); the support is what holds the centre of the large cell behind, else a face piece
 /// (wall, window, plate) on the plane between the two cells (<c>InvalidMissingSupport</c> without either). A piece that
 /// requires a frame refuses a face piece (<c>InvalidRequiresFrame</c>); the support must allow mounting
-/// (<c>InvalidNotMountable</c>). A piece on an edge or corner, or a large-grid piece, is the game's to answer.
+/// (<c>InvalidNotMountable</c>). A small piece on no face plane, inside a large cell, fails <c>InvalidMissingSupport</c>
+/// whatever stands around it: the game's default branch for a position off every face, edge and corner, which returns
+/// before any support is looked at (<c>CanMountOnWall</c>, the switch on <c>RocketGrid.GridLocation</c>). A piece on
+/// an edge or corner, or a large-grid piece, is the game's to answer.
 /// </summary>
 internal sealed class WallMountRule(SupportGeometry geometry) : ICensusRule
 {
@@ -90,7 +93,12 @@ internal sealed class WallMountRule(SupportGeometry geometry) : ICensusRule
     public Judgement Judge(SupportCase @case)
     {
         var (_, at, piece, _) = @case;
-        if (piece.Grid != GridSize.Small || SupportGeometry.FacePlanes(at.At) != 1 || !geometry.FactsOf(at.Piece).TryGet(out var own))
+        if (piece.Grid != GridSize.Small)
+            return Judgement.Game;
+        var planes = SupportGeometry.FacePlanes(at.At);
+        if (planes == 0)
+            return new Judgement.Unsupported(SupportReasons.Needs(Group, "InvalidMissingSupport"));
+        if (planes != 1 || !geometry.FactsOf(at.Piece).TryGet(out var own))
             return Judgement.Game;
         var centre = geometry.CentreOf(at, piece);
         var half = SupportGeometry.Metres(piece.Grid) / 2f;

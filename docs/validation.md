@@ -48,6 +48,10 @@ The reason codes are in `ReasonCodes`. The main ones:
 | `would-bridge`, `would-split`, `contents-would-move`, `would-overload-when-on` | What a change would do to networks. |
 | `rule-timed-out`, `rule-switched-off` | A mod's rule did not answer in time, or threw (below). |
 
+Where the game's own check answers for a piece (an edge, a group Lattice does not model), it sees only what is
+built: a ghost earlier in the order in the large cells around the piece makes the piece wait for it, whatever the
+game says now.
+
 Two clashes are refused when the ghost is placed, not found later: `cannot-share` (two pieces whose kinds never
 share a small cell, a cable with a chute for example) and `ends-collide` (ends within 0.1 m of each other in the same
 small cells).

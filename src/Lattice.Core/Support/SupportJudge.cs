@@ -143,7 +143,7 @@ internal sealed class SupportJudge
                         return new SupportAnswer(new SupportOutcome.Pending(@case.At), ValueList.From(warnings), turnsOn) { Replaced = replaced };
                     break;
                 default:
-                    turnsOn = Near(@case);
+                    turnsOn = Near(@case, Geometry);
                     if (!AskGame(@case, turnsOn, waits, ref failed))
                         return new SupportAnswer(new SupportOutcome.Pending(@case.At), ValueList.From(warnings), turnsOn) { Replaced = replaced };
                     break;
@@ -159,16 +159,17 @@ internal sealed class SupportJudge
     }
 
     /// <summary>
-    /// The ghosts assumed so far whose changes lie within one cell of the piece's own cell on every axis (its cell
-    /// and the 26 around it). A heuristic for "could change the game's answer", not a game rule.
+    /// The ghosts assumed so far whose changes lie in the large cell holding the piece's centre or one of the 26 large
+    /// cells around it, for a small piece as for a large one: everywhere its support can stand, so a frame ghost behind
+    /// a device on its face counts. A heuristic for "could change the game's answer", not a game rule.
     /// </summary>
-    public static ValueList<GhostId> Near(SupportCase @case)
+    public static ValueList<GhostId> Near(SupportCase @case, SupportGeometry geometry)
     {
-        var step = @case.Piece.Grid == GridSize.Large ? 20 : 5;
-        var at = @case.At.At;
+        const int step = 20;
+        var large = geometry.LargeCellAt(geometry.CentreOf(@case.At, @case.Piece));
         return @case.World.ChangesIn(
-            new Cell(at.X - step, at.Y - step, at.Z - step),
-            new Cell(at.X + step, at.Y + step, at.Z + step),
+            new Cell(large.X - step, large.Y - step, large.Z - step),
+            new Cell(large.X + step, large.Y + step, large.Z + step),
             @case.Ghost);
     }
 

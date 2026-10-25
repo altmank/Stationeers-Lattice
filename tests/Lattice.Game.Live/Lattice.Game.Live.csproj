@@ -29,9 +29,31 @@
     <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" Private="false" />
     <ProjectReference Include="..\..\src\Lattice.Core\Lattice.Core.csproj" Private="false" />
     <ProjectReference Include="..\..\src\Lattice.Game\Lattice.Game.csproj" Private="false" />
+    <ProjectReference Include="..\..\src\Lattice.Api.Unity\Lattice.Api.Unity.csproj" Private="false" />
+    <ProjectReference Include="..\..\src\Lattice.Render\Lattice.Render.csproj" Private="false" />
+  </ItemGroup>
+
+  <!--
+    Candidate ghost themes for the render look grid, from a consumer's own source file outside this repo:
+    -p:LookThemes=<path to the .cs file> -p:LookThemesNamespace=<its namespace>. The file declares a static
+    CandidateThemes.All of themes with a Name, a Look (Palette, Rules) and Effects (Rules). Without it the grid has
+    the library column only.
+  -->
+  <PropertyGroup Condition="'$(LookThemes)' != '' And Exists('$(LookThemes)')">
+    <DefineConstants>$(DefineConstants);LOOK_THEMES</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(LookThemes)' != '' And Exists('$(LookThemes)')">
+    <Compile Include="$(LookThemes)" Link="Themes\CandidateThemes.cs" />
+    <Using Include="$(LookThemesNamespace)" Condition="'$(LookThemesNamespace)' != ''" />
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(GameManagedDir)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(GameManagedDir)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(GameManagedDir)\Unity.TextMeshPro.dll" Private="false" />
+    <Reference Include="UnityEngine.ScreenCaptureModule" HintPath="$(GameManagedDir)\UnityEngine.ScreenCaptureModule.dll" Private="false" />
+    <Reference Include="UnityEngine.ProfilerModule" HintPath="$(GameManagedDir)\UnityEngine.ProfilerModule.dll" Private="false" />
     <Reference Include="Assembly-CSharp" HintPath="$(GameManagedDir)\Assembly-CSharp.dll" Private="false" />
     <Reference Include="UnityEngine" HintPath="$(GameManagedDir)\UnityEngine.dll" Private="false" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManagedDir)\UnityEngine.CoreModule.dll" Private="false" />

@@ -29,6 +29,12 @@ internal sealed class RenderHost : MonoBehaviour
     /// <summary>What consumers reach through <c>LatticeDrawing.Current</c>.</summary>
     public GhostDrawing Drawing { get; private set; } = null!;
 
+    /// <summary>The world's renderer: its counts and claims.</summary>
+    internal Renderer Renderer => _renderer;
+
+    /// <summary>Whether the materials are Lattice's own shaders, not the stand-in, and how many keys have one.</summary>
+    internal (bool Own, int Materials) Shaders => (_bundle.Own, _bundle.Count);
+
     /// <summary>
     /// Opens drawing for a world: refused, with nothing loaded, when the <c>render</c> module is off; refused when no
     /// key has a material (the bundle and the stand-in both missing). <paramref name="pieces"/> reads the prefabs' meshes;

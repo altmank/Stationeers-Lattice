@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.5
+
+- **A device on a planned wall or frame waits for it.** A wall-mounted piece planned on the face of a frame or wall
+  ghost now waits for that ghost instead of failing; on a built frame it passes. One placed on no face is refused by
+  Lattice itself, with the game's own reason, without asking the game.
+- Support checks around small pieces reach the large cells next to them, so support from a neighbouring large cell
+  is seen.
+- The in-game test harness gains its render, look and timing modes, with scenes for ports, flow and waits.
+
 ## 0.10.4
 
 - **Ports, open ends, flow arrows and waits links are drawn.** The style properties `Ports`, `OpenEnds`, `FlowArrows`
