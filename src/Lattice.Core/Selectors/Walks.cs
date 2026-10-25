@@ -12,14 +12,8 @@ internal readonly record struct Held<TId>(TId Id, Cell Own, Option<PlacedShape> 
 /// <summary>Ghosts or structures as the selectors read them, through their indices only.</summary>
 internal interface IHeldPieces<TId> where TId : notnull
 {
-    /// <summary>How many are held.</summary>
-    int Count { get; }
-
     /// <summary>Adds every holder with a spot or its own cell in the cell. Constant cost per holder found.</summary>
     void At(Cell cell, List<Held<TId>> into);
-
-    /// <summary>Adds every holder. Linear in <see cref="Count"/>.</summary>
-    void All(List<Held<TId>> into);
 }
 
 /// <summary>

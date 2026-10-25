@@ -8,7 +8,8 @@ using Lattice.Core.Ports;
 namespace Lattice.Core.Selectors;
 
 /// <summary>
-/// Structure selectors on the built world: references, box, run, piece and their and/or from the mirror's indices;
+/// Structure selectors on the built world: references, box (the mirror's chunks of space), run, piece and their and/or
+/// from the mirror's indices;
 /// networks and rooms from the world view (a network's pieces, a room's cells), then the mirror. Nothing scans the
 /// world. Answers are in id order and kept per selector until the mirror changes, so a repeated read of an unchanged
 /// world allocates nothing. Main thread.
@@ -18,6 +19,7 @@ internal sealed class StructureSelection(Shapes shapes, IGrid grid, WorldMirror 
     private readonly GridSpace _space = new(grid);
     private readonly StructurePieces _pieces = new(mirror, shapes);
     private readonly Dictionary<StructureSelector, Result<ValueList<StructureRef>, Reason>> _answers = new();
+    private readonly List<ReferenceId> _found = new();
     private long _answersAt = -1;
 
     /// <summary>
@@ -41,7 +43,7 @@ internal sealed class StructureSelection(Shapes shapes, IGrid grid, WorldMirror 
     private Result<HashSet<ReferenceId>, Reason> Pick(StructureSelector selector) => selector switch
     {
         StructureSelector.Refs refs => Ok(Existing(refs.Values)),
-        StructureSelector.Box box => Ok(Picks.Box(_pieces, CellBox.Between(box.Corner, box.Opposite), _space)),
+        StructureSelector.Box box => Ok(InBox(CellBox.Between(box.Corner, box.Opposite))),
         StructureSelector.RunThrough run => Ok(Walks.Run(_pieces, run.Cell, grid)),
         StructureSelector.Network network => Ok(OnNetwork(network.Of)),
         StructureSelector.Room room => Ok(InRoom(room.Of)),
@@ -50,6 +52,16 @@ internal sealed class StructureSelection(Shapes shapes, IGrid grid, WorldMirror 
         StructureSelector.Any any => Combine(any.Of, intersect: false),
         _ => Result<HashSet<ReferenceId>, Reason>.Error(SelectorRules.Unknown(selector)),
     };
+
+    /// <summary>The structures whose own cell is in the box. Linear in what the box's chunks of space hold, never in the world.</summary>
+    private HashSet<ReferenceId> InBox(CellBox box)
+    {
+        _found.Clear();
+        mirror.InBox(box.Min, box.Max, _found);
+        var ids = new HashSet<ReferenceId>(_found);
+        _found.Clear();
+        return ids;
+    }
 
     /// <summary>The structures standing that the references name: by id, else by piece and cell. Linear in the references.</summary>
     private HashSet<ReferenceId> Existing(ValueList<StructureRef> refs)

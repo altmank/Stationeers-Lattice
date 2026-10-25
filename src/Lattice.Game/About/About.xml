@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.10.3
+- Selecting part of a large base is now fast: a box looks only at the structures it covers.
+
 v0.10.2
 - Mods that limit who may see a plan now also hide it from the finished-plans list.
 - For mod authors: test stubs that keep compiling when Lattice adds to its interfaces.

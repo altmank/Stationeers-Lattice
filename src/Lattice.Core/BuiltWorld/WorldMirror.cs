@@ -13,8 +13,8 @@ namespace Lattice.Core.BuiltWorld;
 /// A structure seen by the scan and by a signal is one structure: duplicates are merged by id.
 /// <para>
 /// Each structure is indexed by id, by piece, by piece and cell (a ghost's target survives the game giving it a new id), by the
-/// spots its catalogue shape takes, and by every cell those spots lie in. A structure whose piece the catalogue does
-/// not hold has no shape: it is indexed by its own cell only, and <see cref="InSpots"/> counts it in every spot of
+/// spots its catalogue shape takes, by every cell those spots lie in, and by the chunk of space its own cell lies in
+/// (<see cref="InBox"/>). A structure whose piece the catalogue does not hold has no shape: it is indexed by its own cell only, and <see cref="InSpots"/> counts it in every spot of
 /// that cell, so nothing unknown is ever taken for empty space.
 /// </para>
 /// Main thread. Reads are constant cost and allocate nothing; <see cref="Changed"/> is raised after each change is
@@ -31,6 +31,7 @@ internal sealed class WorldMirror
     private readonly Dictionary<Cell, List<ReferenceId>> _unshaped = new();
     private readonly Dictionary<Cell, List<ReferenceId>> _members = new();
     private readonly Dictionary<Cell, ValueList<StructureInfo>> _byCell = new();
+    private readonly CellChunks<ReferenceId> _byChunk = new();
     private readonly Subscribers<Action<MirrorChange>> _changed = new();
     private readonly HashSet<ReferenceId> _seen = new();
     private readonly Action<StructureInfo> _registered;
@@ -112,6 +113,7 @@ internal sealed class WorldMirror
         _unshaped.Clear();
         _members.Clear();
         _byCell.Clear();
+        _byChunk.Clear();
         _snapshot = null;
         _taken = null;
     }
@@ -133,6 +135,14 @@ internal sealed class WorldMirror
     /// <summary>The structures any of whose spots lie in a cell, in id order. Constant cost; allocates nothing.</summary>
     public ValueList<StructureInfo> At(Cell cell) =>
         _byCell.TryGetValue(cell, out var here) ? here : ValueList<StructureInfo>.Empty;
+
+    /// <summary>
+    /// Adds to <paramref name="into"/>, in no set order, the id of every structure whose own cell
+    /// (<see cref="StructureRef.At"/>) lies from <paramref name="min"/> to <paramref name="max"/> on every axis, both
+    /// included. Linear in the structures of the chunks of space the box overlaps (<see cref="CellChunks{TId}"/>), never
+    /// in the whole world.
+    /// </summary>
+    public void InBox(Cell min, Cell max, List<ReferenceId> into) => _byChunk.InBox(min, max, into);
 
     /// <summary>The ids of the structures of a piece, in no set order. Constant cost; allocates nothing.</summary>
     public IReadOnlyCollection<ReferenceId> OfPiece(PrefabKey piece) =>
@@ -270,6 +280,7 @@ internal sealed class WorldMirror
         var spots = SpotsOf(info);
         _byId.Add(id, new Held(info, spots));
         Add(_byPlace, (info.Ref.Piece, info.Ref.At), id);
+        _byChunk.Add(id, info.Ref.At);
         if (!_byPiece.TryGetValue(info.Ref.Piece, out var ofPiece))
             _byPiece[info.Ref.Piece] = ofPiece = new HashSet<ReferenceId>();
         ofPiece.Add(id);
@@ -293,6 +304,7 @@ internal sealed class WorldMirror
         _taken = held;
         var info = held.Info;
         Drop(_byPlace, (info.Ref.Piece, info.Ref.At), id);
+        _byChunk.Remove(id, info.Ref.At);
         if (_byPiece.TryGetValue(info.Ref.Piece, out var ofPiece) && ofPiece.Remove(id) && ofPiece.Count == 0)
             _byPiece.Remove(info.Ref.Piece);
         if (held.Spots.TryGet(out var taken))

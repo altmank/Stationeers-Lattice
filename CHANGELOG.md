@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.3
+
+- **Box selections are fast on large bases.** Selecting built structures or ghosts in a box looks only at the part of
+  the base the box covers. On a 36,000-structure base a 10 m box answers in 0.1-0.3 ms instead of 5 ms, and a 20 m
+  box in 0.6 ms instead of 34 ms. The answers are the same as before.
+
 ## 0.10.2
 
 - **Test fakes that keep compiling.** `Lattice.Testing.Stubs` has a base stub for every contract interface, every

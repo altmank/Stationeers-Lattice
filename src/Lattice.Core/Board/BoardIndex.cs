@@ -38,14 +38,15 @@ internal sealed class PlanEntry(Plan plan, Revision commandRevision)
 }
 
 /// <summary>
-/// Every index the board keeps, updated per change so no read scans: by id, spot, cell, structure, plan, group, piece,
-/// owner, maker and attachment key. Keys with no ghost left are dropped, so memory follows the board.
+/// Every index the board keeps, updated per change so no read scans: by id, spot, cell, chunk of space (a ghost's own
+/// cell, for boxes), structure, plan, group, piece, owner, maker and attachment key. Keys with no ghost left are dropped, so memory follows the board.
 /// </summary>
 internal sealed class BoardIndex
 {
     private readonly Dictionary<SpotKey, GhostId> _spots = new();
     private readonly Dictionary<ReferenceId, GhostId> _targets = new();
     private readonly Dictionary<Cell, HashSet<GhostId>> _cells = new();
+    private readonly CellChunks<GhostId> _chunks = new();
     private readonly Dictionary<ReferenceId, HashSet<GhostId>> _structureIds = new();
     private readonly Dictionary<(PrefabKey, Cell), HashSet<GhostId>> _structurePlaces = new();
     private readonly Dictionary<GroupName, HashSet<GhostId>> _groups = new();
@@ -63,6 +64,16 @@ internal sealed class BoardIndex
     public bool TryTargeting(ReferenceId structure, out GhostId ghost) => _targets.TryGetValue(structure, out ghost);
 
     public IReadOnlyCollection<GhostId> InCell(Cell cell) => Get(_cells, cell);
+
+    /// <summary>
+    /// Adds to <paramref name="into"/>, in no set order, every ghost whose own cell (<see cref="OwnCell"/>) lies from
+    /// <paramref name="min"/> to <paramref name="max"/> on every axis. Linear in the ghosts of the chunks the box overlaps.
+    /// </summary>
+    public void InBox(Cell min, Cell max, List<GhostId> into) => _chunks.InBox(min, max, into);
+
+    /// <summary>A ghost's own cell: its new piece's (build, swap), else its target's (remove, finish).</summary>
+    public static Cell OwnCell(GhostEntry entry) =>
+        entry.Shape.TryGet(out var shape) ? shape.Placement.At : entry.Target.TryGet(out var target) ? target.At : default;
 
     /// <summary>By reference id, else by piece and cell (a structure the game gave a new id).</summary>
     public IReadOnlyCollection<GhostId> OnStructure(StructureRef structure) =>
@@ -89,6 +100,7 @@ internal sealed class BoardIndex
         var ghost = entry.Ghost;
         Ghosts.Add(entry.Id, entry);
         Plans[ghost.Plan].Ghosts.Add(entry.Id);
+        _chunks.Add(entry.Id, OwnCell(entry));
         if (entry.Shape.TryGet(out var shape))
         {
             foreach (var spot in shape.Spots)
@@ -125,6 +137,7 @@ internal sealed class BoardIndex
     {
         var ghost = entry.Ghost;
         Ghosts.Remove(entry.Id);
+        _chunks.Remove(entry.Id, OwnCell(entry));
         if (Plans.TryGetValue(ghost.Plan, out var plan))
             plan.Ghosts.Remove(entry.Id);
         if (entry.Shape.TryGet(out var shape))

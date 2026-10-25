@@ -38,11 +38,7 @@ internal sealed class GridSpace
     /// <summary>The large grid's step in cell keys (decimetres).</summary>
     public int LargeStep { get; }
 
-    /// <summary>How many lattice keys the box holds. Constant cost.</summary>
-    public long KeysIn(CellBox box) =>
-        KeysOn(box.Min.X, box.Max.X) * KeysOn(box.Min.Y, box.Max.Y) * KeysOn(box.Min.Z, box.Max.Z);
-
-    /// <summary>Adds every lattice key in the box. Linear in <see cref="KeysIn"/>.</summary>
+    /// <summary>Adds every lattice key in the box. Linear in the keys it holds.</summary>
     public void Keys(CellBox box, List<Cell> into)
     {
         for (var x = Up(box.Min.X); x <= box.Max.X; x += SmallStep)
@@ -97,12 +93,6 @@ internal sealed class GridSpace
     }
 
     private List<Cell> Buffer { get; } = new(125);
-
-    private long KeysOn(int min, int max)
-    {
-        var first = Up(min);
-        return first > max ? 0 : (max - first) / SmallStep + 1L;
-    }
 
     private int Up(int value)
     {

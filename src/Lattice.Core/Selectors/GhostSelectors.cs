@@ -26,18 +26,29 @@ internal sealed class GhostSelectors(Shapes shapes, IGrid grid, WorldMirror mirr
 {
     private readonly GridSpace _space = new(grid);
     private readonly StructurePieces _structures = new(mirror, shapes);
+    private readonly List<GhostId> _found = new();
 
     public long Revision => mirror.Revision;
 
     public Result<HashSet<GhostId>, Reason> Pick(BoardIndex index, Selector selector) => selector switch
     {
-        Selector.Box box => Ok(Picks.Box(new GhostPieces(index), CellBox.Between(box.Corner, box.Opposite), _space)),
+        Selector.Box box => Ok(InBox(index, CellBox.Between(box.Corner, box.Opposite))),
         Selector.RunThrough run => Ok(Walks.Run(new GhostPieces(index), run.Cell, grid)),
         Selector.Network network => Ok(OnNetwork(index, network.Of)),
         Selector.Room room => Ok(InRoom(index, room.Of)),
         Selector.Tagged tagged => Ok(Tagged(index, tagged.Key, tagged.Value)),
         _ => Result<HashSet<GhostId>, Reason>.Error(SelectorRules.Unknown(selector)),
     };
+
+    /// <summary>The ghosts whose own cell is in the box: the board's chunks of space, never every ghost.</summary>
+    private HashSet<GhostId> InBox(BoardIndex index, CellBox box)
+    {
+        _found.Clear();
+        index.InBox(box.Min, box.Max, _found);
+        var ids = new HashSet<GhostId>(_found);
+        _found.Clear();
+        return ids;
+    }
 
     /// <summary>
     /// Ghosts on a network: those pointing at one of its pieces (remove, swap, finish, started), and build and swap
