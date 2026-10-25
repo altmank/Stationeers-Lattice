@@ -24,8 +24,10 @@ added it: check `lattice.Version` before you read it.
 | `FamilyOf(piece)` | The piece's `PieceFamily`: the top of its chain, so a window gives `wall` | `unknown-piece` |
 | `FamiliesOf(piece)` | The piece's family and every family above it, narrowest first: `[window, wall]` for a window (contract 0.7) | `unknown-piece` |
 | `ParentOf(family)` | The family a family lies under: `wall` for `window`, none for the rest (contract 0.7) | never refused |
+| `PortsAt(placement)` | The piece's ports placed at a cell and turn, in the game's order ([ports](#ports), contract 0.8) | `unknown-piece` |
 
-Every lookup is constant cost and allocates nothing (after a piece's family is first read).
+Every lookup but `PortsAt` is constant cost and allocates nothing (after a piece's family is first read). `PortsAt`
+is linear in the piece's ports and allocates the list it returns.
 
 ```csharp
 var catalogue = lattice.Catalogue;
@@ -70,6 +72,42 @@ The family a mod registers comes first, for every style rule and filter, until t
 piece's narrowest family: put a piece in `PieceFamilies.Window` and it is a wall too; put it in a family of your own and
 that is its only one. `FamilyOf` and `FamiliesOf` are the catalogue answers that change during a world, as these
 handles come and go.
+
+## Ports
+
+`PortsAt(placement)` gives a placed piece's connection ports: the pipe, cable and chute ends it joins runs through.
+It takes a `Placement`, so it answers for a ghost (`Intent.Build.Target`, or `Intent.Swap.New`), a draft, a preview's
+new ghost, a built structure (`new Placement(info.Ref.Piece, info.Ref.At, info.Turn)`) and a piece nobody has placed
+yet, all alike. Contract 0.8 added it.
+
+| `Port` field | What it is |
+|---|---|
+| `Index` | The port's index in the game's own list of the piece's ends: the index the game and a built structure's port use, so a ghost's port 2 is the built device's port 2. |
+| `Kinds` | The networks it joins, as `PortKinds` (`power`, `data`, `gas-pipe`, `liquid-pipe`, `chute`, ...). A cable end joins power and data. A network a mod adds to the game is kept under a key made from its bits, the same on every seat. |
+| `GameName` | The game's own name for its kinds, such as `PowerAndData` or `Pipe`. |
+| `Role` | What it does for its device: `Input`, `Input2`, `Output`, `Output2` or `Waste`; none for a plain run end. |
+| `From` | The small cell it leaves from, inside the piece. |
+| `Toward` | The way it points out of the piece. |
+| `Joins` | The small cell a joining piece takes: `From`, one small cell `Toward`. A run that ends here, leaving back toward the port, joins it. |
+
+```csharp
+// The ports of a pump ghost, as the game numbers them.
+var placement = ((Intent.Build)pump.Intent).Target;
+foreach (var port in lattice.Catalogue.PortsAt(placement).Match(static p => p, static _ => ValueList<Port>.Empty))
+    Show($"port {port.Index} {port.GameName} {port.Role} at {port.Joins}, facing {port.Toward}");
+```
+
+To lay a run between two ghosts' ports, name the ports as the run's ends: `RunRequest.FromPort` and `ToPort` (and
+the same on `RouteRequest`) take `PortEnd.OnGhost(ghost, index)`, and `From`/`To` are the ports' `Joins` cells as you
+read them. The run's end pieces then leave toward the ports, so they join them, and the preview's
+`RunReport.PortEnds` names the piece that joins each port. See the agent recipe in
+[building a layer](building-a-layer.md#joining-ghosts-ports).
+
+Whether a port is already joined is a world fact, not a catalogue one: read `lattice.Board.At(port.Joins)` and
+`lattice.World.At(port.Joins)`.
+
+A catalogue data file written before 0.8 does not hold the game's indexes: it numbers ports in their order among a
+piece's ends, which differs from the game's for a piece whose list has an end with no network. Export it again.
 
 ## Modded pieces
 

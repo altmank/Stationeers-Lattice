@@ -42,7 +42,8 @@ internal enum Refusal
 /// mounting (a frame, built, being built or planned; not broken), or within <see cref="OffFrameReach"/> cells of an
 /// end, so a port off the frames is still reached.</item>
 /// <item>Doors and windows clear: no cell in an opening's keep-out (<see cref="OpeningKeepOuts"/>).</item>
-/// <item>Ports free: no cell a device's port (an end with a role) faces while nothing joins that port.</item>
+/// <item>Ports free: no cell a device's port (an end with a role) faces while nothing joins that port, but for the ports
+/// the request names as its ends.</item>
 /// <item>No unsafe joins: no cell where the route would join a network that is neither end's: a piece of the kit
 /// there, or a neighbour's end pointing in that joins the kit (as the piece chooser joins it).</item>
 /// </list>
@@ -71,11 +72,13 @@ internal sealed class CellRules : IRouteCells
     private readonly Dictionary<Cell, bool> _framed = [];
     private readonly HashSet<NetworkKey> _own = [];
     private readonly Dictionary<ReferenceId, PlacedShape?> _placed = [];
+    private readonly IReadOnlyList<PortTarget> _named;
 
     public CellRules(
         KitShapes kit, IGrid grid, Shapes shapes, IWorldQuery planned, RouteToggles toggles, Cell from, Cell to,
-        OpeningKeepOuts openings, ISupportFacts support, RouteNetworks networks)
+        OpeningKeepOuts openings, ISupportFacts support, RouteNetworks networks, IReadOnlyList<PortTarget>? named = null)
     {
+        _named = named ?? System.Array.Empty<PortTarget>();
         _kit = kit;
         _grid = grid;
         _shapes = shapes;
@@ -187,11 +190,20 @@ internal sealed class CellRules : IRouteCells
                     continue;
                 for (var i = 0; i < shape.Ends.Count; i++)
                     if (shape.Piece.Ends[i].Role.IsSome && shape.Ends[i].Cell == next && shape.Ends[i].Facing == back
-                        && !Answered(cell, direction, shape.Piece.Ends[i]))
+                        && !Named(next, back) && !Answered(cell, direction, shape.Piece.Ends[i]))
                         return true;
             }
         }
 
+        return false;
+    }
+
+    /// <summary>Whether a port leaving this cell this way is one the request ends at.</summary>
+    private bool Named(Cell from, Direction toward)
+    {
+        foreach (var port in _named)
+            if (port.Port.From == from && port.Back.Opposite() == toward)
+                return true;
         return false;
     }
 

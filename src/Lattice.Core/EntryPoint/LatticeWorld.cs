@@ -292,7 +292,7 @@ internal sealed class LatticeWorld : IGhostSystem
         var attachments = new AttachmentLimits();
         var additions = new CatalogueAdditions(catalogue);
         Families = additions;
-        Catalogue = new PieceCatalogue(catalogue.Listing, additions);
+        Catalogue = new PieceCatalogue(catalogue.Listing, additions, new PiecePorts(catalogue, shapes));
         var placements = new Placements(catalogue, grid, additions);
         var book = new RunReportBook(Ghosts);
         var supportFacts = new CatalogueSupportFacts(catalogue);

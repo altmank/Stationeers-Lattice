@@ -506,6 +506,48 @@ What to watch for:
   quotes the facts.
 - **Kinds you do not know.** When you read the board, skip and report intents, findings and effects newer than you.
 
+### Joining ghosts' ports
+
+An agent that plans devices as ghosts can pipe or wire them together before anything is built. Read each ghost's
+ports from the catalogue at its placement, then name the ports as the route's ends (contract 0.8):
+
+```csharp
+/// <summary>A route from one device ghost's port to another's, to preview and submit as above; none when a ghost or port is gone.</summary>
+public Option<Command> RouteBetween(Ghost from, PortIndex fromPort, Ghost to, PortIndex toPort, KitKey kit)
+{
+    if (!PortOf(from, fromPort).TryGet(out var a) || !PortOf(to, toPort).TryGet(out var b))
+        return Option<Command>.None;
+    var toggles = new RouteToggles(OnFrames: false, FewestBends: true, KeepDoorsAndWindowsClear: true, KeepPortsFree: true, NoBridging: true);
+    return Option.Some<Command>(new Command.PlanRoute(new RouteRequest(kit, a.Joins, b.Joins, toggles, Option<PlanId>.None, _job)
+    {
+        FromPort = Option.Some<PortEnd>(new PortEnd.OnGhost(from.Id, fromPort)),
+        ToPort = Option.Some<PortEnd>(new PortEnd.OnGhost(to.Id, toPort)),
+    }));
+}
+
+private Option<Port> PortOf(Ghost ghost, PortIndex index)
+{
+    Placement? placement = ghost.Intent switch
+    {
+        Intent.Build build => build.Target,
+        Intent.Swap swap => swap.New,
+        _ => null,                                             // a removal has no port of its own
+    };
+    if (placement is null || !_lattice.Catalogue.PortsAt(placement).TryGet(out var ports))
+        return Option<Port>.None;
+    foreach (var port in ports)
+        if (port.Index == index)
+            return Option.Some(port);
+    return Option<Port>.None;
+}
+```
+
+Then preview it and submit it as `TrySubmit` does. In the preview, `Run.PortEnds` lists each port and the piece
+that joins it; a port whose `JoinedBy` is none has no piece of the kit for that cell, and `Run.FirstFailure` names
+the cell. A refusal tells you what to do next: `changed-since` means a ghost moved after you read its ports (read them
+again), `port-mismatch` means the kit does not carry that port's network (choose another kit). For a drawn run, set
+the same `FromPort` and `ToPort` on a `RunRequest`.
+
 ## An add-on
 
 An add-on puts a rule, a look, a fact or a piece's data on top of what is there. This one warns about ghosts in no

@@ -71,7 +71,7 @@ public sealed class GameCatalogueFacts
     public void Every_kits_options_are_its_exported_constructables_and_each_pieces_first_kit_is_its_facts_first()
     {
         var catalogue = GameCatalogue.Load();
-        var view = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue));
+        var view = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
 
         Assert.NotEmpty(catalogue.KitLines);
         Assert.Equal(catalogue.KitLines.Count, view.Kits.Count);

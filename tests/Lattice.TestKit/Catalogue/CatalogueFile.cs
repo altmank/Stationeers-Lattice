@@ -17,7 +17,7 @@ namespace Lattice.TestKit.Catalogue;
 /// kit &lt;KitName&gt; kind=single|multi|merge [name=&lt;text&gt;] options=&lt;PrefabName&gt;,...   every option in scroll order; at most once per kit
 /// piece &lt;PrefabName&gt; [kit=&lt;KitName&gt; option=&lt;n&gt; [also=&lt;KitName&gt;:&lt;n&gt;,...]] grid=small|large [name=&lt;text&gt;] [support=&lt;group&gt;] [pipe=gas|liquid|any] [opening=door|window] [merge=&lt;Item&gt;] [keeps=air,heat,life] [supplies=yes] [control=&lt;direction&gt;] [vents=yes] [family=&lt;key&gt;] [place=face|face-mount]
 ///   step [entry=&lt;Item&gt;] [material=&lt;Item&gt;*&lt;n&gt;] [exit=&lt;Item&gt;] air=yes|no [gravity=yes|no]   one per build step, in order
-///   end &lt;x&gt; &lt;y&gt; &lt;z&gt; x+|x-|y+|y-|z+|z- &lt;kinds&gt; [reach=&lt;mm&gt;] [role=input|input2|output|output2|waste]
+///   end &lt;x&gt; &lt;y&gt; &lt;z&gt; x+|x-|y+|y-|z+|z- &lt;kinds&gt; [reach=&lt;mm&gt;] [role=input|input2|output|output2|waste] [index=&lt;n&gt;] [game=&lt;text&gt;]   index: in the game's OpenEnds; game: its ConnectionType name
 ///   cell &lt;x&gt; &lt;y&gt; &lt;z&gt; centre|face-x+|..|face-z-|cable|pipe|chute|device|rail|other  a footprint cell
 ///   collision &lt;n&gt;                                                       small-grid collision class bits
 ///   block &lt;x&gt; &lt;y&gt; &lt;z&gt;                                                 a face piece's blocking point, decimetres from its position, unturned
@@ -217,7 +217,9 @@ internal static class CatalogueFile
             foreach (var end in f.Ends)
                 writer.WriteLine($"  end {end.At.X} {end.At.Y} {end.At.Z} {CatalogueText.Direction(end.Facing)} {CatalogueText.Kinds(end.Kinds)}" +
                                  (end.Reach.TryGet(out var reach) ? $" reach={reach.Value}" : "") +
-                                 (end.Role.TryGet(out var role) ? $" role={CatalogueText.Role(role)}" : ""));
+                                 (end.Role.TryGet(out var role) ? $" role={CatalogueText.Role(role)}" : "") +
+                                 (end.GameIndex.TryGet(out var index) ? $" index={index}" : "") +
+                                 (end.GameName.TryGet(out var gameName) ? $" game={CatalogueText.Name(gameName)}" : ""));
             foreach (var cell in f.Footprint)
                 writer.WriteLine($"  cell {cell.At.X} {cell.At.Y} {cell.At.Z} {CatalogueText.Slot(cell.Slot)}");
             if (f.Collision != SmallCollision.None)
@@ -470,7 +472,7 @@ internal static class CatalogueFile
         {
             if (words.Length < 6 || !int.TryParse(words[1], out var x) || !int.TryParse(words[2], out var y) ||
                 !int.TryParse(words[3], out var z))
-                return "end needs x y z direction kinds [reach=mm] [role=...]";
+                return "end needs x y z direction kinds [reach=mm] [role=...] [index=n] [game=name]";
             if (CatalogueText.ParseDirection(words[4]) is not { } facing || !CatalogueText.ParseKinds(words[5]).TryGet(out var kinds))
                 return $"bad end direction '{words[4]}' or kinds '{words[5]}'";
             var fields = Fields(words, 6);
@@ -492,7 +494,29 @@ internal static class CatalogueFile
                 role = Lattice.Api.Option.Some(given);
             }
 
-            _ends.Add(new ConnectionEnd(new CellOffset(x, y, z), facing, kinds) { Reach = reach, Role = role });
+            var index = Option<int>.None;
+            if (fields.TryGetValue("index", out var indexText))
+            {
+                if (!int.TryParse(indexText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var at) || at < 0)
+                    return $"bad index '{indexText}'";
+                index = Lattice.Api.Option.Some(at);
+            }
+
+            var gameName = Option<string>.None;
+            if (fields.TryGetValue("game", out var gameText))
+            {
+                if (!CatalogueText.ParseName(gameText).TryGet(out var name))
+                    return $"bad game name '{gameText}'";
+                gameName = Lattice.Api.Option.Some(name);
+            }
+
+            _ends.Add(new ConnectionEnd(new CellOffset(x, y, z), facing, kinds)
+            {
+                Reach = reach,
+                Role = role,
+                GameIndex = index,
+                GameName = gameName,
+            });
             return null;
         }
 

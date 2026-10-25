@@ -104,6 +104,15 @@ internal sealed record ConnectionEnd(CellOffset At, Direction Facing, ValueSet<N
 
     public Option<ConnectionRole> Role { get; init; }
 
+    /// <summary>
+    /// Its index in the prefab's <c>OpenEnds</c> list, entries the catalogue does not keep counted; none when the
+    /// source did not say, and then its place among the piece's ends stands in.
+    /// </summary>
+    public Option<int> GameIndex { get; init; }
+
+    /// <summary>The game's name for its kinds (<c>ConnectionType.ToString()</c>); none when the source did not say.</summary>
+    public Option<string> GameName { get; init; }
+
     /// <summary>Whether this end and another share a network kind.</summary>
     public bool SharesAKindWith(ConnectionEnd other)
     {

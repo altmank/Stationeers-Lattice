@@ -27,7 +27,7 @@ internal sealed class CubeGrid : IGrid
     public WorldPosition CentreOf(Cell cell, GridSize grid) => new(cell.X * 0.1f, cell.Y * 0.1f, cell.Z * 0.1f);
 
     /// <summary>The next cell along the direction: 20 dm on the large grid, 5 dm on the small (<see cref="Cell.Neighbour"/>).</summary>
-    public Cell Neighbour(Cell cell, Direction direction, GridSize grid) => cell.Neighbour(FaceOf(direction), PieceGridOf(grid));
+    public Cell Neighbour(Cell cell, Direction direction, GridSize grid) => cell.Neighbour(direction.ToFace(), PieceGridOf(grid));
 
     /// <inheritdoc cref="TurnTable.Compose"/>
     public Turn Compose(Turn first, Turn then) => _turns.Compose(first, then);
@@ -70,17 +70,6 @@ internal sealed class CubeGrid : IGrid
         GridSize.Large => PieceGrid.Large,
         GridSize.Small => PieceGrid.Small,
         _ => throw NotAGrid(grid),
-    };
-
-    private static Face FaceOf(Direction direction) => direction switch
-    {
-        Direction.XPlus => Face.PlusX,
-        Direction.XMinus => Face.MinusX,
-        Direction.YPlus => Face.PlusY,
-        Direction.YMinus => Face.MinusY,
-        Direction.ZPlus => Face.PlusZ,
-        Direction.ZMinus => Face.MinusZ,
-        _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "not a direction"),
     };
 
     private static ArgumentOutOfRangeException NotAGrid(GridSize grid) => new(nameof(grid), grid, "not a grid");

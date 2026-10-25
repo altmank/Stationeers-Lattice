@@ -87,7 +87,7 @@ reads through `Board.As(agent)` so the access policy filters for it. Reads on an
 | `MoveToPlan(which, plan)` | Moves ghosts into another plan. |
 | `Remove(which)` | Removes ghosts from the board. |
 | `Revert(changeSet)` | Undoes one of the actor's own change sets; refused if another actor changed those ghosts since. It undoes plan changes, never built work. |
-| `Batch(steps)` | Several commands, applied all or none. |
+| `Batch(steps)` | Several commands, applied all or none as one change set, each on the board as the earlier ones leave it. A run, route or template in a batch is laid against the earlier steps' ghosts too (from contract 0.8): a trunk and its branches in one batch join with tees. |
 
 ```csharp
 var phase = Must(GroupName.Create("Phase 1"));
@@ -108,13 +108,28 @@ These are worked out by a module into primitive commands. With the module off th
 | `MarkRemoval(structures, into, madeBy)` | `selectors` | A remove ghost per structure. |
 | `PlanFinish(structures, finish, into, madeBy)` | `selectors` | A finish ghost per structure. |
 | `PlanSwap(structures, to, into, madeBy)` | `swaps` | "Swap all": a swap ghost per structure. `SwapTo.Exactly(piece)`, or `SwapTo.SameShapeFrom(kit)` for the piece of the same shape that kit places (every cable shape to its heavy cable shape). |
-| `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. |
-| `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging. `SearchBound` caps the search. |
+| `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8): the end piece joins that port. |
+| `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging. `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. |
 | `Transform`, `PlaceTemplate` | `transforms`, `templates` | See [transforms and templates](transforms-and-templates.md). |
 | `Repair`, `TakeDown`, `Reopen` | `finished-plans` | See [finished plans](#finished-plans) below. |
 
 Preview a run or route before you submit it: the preview carries a `RunReport` with its cells, the pieces placed, the
 first cell that fails and its cost against single pieces. See [previews and analysis](previews-and-analysis.md).
+
+A port end (`PortEnd.OnGhost(ghost, index)`, contract 0.8) is checked when the run is laid, against the board as the
+sender sees it:
+
+| Refused | When |
+|---|---|
+| `not-found` | The ghost is not on the board, or the sender may not see it (the answer is the same, so it tells nothing about hidden ghosts); with `problem=port`, its piece has no port at that index. |
+| `invalid-value`, `problem=no-new-piece` | The ghost removes or finishes a structure: it has no new piece, so no port of its own. The standing structure joins through its cell. |
+| `changed-since` | `From` or `To` is not the port's `Joins` cell now: the ghost moved, turned or changed piece since you read its ports. Facts `expected` and `now`. Read `PortsAt` again. |
+| `port-mismatch` | The kit's run pieces share no network kind with the port: a pipe kit to a power port, gas to liquid. |
+| `invalid-value`, `problem=same-port` | Both ends name one port. |
+
+Every refusal names `ghost` and `port`. The port end is a planning input, not a link: the run's ghosts are plain
+build ghosts. Move or turn a device with its runs by transforming them together; moving the device alone leaves the
+run's end open, and removing it leaves the run.
 
 To list what one built structure can become in place, ask `lattice.Swaps.OptionsFor(structure)`. Each `SwapOption`
 is a placement in the structure's cell, and for a face piece with a rating, the load across that face now.

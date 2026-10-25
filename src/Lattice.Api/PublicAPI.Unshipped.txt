@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 7 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 8 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2516,3 +2516,71 @@ Lattice.Api.StyleMatch.Facing.Normal.init -> void
 static readonly Lattice.Api.PieceFamilies.Window -> Lattice.Api.PieceFamily
 Lattice.Api.IPieceCatalogue.FamiliesOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.PieceFamily>!, Lattice.Api.Reason!>
 Lattice.Api.IPieceCatalogue.ParentOf(Lattice.Api.PieceFamily family) -> Lattice.Api.Option<Lattice.Api.PieceFamily>
+Lattice.Api.IPieceCatalogue.PortsAt(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Port!>!, Lattice.Api.Reason!>
+Lattice.Api.Port
+Lattice.Api.Port.From.get -> Lattice.Api.Cell
+Lattice.Api.Port.From.init -> void
+Lattice.Api.Port.GameName.get -> string!
+Lattice.Api.Port.GameName.init -> void
+Lattice.Api.Port.Index.get -> Lattice.Api.PortIndex
+Lattice.Api.Port.Index.init -> void
+Lattice.Api.Port.Joins.get -> Lattice.Api.Cell
+Lattice.Api.Port.Joins.init -> void
+Lattice.Api.Port.Kinds.get -> Lattice.Api.ValueSet<Lattice.Api.PortKind>!
+Lattice.Api.Port.Kinds.init -> void
+Lattice.Api.Port.Port(Lattice.Api.PortIndex Index, Lattice.Api.ValueSet<Lattice.Api.PortKind>! Kinds, string! GameName, Lattice.Api.Option<Lattice.Api.PortRole> Role, Lattice.Api.Cell From, Lattice.Api.Face Toward, Lattice.Api.Cell Joins) -> void
+Lattice.Api.Port.Role.get -> Lattice.Api.Option<Lattice.Api.PortRole>
+Lattice.Api.Port.Role.init -> void
+Lattice.Api.Port.Toward.get -> Lattice.Api.Face
+Lattice.Api.Port.Toward.init -> void
+Lattice.Api.PortIndex
+Lattice.Api.PortIndex.PortIndex() -> void
+Lattice.Api.PortIndex.Value.get -> int
+override Lattice.Api.PortIndex.ToString() -> string!
+static Lattice.Api.PortIndex.Create(int value) -> Lattice.Api.Result<Lattice.Api.PortIndex, Lattice.Api.Reason!>
+Lattice.Api.PortKind
+Lattice.Api.PortKind.PortKind() -> void
+Lattice.Api.PortKind.Value.get -> string!
+override Lattice.Api.PortKind.ToString() -> string!
+Lattice.Api.PortKinds
+static readonly Lattice.Api.PortKinds.Chute -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.Data -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.Elevator -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.GasPipe -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.LandingPad -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.LaunchPad -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.LiquidPipe -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.Power -> Lattice.Api.PortKind
+static readonly Lattice.Api.PortKinds.Rail -> Lattice.Api.PortKind
+Lattice.Api.PortRole
+Lattice.Api.PortRole.Input = 1 -> Lattice.Api.PortRole
+Lattice.Api.PortRole.Input2 = 2 -> Lattice.Api.PortRole
+Lattice.Api.PortRole.Output = 3 -> Lattice.Api.PortRole
+Lattice.Api.PortRole.Output2 = 4 -> Lattice.Api.PortRole
+Lattice.Api.PortRole.Waste = 5 -> Lattice.Api.PortRole
+Lattice.Api.RunRequest.FromPort.get -> Lattice.Api.Option<Lattice.Api.PortEnd!>
+Lattice.Api.RunRequest.FromPort.init -> void
+Lattice.Api.RunRequest.ToPort.get -> Lattice.Api.Option<Lattice.Api.PortEnd!>
+Lattice.Api.RunRequest.ToPort.init -> void
+Lattice.Api.RouteRequest.FromPort.get -> Lattice.Api.Option<Lattice.Api.PortEnd!>
+Lattice.Api.RouteRequest.FromPort.init -> void
+Lattice.Api.RouteRequest.ToPort.get -> Lattice.Api.Option<Lattice.Api.PortEnd!>
+Lattice.Api.RouteRequest.ToPort.init -> void
+static readonly Lattice.Api.ReasonCodes.PortMismatch -> Lattice.Api.ReasonCode
+Lattice.Api.RunReport.PortEnds.get -> Lattice.Api.ValueList<Lattice.Api.PortJoin!>!
+Lattice.Api.RunReport.PortEnds.init -> void
+Lattice.Api.PortJoin
+Lattice.Api.PortJoin.End.get -> Lattice.Api.PortEnd!
+Lattice.Api.PortJoin.End.init -> void
+Lattice.Api.PortJoin.JoinedBy.get -> Lattice.Api.Option<Lattice.Api.Placement!>
+Lattice.Api.PortJoin.JoinedBy.init -> void
+Lattice.Api.PortJoin.Port.get -> Lattice.Api.Port!
+Lattice.Api.PortJoin.Port.init -> void
+Lattice.Api.PortJoin.PortJoin(Lattice.Api.PortEnd! End, Lattice.Api.Port! Port, Lattice.Api.Option<Lattice.Api.Placement!> JoinedBy) -> void
+Lattice.Api.PortEnd
+Lattice.Api.PortEnd.OnGhost
+Lattice.Api.PortEnd.OnGhost.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.PortEnd.OnGhost.Ghost.init -> void
+Lattice.Api.PortEnd.OnGhost.OnGhost(Lattice.Api.GhostId Ghost, Lattice.Api.PortIndex Port) -> void
+Lattice.Api.PortEnd.OnGhost.Port.get -> Lattice.Api.PortIndex
+Lattice.Api.PortEnd.OnGhost.Port.init -> void

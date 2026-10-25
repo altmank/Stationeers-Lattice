@@ -111,6 +111,10 @@ internal sealed class Shapes(ICatalogue catalogue, IGrid grid)
     /// <summary>A ghost within this distance of another's end collides with it: 0.1 m (<c>IsPipeEndCollision</c>).</summary>
     private const long EndCollisionMillimetres = 100;
 
+    /// <summary>The cell one of the piece's ends leaves from and its facing, turned with the placement. Allocates nothing.</summary>
+    public (Cell Cell, Direction Facing) Leaving(Placement placement, ConnectionEnd end) =>
+        (placement.At.Plus(grid.Apply(placement.Turn, end.At)), grid.Apply(placement.Turn, end.Facing));
+
     /// <summary>The grid the shapes are worked out on.</summary>
     public IGrid Grid => grid;
 
@@ -241,10 +245,10 @@ internal sealed class Shapes(ICatalogue catalogue, IGrid grid)
         };
     }
 
+    /// <summary>One of the piece's ends placed: the cell it leaves from and its facing, turned with the placement.</summary>
     private WorldEnd End(Placement placement, ConnectionEnd end)
     {
-        var cell = placement.At.Plus(grid.Apply(placement.Turn, end.At));
-        var facing = grid.Apply(placement.Turn, end.Facing);
+        var (cell, facing) = Leaving(placement, end);
         var point = end.Reach.Map(reach =>
         {
             var unit = facing.Unit();

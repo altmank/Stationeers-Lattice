@@ -218,15 +218,33 @@ public sealed record TestPiece
     public TestPiece WithEnd(CellOffset at, SignedAxis facing, TestNetwork network) => WithEnd(at, facing, ValueSet.Of(network));
 
     /// <summary>This piece with one more connection end joining several networks (a cable end joins power and data).</summary>
-    public TestPiece WithEnd(CellOffset at, SignedAxis facing, ValueSet<TestNetwork> networks)
+    public TestPiece WithEnd(CellOffset at, SignedAxis facing, ValueSet<TestNetwork> networks) => this with { EndLines = Words.Plus(EndLines, EndLine(at, facing, networks)) };
+
+    /// <summary>
+    /// This piece with one more connection end that does a job for the device (<see cref="Port.Role"/>), joining
+    /// several networks. Its <see cref="Port.Index"/> is its place among the piece's ends.
+    /// </summary>
+    public TestPiece WithPort(CellOffset at, SignedAxis facing, ValueSet<TestNetwork> networks, PortRole role) =>
+        this with { EndLines = Words.Plus(EndLines, EndLine(at, facing, networks) + " role=" + RoleWord(role)) };
+
+    private static string EndLine(CellOffset at, SignedAxis facing, ValueSet<TestNetwork> networks)
     {
         var words = new List<string>(networks.Count);
         foreach (var network in networks)
             words.Add(network.Word ?? "");
         words.Sort(System.StringComparer.Ordinal);
-        var line = $"end {Offset(at)} {Direction(facing)} {string.Join(",", words)}";
-        return this with { EndLines = Words.Plus(EndLines, line) };
+        return $"end {Offset(at)} {Direction(facing)} {string.Join(",", words)}";
     }
+
+    private static string RoleWord(PortRole role) => role switch
+    {
+        PortRole.Input => "input",
+        PortRole.Input2 => "input2",
+        PortRole.Output => "output",
+        PortRole.Output2 => "output2",
+        PortRole.Waste => "waste",
+        _ => "none",
+    };
 
     /// <summary>This piece taking one more cell: an offset in decimetres from its own cell, unturned, and the slot there.</summary>
     public TestPiece WithCell(CellOffset at, TestSlot slot) =>

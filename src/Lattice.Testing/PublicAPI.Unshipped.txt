@@ -186,3 +186,4 @@ Lattice.Testing.TestPiece.DisplayName.get -> string!
 Lattice.Testing.TestPiece.Named(string! displayName) -> Lattice.Testing.TestPiece!
 Lattice.Testing.TestPiece.OtherKits.get -> Lattice.Api.ValueList<Lattice.Testing.TestKitPlace!>!
 Lattice.Testing.FakeGhostStyles.TryPick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options, out Lattice.Api.PickResult hit) -> bool
+Lattice.Testing.TestPiece.WithPort(Lattice.Api.CellOffset at, Lattice.Api.SignedAxis facing, Lattice.Api.ValueSet<Lattice.Testing.TestNetwork>! networks, Lattice.Api.PortRole role) -> Lattice.Testing.TestPiece!

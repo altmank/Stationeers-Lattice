@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
+using Lattice.Core.Catalogue;
 using Lattice.Core.Grid;
 using Lattice.Core.Ports;
 
@@ -18,6 +19,9 @@ internal sealed record RunPlan(
     ValueList<Placement> Singles,
     Option<CellFailure> FirstFailure)
 {
+    /// <summary>Each port end of the request, the from end first, and the piece that joins it.</summary>
+    public ValueList<PortJoin> PortEnds { get; init; } = ValueList<PortJoin>.Empty;
+
     /// <summary>The command that places the run's ghosts into the request's plan, made by its maker, seen by everyone.</summary>
     public Command ToCommand(RunRequest request)
     {
@@ -30,7 +34,8 @@ internal sealed record RunPlan(
     }
 
     /// <summary>The run's report, its costs from the given bill (the bills module's).</summary>
-    public RunReport Report(Func<ValueList<Placement>, Bill> bill) => new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles));
+    public RunReport Report(Func<ValueList<Placement>, Bill> bill) =>
+        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds };
 }
 
 /// <summary>
@@ -48,17 +53,54 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
 {
     private readonly Shapes _shapes = new(catalogue, grid);
     private readonly PieceChooser _chooser = new(catalogue, grid);
+    private readonly PortEnds _ports = new(new PiecePorts(catalogue, new Shapes(catalogue, grid)), RunCodes.Runs);
 
-    /// <summary>The run, or why it cannot be planned at all (unknown kit, a kit with no straight, a point off the grid, a leg off one axis).</summary>
+    /// <summary>
+    /// The run, or why it cannot be planned at all (unknown kit, a kit with no straight, a point off the grid, a leg off
+    /// one axis, a port end that does not resolve: <see cref="PortEnds"/>).
+    /// </summary>
     public Result<RunPlan, Reason> Plan(RunRequest request, IGhostBoard board, IWorldQuery world)
     {
         if (!_chooser.Kit(request.Kit).TryGet(out var kit))
             return Result<RunPlan, Reason>.Error(_chooser.Kit(request.Kit).TryGetError(out var why) ? why : Reason.Of(ReasonCodes.NoPiece, RunCodes.Runs));
-        var walked = RunPath.Walk(request, kit, grid);
+        var resolved = _ports.Resolve(request.FromPort, request.From, request.ToPort, request.To, kit, board);
+        if (!resolved.TryGet(out var ports))
+            return Result<RunPlan, Reason>.Error(resolved.ErrorOf());
+        var walked = RunPath.Walk(request, kit, grid, ports);
         if (!walked.TryGet(out var path))
             return Result<RunPlan, Reason>.Error(walked.TryGetError(out var bad) ? bad : Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs));
         var around = new Neighbourhood(_shapes, grid, board, world);
-        return Result<RunPlan, Reason>.Ok(new Laying(kit, path, around, grid, placementCheck).Lay());
+        var plan = new Laying(kit, path, around, grid, placementCheck).Lay();
+        return Result<RunPlan, Reason>.Ok(ports.Count == 0 ? plan : plan with { PortEnds = Joined(plan, ports, around, kit) });
+    }
+
+    /// <summary>For each port end, the piece that leaves its cell back into the port: one the run lays, else the kit's piece already there.</summary>
+    private ValueList<PortJoin> Joined(RunPlan plan, ValueList<PortTarget> ports, Neighbourhood around, KitShapes kit)
+    {
+        var joins = new PortJoin[ports.Count];
+        for (var i = 0; i < ports.Count; i++)
+        {
+            var port = ports[i];
+            var by = Option<Placement>.None;
+            foreach (var piece in plan.Pieces)
+                if (by.IsNone && Leaves(piece, port))
+                    by = Option.Some(piece);
+            if (by.IsNone && around.OfKit(port.Cell, kit) is { } standing && PieceCells.At(standing, port.Cell, grid).Contains(port.Back))
+                by = Option.Some(standing.Shape.Placement);
+            joins[i] = new PortJoin(port.End, port.Port, by);
+        }
+
+        return ValueList.From(joins);
+    }
+
+    private bool Leaves(Placement piece, PortTarget port)
+    {
+        if (!_shapes.Of(piece).TryGet(out var shape))
+            return false;
+        foreach (var end in shape.Ends)
+            if (end.Cell == port.Cell && end.Facing == port.Back)
+                return true;
+        return false;
     }
 
     private sealed class Laying(KitShapes kit, RunPath path, Neighbourhood around, IGrid grid, IPlacementCheck check)

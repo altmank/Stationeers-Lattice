@@ -68,7 +68,13 @@ public abstract record Command
     /// <param name="ChangeSet">The change set to undo.</param>
     public sealed record Revert(ChangeSetId ChangeSet) : Command;
 
-    /// <summary>Applies all the steps or none.</summary>
+    /// <summary>
+    /// Applies all the steps or none, as one change set. Each step is applied to the board as the earlier steps leave
+    /// it. From contract 0.8 an expanded step (a run, a route, a template, a swap) is also expanded against the board
+    /// as the earlier steps leave it, so what it lays meets their ghosts as it would meet ghosts already placed: a
+    /// branch run after its trunk joins it with a tee. A step worked out over several frames holds back the steps after
+    /// it; the batch is answered once every step is found.
+    /// </summary>
     /// <param name="Steps">The commands, in order.</param>
     public sealed record Batch(ValueList<Command> Steps) : Command;
 
@@ -253,7 +259,18 @@ public abstract record SwapTo
 /// <param name="To">The last cell.</param>
 /// <param name="Into">The plan, or the default plan.</param>
 /// <param name="MadeBy">What makes the run's ghosts.</param>
-public sealed record RunRequest(KitKey Kit, Cell From, ValueList<Cell> Via, Cell To, Option<PlanId> Into, Maker MadeBy);
+public sealed record RunRequest(KitKey Kit, Cell From, ValueList<Cell> Via, Cell To, Option<PlanId> Into, Maker MadeBy)
+{
+    /// <summary>
+    /// The port the run starts at. When set, <see cref="From"/> must be that port's <see cref="Port.Joins"/> as the
+    /// sender read it (refused <see cref="ReasonCodes.ChangedSince"/> when the port has moved since), and the run's
+    /// first piece leaves toward the port, so it joins it. Added in contract 0.8.
+    /// </summary>
+    public Option<PortEnd> FromPort { get; init; }
+
+    /// <summary>The port the run ends at, as <see cref="FromPort"/> with <see cref="To"/>. Added in contract 0.8.</summary>
+    public Option<PortEnd> ToPort { get; init; }
+}
 
 /// <summary>A run found between two ends under the given toggles.</summary>
 /// <param name="Kit">The kit the run is laid from.</param>
@@ -270,6 +287,16 @@ public sealed record RouteRequest(KitKey Kit, Cell From, Cell To, RouteToggles T
     /// refused <see cref="ReasonCodes.InvalidValue"/> (fact <c>problem</c> = <c>search-bound</c>).
     /// </summary>
     public Option<int> SearchBound { get; init; }
+
+    /// <summary>
+    /// The port the route starts at, as <see cref="RunRequest.FromPort"/> with <see cref="From"/>. With
+    /// <see cref="RouteToggles.KeepPortsFree"/>, the port's own <see cref="Port.Joins"/> cell is open to the route.
+    /// Added in contract 0.8.
+    /// </summary>
+    public Option<PortEnd> FromPort { get; init; }
+
+    /// <summary>The port the route ends at, as <see cref="FromPort"/> with <see cref="To"/>. Added in contract 0.8.</summary>
+    public Option<PortEnd> ToPort { get; init; }
 }
 
 /// <summary>What a route search must respect. Each toggle is independent.</summary>

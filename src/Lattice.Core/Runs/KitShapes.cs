@@ -106,6 +106,15 @@ internal sealed class KitShapes
         return false;
     }
 
+    /// <summary>Whether a port joins the kit's networks: it shares a network kind with one of the kit's run pieces.</summary>
+    public bool Joins(Port port)
+    {
+        foreach (var kind in _kinds)
+            if (port.Kinds.Contains(Lattice.Core.Catalogue.PortNames.KindOf(kind)))
+                return true;
+        return false;
+    }
+
     /// <summary>
     /// The placement of a long straight that fills the cells from <paramref name="first"/> to <paramref name="last"/>
     /// (a line of its length), its ends leaving them outward; the lowest turn that does.

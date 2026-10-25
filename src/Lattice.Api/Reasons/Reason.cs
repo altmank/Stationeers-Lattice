@@ -213,6 +213,12 @@ public static class ReasonCodes
     public static readonly ReasonCode SearchLimit = ReasonCode.Known("search-limit");
 
     /// <summary>
+    /// A run's kit shares no network kind with the port it was asked to join (a pipe kit to a power port, a gas pipe to
+    /// a liquid port); facts <c>ghost</c>, <c>port</c> and <c>kit</c>. Added in contract 0.8.
+    /// </summary>
+    public static readonly ReasonCode PortMismatch = ReasonCode.Known("port-mismatch");
+
+    /// <summary>
     /// The catalogue names no tool for a step; facts <c>piece</c> (prefab hash), <c>way</c> (<c>build</c>,
     /// <c>take-apart</c> or <c>broken</c>) and, for build and take-apart, <c>step</c> (the build state index).
     /// </summary>

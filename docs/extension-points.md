@@ -58,4 +58,6 @@ A few handles are calls you make to tell Lattice something changed:
 
 Lattice's own modules register an expander for each command kind they own, before `LatticeSystem.Started`. A mod
 can register one only for a kind whose module is off, as a stand-in. An expander turns its command into primitive
-commands, usually a `Command.Batch`, or refuses with a reason.
+commands, usually a `Command.Batch`, or refuses with a reason. A command that is a step of a `Command.Batch` is
+expanded against the board as the batch's earlier steps leave it (from contract 0.8): the expander reads their ghosts
+on the board it is given, for its call and for each step of its sliced work.

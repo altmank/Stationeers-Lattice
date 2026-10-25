@@ -35,6 +35,19 @@ public sealed class CatalogueDataFileTests
     }
 
     [Fact]
+    public void An_ends_game_index_and_kind_name_survive_the_file()
+    {
+        var (_, text) = Written();
+
+        var read = Ok(CatalogueFile.Read(new StringReader(text), "written.lcat"));
+
+        var end = read.Named("StructureCableStraight").Ends[0];
+        Assert.Equal(Option.Some(0), end.GameIndex);
+        Assert.True(end.GameName.IsSome);
+        Assert.Contains(" index=0 game=", text);
+    }
+
+    [Fact]
     public void The_support_group_survives_the_round_trip()
     {
         var (_, text) = Written();
@@ -60,8 +73,8 @@ public sealed class CatalogueDataFileTests
         var (catalogue, text) = Written();
         var read = Ok(CatalogueFile.Read(new StringReader(text), "written.lcat"));
 
-        var fromGame = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue));
-        var fromFile = new PieceCatalogue(read.Listing, new CatalogueAdditions(read));
+        var fromGame = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
+        var fromFile = new PieceCatalogue(read.Listing, new CatalogueAdditions(read), PiecePorts.Over(read));
 
         Assert.Equal(fromGame.Kits, fromFile.Kits);
         Assert.Equal(catalogue.Listing.Kits.Select(k => k.Kind), read.Listing.Kits.Select(k => k.Kind));

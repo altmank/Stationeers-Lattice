@@ -8,13 +8,6 @@ namespace Lattice.Tests.Contract;
 /// <summary>Contract 0.7: the window family, <c>StyleMatch.Facing</c>, and the catalogue's family tree, each documented as added in 0.7.</summary>
 public sealed class ContractSevenTests
 {
-    [Fact]
-    public void The_contract_is_zero_seven()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(7, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("F:Lattice.Api.PieceFamilies.Window")]
     [InlineData("T:Lattice.Api.StyleMatch.Facing")]

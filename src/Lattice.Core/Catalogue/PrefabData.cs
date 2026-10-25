@@ -49,6 +49,9 @@ internal sealed record EndData(Vector Position, Vector Forward, NetworkKinds Kin
 {
     /// <summary>The game's <c>ConnectionRole</c> value: 0 none, 1 input, 2 input2, 3 output, 4 output2, 5 waste.</summary>
     public int Role { get; init; }
+
+    /// <summary>Its index in the prefab's <c>OpenEnds</c> list; none when the source did not say, and then its place in the source's list stands in.</summary>
+    public Option<int> Index { get; init; }
 }
 
 /// <summary>Which small-grid run a piece itself is part of (a cable, a pipe, a chute), from its class.</summary>

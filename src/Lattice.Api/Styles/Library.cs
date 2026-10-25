@@ -293,9 +293,9 @@ public static class PieceFamilies
     public static readonly PieceFamily Wall = PieceFamily.Known("wall");
 
     /// <summary>
-    /// Windows: the game's see-through faces in glass, and modded subclasses of them, under <see cref="Wall"/>. Floor
-    /// gratings and other see-through faces not in glass stay walls; a see-through face whose material the catalogue
-    /// does not know is a window. Added in contract 0.7.
+    /// Windows, under <see cref="Wall"/>: the game's see-through faces that seal air once built (their last build step
+    /// blocks air), and a mod's subclass of them by its own build steps. A see-through face that never seals, such as a
+    /// floor grating, stays a wall; one with no build steps is a window. Added in contract 0.7.
     /// </summary>
     public static readonly PieceFamily Window = PieceFamily.Known("window");
 

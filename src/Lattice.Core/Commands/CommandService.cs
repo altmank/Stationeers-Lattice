@@ -15,9 +15,11 @@ namespace Lattice.Core.Commands;
 /// <see cref="IGhostEvents.Answered"/>. A command with a sliced expansion is answered the same way: sent now, its
 /// expansion worked out in the checking budget, then applied and answered in the frame the work finishes. Its parts
 /// are expanded one at a time, each against the board as it stands when that part is reached; commands sent meanwhile
-/// do not wait for it. Commands from clients go through <see cref="SubmitFromClient"/>, which adds the host's size and
-/// sanity checks; local actors' commands are not size-checked. Main thread. Outcomes are kept for the world, one entry
-/// per command id.
+/// do not wait for it. A batch's expanded steps each expand against the board as the batch's earlier steps leave it:
+/// those steps are prepared by the board and staged in its index for the length of the expander's call (and of each
+/// step of its sliced work), never copied, so the expander reads them as ghosts on the board. Commands from clients go
+/// through <see cref="SubmitFromClient"/>, which adds the host's size and sanity checks; local actors' commands are not
+/// size-checked. Main thread. Outcomes are kept for the world, one entry per command id.
 /// </summary>
 internal sealed class CommandService(GhostBoard board, CommandExpanders expanders, IWorldQuery world, ClientChecks checks, FrameScheduler scheduler)
     : ICommands
@@ -94,7 +96,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         if (previewed.Searching is not null)
             return new Answer<Result<Command, Reason>>.Pending(at);
 
-        switch (Expand(command, default, actor, previewed.Parts, 0))
+        switch (Expand(command, default, actor, previewed.Parts, 0, null))
         {
             case Expanded.Ready done:
                 return Settle(previewed, Result<Command, Reason>.Ok(done.Command));
@@ -190,7 +192,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// <summary>Applies the command if its expansion is complete, else starts the work for its next part and parks it.</summary>
     private Option<Outcome> Attempt(Submitted submitted)
     {
-        switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0))
+        switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0, null))
         {
             case Expanded.Ready ready:
                 return Keep(submitted, board.Apply(submitted.Id, ready.Command, submitted.Actor));
@@ -229,7 +231,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
 
     private Result<Search, Reason> Schedule(Expanded.Waits waits, Action<Result<Command, Reason>> done)
     {
-        var search = new Search(waits.Work, done);
+        var search = new Search(waits.Work, done, waits.Staging);
         if (!scheduler.Schedule(WorkKind.Checking, search, Priority.Normal).TryGet(out var job))
             return Result<Search, Reason>.Error(Unknown(waits.Part));
         search.Job = job;
@@ -239,12 +241,13 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// <summary>
     /// The command with every module-owned command in it replaced by its expansion, against the board as the actor sees
     /// it, reusing the parts already found. A kind with no expander, and a kind this version does not know, pass through
-    /// for the board to refuse. A sliced part not yet found stops the expansion with the work that finds it.
+    /// for the board to refuse. A sliced part not yet found stops the expansion with the work that finds it. An expander
+    /// begins (and its work steps) with <paramref name="staging"/> on the board: a batch's earlier steps.
     /// </summary>
-    private Expanded Expand(Command command, CommandId id, Actor actor, Parts parts, int depth)
+    private Expanded Expand(Command command, CommandId id, Actor actor, Parts parts, int depth, Staging? staging)
     {
         if (command is Command.Batch batch)
-            return ExpandSteps(batch, id, actor, parts, depth);
+            return ExpandSteps(batch, id, actor, parts, depth, staging);
         if (CommandExpanders.IsPrimitive(command.GetType()) || !expanders.For(command).TryGet(out var expander))
             return new Expanded.Ready(command);
         if (depth >= MaxExpansionDepth)
@@ -255,31 +258,36 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
 
         if (!parts.TryGet(command, out var found))
         {
-            switch (expander.Begin(command, id, actor, board.ViewFor(actor), world))
+            var begun = staging is null
+                ? expander.Begin(command, id, actor, board.ViewFor(actor), world)
+                : staging.Run(() => expander.Begin(command, id, actor, board.ViewFor(actor), world));
+            switch (begun)
             {
                 case Begun.Now now:
                     found = now.Expansion;
                     parts.Add(command, found);
                     break;
                 case Begun.Later later:
-                    return new Expanded.Waits(command, later.Work);
+                    return new Expanded.Waits(command, later.Work, staging);
                 default:
                     return new Expanded.Refused(Unknown(command));
             }
         }
 
         return found.Match(
-            next => Expand(next, id, actor, parts, depth + 1),
+            next => Expand(next, id, actor, parts, depth + 1, staging),
             static why => new Expanded.Refused(why));
     }
 
-    private Expanded ExpandSteps(Command.Batch batch, CommandId id, Actor actor, Parts parts, int depth)
+    // Each step expands with the steps before it staged (as expanded), over whatever an enclosing batch staged.
+    private Expanded ExpandSteps(Command.Batch batch, CommandId id, Actor actor, Parts parts, int depth, Staging? outer)
     {
         Command[]? steps = null;
         for (var i = 0; i < batch.Steps.Count; i++)
         {
+            var staging = i > 0 && Expands(batch.Steps[i]) ? new Staging(this, board, actor, outer, Earlier(batch, steps, i)) : outer;
             Command step;
-            switch (Expand(batch.Steps[i], id, actor, parts, depth))
+            switch (Expand(batch.Steps[i], id, actor, parts, depth, staging))
             {
                 case Expanded.Ready ready:
                     step = ready.Command;
@@ -308,6 +316,29 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return new Expanded.Ready(steps is null ? batch : new Command.Batch(Lists.Own(steps)));
     }
 
+    // Whether the command has a module-owned part an expander lays against the board.
+    private bool Expands(Command command)
+    {
+        if (command is Command.Batch batch)
+        {
+            foreach (var step in batch.Steps)
+                if (Expands(step))
+                    return true;
+            return false;
+        }
+
+        return !CommandExpanders.IsPrimitive(command.GetType()) && expanders.For(command).IsSome;
+    }
+
+    // The batch's first `count` steps, the expanded ones where any are.
+    private static Command.Batch Earlier(Command.Batch batch, Command[]? expanded, int count)
+    {
+        var earlier = new Command[count];
+        for (var i = 0; i < count; i++)
+            earlier[i] = expanded is null ? batch.Steps[i] : expanded[i];
+        return new Command.Batch(Lists.Own(earlier));
+    }
+
     private static Reason Unknown(Command command) =>
         Reason.Of(ReasonCodes.UnknownKind, LatticeIdentity.Board, ValueMap.Of("command", command.GetType().Name));
 
@@ -328,7 +359,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
 
         public sealed record Refused(Reason Why) : Expanded;
 
-        public sealed record Waits(Command Part, IExpansionWork Work) : Expanded;
+        public sealed record Waits(Command Part, IExpansionWork Work, Staging? Staging) : Expanded;
     }
 
     /// <summary>The expansions found so far for the module-owned parts of one command, by part.</summary>
@@ -368,14 +399,62 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         public SlicedJob? Searching { get; set; }
     }
 
-    /// <summary>One sliced part's work as the scheduler steps it; hands the expansion on in the step that finds it.</summary>
-    private sealed class Search(IExpansionWork work, Action<Result<Command, Reason>> done) : ISlicedWork
+    /// <summary>
+    /// A batch's earlier steps, as the board would leave them, shown to an expander for one call: the board prepares
+    /// them (<see cref="GhostBoard.Try"/>) and stages them in its index while the call runs, over the enclosing
+    /// batch's staging. Prepared again when the board's revision or the enclosing staging moves; steps the board
+    /// refuses are not staged (the board refuses the batch when it is applied). A command submitted from inside the
+    /// call is queued, as from any expander, and applied after the steps are taken out again. Main thread.
+    /// </summary>
+    private sealed class Staging(CommandService service, GhostBoard board, Actor actor, Staging? outer, Command.Batch earlier)
+    {
+        private GhostBoard.Trial? _trial;
+        private Revision _at;
+        private int _prepared;
+        private int _preparedOver;
+        private bool _staged;
+
+        /// <summary>The read with the earlier steps on the board.</summary>
+        public T Run<T>(Func<T> read) => service.WhileApplying(() => outer is null ? Stage(read) : outer.Run(() => Stage(read)));
+
+        private T Stage<T>(Func<T> read)
+        {
+            if (_staged)
+                return read();
+            var over = outer?._prepared ?? 0;
+            if (_prepared == 0 || _at != board.Revision || _preparedOver != over)
+            {
+                _trial = board.Try(earlier, actor).TryGet(out var trial) ? trial : null;
+                _at = board.Revision;
+                _preparedOver = over;
+                _prepared++;
+            }
+
+            if (_trial is null)
+                return read();
+            _staged = true;
+            try
+            {
+                return _trial.While(read);
+            }
+            finally
+            {
+                _staged = false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// One sliced part's work as the scheduler steps it, each step with the batch's earlier steps staged when it is in
+    /// one; hands the expansion on in the step that finds it.
+    /// </summary>
+    private sealed class Search(IExpansionWork work, Action<Result<Command, Reason>> done, Staging? staging) : ISlicedWork
     {
         public SlicedJob? Job { get; set; }
 
         public StepOutcome Step()
         {
-            var outcome = work.Step();
+            var outcome = staging is null ? work.Step() : staging.Run(work.Step);
             if (outcome == StepOutcome.Done)
                 done(work.Found);
             return outcome;

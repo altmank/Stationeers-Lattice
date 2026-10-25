@@ -4,7 +4,7 @@ namespace Lattice.Api;
 /// The pieces and kits the game holds, read by kind: every structure prefab and every kit, modded ones found by type
 /// like the game's own. Built once at world load on every seat; every peer holds the same prefabs, so every seat reads
 /// the same view except <see cref="PieceEntry.Name"/>. Fixed for the world except <see cref="FamilyOf"/>. Main thread;
-/// every member is constant cost and allocates nothing once a piece's family has been read. Lattice implements this;
+/// every member but <see cref="PortsAt"/> is constant cost and allocates nothing once a piece's family has been read. Lattice implements this;
 /// consumers call it. A minor may add members, so consumer fakes of it are not covered by compatibility.
 /// Added in contract 0.3: read <see cref="IGhostSystem.Version"/> first.
 /// </summary>
@@ -59,6 +59,15 @@ public interface IPieceCatalogue
     /// Lattice's other families and for a mod's own. Allocates nothing. Added in contract 0.7.
     /// </summary>
     Option<PieceFamily> ParentOf(PieceFamily family);
+
+    /// <summary>
+    /// The piece's connection ports placed at the cell and turn, in the game's <c>OpenEnds</c> order: for a ghost (its
+    /// <see cref="Intent.Build.Target"/> or <see cref="Intent.Swap.New"/>), a draft, or a built structure
+    /// (<c>new Placement(info.Ref.Piece, info.Ref.At, info.Turn)</c>) alike. Empty for a piece with none. Refused
+    /// <see cref="ReasonCodes.UnknownPiece"/> for an unknown piece. Main thread; linear in the piece's ports; allocates
+    /// the returned list and its ports. Added in contract 0.8.
+    /// </summary>
+    Result<ValueList<Port>, Reason> PortsAt(Placement placement);
 }
 
 /// <summary>One structure prefab. Added in contract 0.3.</summary>

@@ -251,8 +251,8 @@ public sealed class PieceMapperTests
         Assert.Equal(
             new[]
             {
-                new ConnectionEnd(new CellOffset(0, 0, 0), Direction.ZPlus, EndKinds.Cable) { Reach = Option.Some(new Millimetres(400)) },
-                new ConnectionEnd(new CellOffset(0, 0, 0), Direction.ZMinus, EndKinds.Cable) { Reach = Option.Some(new Millimetres(340)) },
+                new ConnectionEnd(new CellOffset(0, 0, 0), Direction.ZPlus, EndKinds.Cable) { Reach = Option.Some(new Millimetres(400)), GameIndex = Option.Some(0), GameName = Option.Some("Power, Data") },
+                new ConnectionEnd(new CellOffset(0, 0, 0), Direction.ZMinus, EndKinds.Cable) { Reach = Option.Some(new Millimetres(340)), GameIndex = Option.Some(1), GameName = Option.Some("Power, Data") },
             },
             facts.Ends);
     }
@@ -267,7 +267,12 @@ public sealed class PieceMapperTests
             End(new Vector(0, 0, -1.4), new Vector(0, 0, 1), NetworkKinds.Power | NetworkKinds.Data),
         }));
 
-        Assert.Equal(new ConnectionEnd(new CellOffset(0, 0, -10), Direction.ZMinus, EndKinds.Cable) { Reach = Option.Some(new Millimetres(400)) }, facts.Ends[1]);
+        Assert.Equal(new ConnectionEnd(new CellOffset(0, 0, -10), Direction.ZMinus, EndKinds.Cable)
+        {
+            Reach = Option.Some(new Millimetres(400)),
+            GameIndex = Option.Some(1),
+            GameName = Option.Some("Power, Data"),
+        }, facts.Ends[1]);
     }
 
     [Theory]
@@ -331,7 +336,38 @@ public sealed class PieceMapperTests
             End(new Vector(1.4, -0.5, 0), new Vector(-1, 0, 0), NetworkKinds.Power),
         }));
 
-        Assert.Equal(new ConnectionEnd(new CellOffset(10, -5, 0), Direction.XPlus, EndKinds.Power) { Reach = Option.Some(new Millimetres(400)) }, Assert.Single(facts.Ends));
+        Assert.Equal(new ConnectionEnd(new CellOffset(10, -5, 0), Direction.XPlus, EndKinds.Power)
+        {
+            Reach = Option.Some(new Millimetres(400)),
+            GameIndex = Option.Some(0),
+            GameName = Option.Some("Power"),
+        }, Assert.Single(facts.Ends));
+    }
+
+    [Fact]
+    public void Ends_keep_their_index_in_the_games_list_past_an_entry_with_no_network()
+    {
+        var facts = Map(Piece("StructureMachine", ends: new[]
+        {
+            End(new Vector(0, 0.4, 0), new Vector(0, -1, 0), NetworkKinds.None),
+            End(new Vector(0, 0, 0.4), new Vector(0, 0, -1), NetworkKinds.Pipe),
+            End(new Vector(0, 0, -0.4), new Vector(0, 0, 1), NetworkKinds.Pipe),
+        }));
+
+        Assert.Equal(new[] { Option.Some(1), Option.Some(2) }, facts.Ends.Select(e => e.GameIndex));
+    }
+
+    [Fact]
+    public void An_end_the_source_numbered_keeps_that_number_and_the_games_name_for_its_kinds()
+    {
+        var facts = Map(Piece("StructureMachine", ends: new[]
+        {
+            new EndData(new Vector(0, 0, 0.4), new Vector(0, 0, -1), NetworkKinds.Power | NetworkKinds.Data, "PowerAndData") { Index = Option.Some(4) },
+        }));
+
+        var end = Assert.Single(facts.Ends);
+        Assert.Equal(Option.Some(4), end.GameIndex);
+        Assert.Equal(Option.Some("PowerAndData"), end.GameName);
     }
 
     [Fact]

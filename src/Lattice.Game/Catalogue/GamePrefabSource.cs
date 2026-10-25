@@ -325,8 +325,9 @@ internal sealed class GamePrefabSource : IPrefabSource
             return ValueList<EndData>.Empty;
         var root = structure.transform;
         var ends = new List<EndData>(grid.OpenEnds.Count);
-        foreach (var end in grid.OpenEnds)
+        for (var index = 0; index < grid.OpenEnds.Count; index++)
         {
+            var end = grid.OpenEnds[index];
             if (end?.Transform == null)
                 continue;
             var position = root.InverseTransformPoint(end.Transform.position);
@@ -338,6 +339,7 @@ internal sealed class GamePrefabSource : IPrefabSource
                 end.ConnectionType.ToString())
             {
                 Role = (int)end.ConnectionRole,
+                Index = Option.Some(index),
             });
         }
 

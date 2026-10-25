@@ -24,7 +24,21 @@ public sealed record RunReport(
     ValueList<Placement> Pieces,
     Option<CellFailure> FirstFailure,
     Bill Cost,
-    Bill CostAsSingles);
+    Bill CostAsSingles)
+{
+    /// <summary>
+    /// For each port end of the request, the from end first: the port it resolved to and the run piece that joins it;
+    /// none when the run reached the port's cell but no piece of the kit joins it there (then
+    /// <see cref="FirstFailure"/> names that cell). Empty for a request with no port ends. Added in contract 0.8.
+    /// </summary>
+    public ValueList<PortJoin> PortEnds { get; init; } = ValueList<PortJoin>.Empty;
+}
+
+/// <summary>A port end of a run, the port it resolved to, and the piece that joins it. Added in contract 0.8.</summary>
+/// <param name="End">The end as the request named it.</param>
+/// <param name="Port">The port it resolved to when the run was laid.</param>
+/// <param name="JoinedBy">The run piece that joins the port: one laid by the run, or one already there; none when no piece of the kit joins it.</param>
+public sealed record PortJoin(PortEnd End, Port Port, Option<Placement> JoinedBy);
 
 /// <summary>A cell where a run fails, and why.</summary>
 /// <param name="At">The cell.</param>

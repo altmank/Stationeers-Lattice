@@ -186,7 +186,7 @@ internal static class CommandForm
                     foreach (var via in request.Via)
                         fields.Add("via", WrittenValues.Cell(via));
                     fields.Add("to", WrittenValues.Cell(request.To)).Add("made", request.MadeBy.Value);
-                    return Node("plan-run", Into(fields, request.Into));
+                    return Node("plan-run", Into(PortFields(fields, request.FromPort, request.ToPort), request.Into));
                 }
                 case Api.Command.PlanRoute route:
                 {
@@ -199,7 +199,7 @@ internal static class CommandForm
                         .Add("no-bridge", Flag(toggles.NoBridging));
                     if (request.SearchBound.TryGet(out var bound))
                         fields.Add("bound", bound);
-                    return Node("plan-route", Into(fields, request.Into));
+                    return Node("plan-route", Into(PortFields(fields, request.FromPort, request.ToPort), request.Into));
                 }
                 case Api.Command.Transform transform:
                 {
@@ -275,6 +275,22 @@ internal static class CommandForm
 
         private static FieldList Into(FieldList fields, Option<PlanId> into) =>
             into.TryGet(out var plan) ? fields.Add("into", plan.Value) : fields;
+
+        /// <summary>A run's or route's port ends, <c>&lt;ghost id&gt;:&lt;port index&gt;</c>; nothing for a request without them.</summary>
+        private static FieldList PortFields(FieldList fields, Option<PortEnd> from, Option<PortEnd> to)
+        {
+            if (from.TryGet(out var start))
+                fields.Add("from-port", PortText(start));
+            if (to.TryGet(out var end))
+                fields.Add("to-port", PortText(end));
+            return fields;
+        }
+
+        private static string PortText(PortEnd end) => end switch
+        {
+            PortEnd.OnGhost onGhost => WrittenValues.Number(onGhost.Ghost.Value) + ":" + WrittenValues.Number(onGhost.Port.Value),
+            _ => "",
+        };
 
         private static FieldList PlanDraftFields(PlanDraft draft)
         {
@@ -583,9 +599,15 @@ internal static class CommandForm
 
             if (!Common.Get(read.Need("to").Bind(WrittenValues.Cell), out var to, ref problem) ||
                 !Common.Get(read.Need("made").Bind(MakerOf), out var made, ref problem) ||
-                !Common.Get(Into(read), out var into, ref problem))
+                !Common.Get(Into(read), out var into, ref problem) ||
+                !Common.Get(Optional(read, "from-port", PortEndOf), out var fromPort, ref problem) ||
+                !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem))
                 return Result<object, string>.Error(problem);
-            return Result<object, string>.Ok(new Command.PlanRun(new RunRequest(kit, from, ValueList.From(via), to, into, made)));
+            return Result<object, string>.Ok(new Command.PlanRun(new RunRequest(kit, from, ValueList.From(via), to, into, made)
+            {
+                FromPort = fromPort,
+                ToPort = toPort,
+            }));
         }
 
         private Result<object, string> Route(FieldReader read)
@@ -601,10 +623,32 @@ internal static class CommandForm
                 !Common.Get(read.Need("ports").Bind(FlagOf), out var ports, ref problem) ||
                 !Common.Get(read.Need("no-bridge").Bind(FlagOf), out var noBridge, ref problem) ||
                 !Common.Get(Optional(read, "bound", WrittenValues.Int), out var bound, ref problem) ||
-                !Common.Get(Into(read), out var into, ref problem))
+                !Common.Get(Into(read), out var into, ref problem) ||
+                !Common.Get(Optional(read, "from-port", PortEndOf), out var fromPort, ref problem) ||
+                !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem))
                 return Result<object, string>.Error(problem);
             return Result<object, string>.Ok(new Command.PlanRoute(
-                new RouteRequest(kit, from, to, new RouteToggles(frames, bends, doors, ports, noBridge), into, made) { SearchBound = bound }));
+                new RouteRequest(kit, from, to, new RouteToggles(frames, bends, doors, ports, noBridge), into, made)
+                {
+                    SearchBound = bound,
+                    FromPort = fromPort,
+                    ToPort = toPort,
+                }));
+        }
+
+        /// <summary>A port end as the writer writes it: <c>&lt;ghost id&gt;:&lt;port index&gt;</c>.</summary>
+        private static Result<PortEnd, string> PortEndOf(string text)
+        {
+            var colon = text.IndexOf(':');
+            if (colon <= 0)
+                return Result<PortEnd, string>.Error($"bad port end '{text}'");
+            var problem = "";
+            if (!Common.Get(WrittenValues.Long(text.Substring(0, colon)), out var ghost, ref problem) ||
+                !Common.Get(WrittenValues.Int(text.Substring(colon + 1)), out var index, ref problem))
+                return Result<PortEnd, string>.Error(problem);
+            return PortIndex.Create(index).Match(
+                port => Result<PortEnd, string>.Ok(new PortEnd.OnGhost(new GhostId(ghost), port)),
+                _ => Result<PortEnd, string>.Error($"bad port index '{text}'"));
         }
 
         private Result<object, string> PlaceTemplate(FieldReader read)

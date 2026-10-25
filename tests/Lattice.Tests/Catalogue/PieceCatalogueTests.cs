@@ -34,7 +34,7 @@ public sealed class PieceCatalogueTests
     private static FakeCatalogue Read(string text) =>
         CatalogueFile.Read(new StringReader(text), "view.lcat").Match(static c => c, static e => throw new InvalidOperationException(e.ToString()));
 
-    private static PieceCatalogue View(FakeCatalogue catalogue) => new(catalogue.Listing, new CatalogueAdditions(catalogue));
+    private static PieceCatalogue View(FakeCatalogue catalogue) => new(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
 
     private static KitOption Option(int index) => Ok(KitOption.Create(index));
 
@@ -97,7 +97,7 @@ public sealed class PieceCatalogueTests
         var shared = Piece("ModShared", states: new[] { State(Stack("ItemKitZed", 1), exit: "ItemWrench") });
         var source = new CountingSource(new[] { Kit("ItemKitAlpha", shared), Kit("ItemKitZed", Piece("ModOther"), shared) }, new[] { shared, Piece("ModOther") });
         var catalogue = new PrefabCatalogue(source);
-        var view = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue));
+        var view = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
 
         Assert.Equal(0, source.Reads(shared.Key));
         Assert.Equal(new KitPlace(PrefabHash.Kit("ItemKitZed"), Option(1)), Ok(view.KitOf(shared.Key)));
@@ -138,7 +138,7 @@ public sealed class PieceCatalogueTests
     public void A_family_comes_from_the_type_until_a_mod_registers_one_and_back_after_dispose_as_styles_read_it()
     {
         var additions = new CatalogueAdditions(Modded);
-        var view = new PieceCatalogue(Modded.Listing, additions);
+        var view = new PieceCatalogue(Modded.Listing, additions, PiecePorts.Over(Modded));
         var looks = new CataloguePieceLooks(Modded, additions);
         var panel = PrefabHash.Piece("ModPanelA");
         var trim = Ok(PieceFamily.Create(Ok(ModId.Create("planner")), "trim"));
@@ -181,10 +181,10 @@ public sealed class PieceCatalogueTests
             Kits = ValueList.From(listing.Kits.Select(k => k.Options.Count < 2 ? k : k with { Options = ValueList.From(k.Options.Reverse()) })),
         };
 
-        var summary = CatalogueSummary.Of(new PieceCatalogue(listing, new CatalogueAdditions(Modded)));
+        var summary = CatalogueSummary.Of(new PieceCatalogue(listing, new CatalogueAdditions(Modded), PiecePorts.Over(Modded)));
 
-        Assert.Equal(summary, CatalogueSummary.Of(new PieceCatalogue(renamed, new CatalogueAdditions(Modded))));
-        Assert.NotEqual(summary, CatalogueSummary.Of(new PieceCatalogue(swapped, new CatalogueAdditions(Modded))));
+        Assert.Equal(summary, CatalogueSummary.Of(new PieceCatalogue(renamed, new CatalogueAdditions(Modded), PiecePorts.Over(Modded))));
+        Assert.NotEqual(summary, CatalogueSummary.Of(new PieceCatalogue(swapped, new CatalogueAdditions(Modded), PiecePorts.Over(Modded))));
         Assert.StartsWith("pieces=5 kits=2 hash=", summary);
     }
 }

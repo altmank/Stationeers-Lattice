@@ -32,8 +32,19 @@ internal sealed class RunPath
     /// <summary>
     /// The run's cells; refused (<see cref="ReasonCodes.InvalidValue"/>) when a point is off the kit's grid
     /// (<c>off-grid</c>) or a leg is not along one axis (<c>not-straight</c>): finding a path is the route planner's.
+    /// An end at a port also leaves back into the port, so its piece joins it whatever lies around.
     /// </summary>
-    public static Result<RunPath, Reason> Walk(RunRequest request, KitShapes kit, IGrid grid)
+    public static Result<RunPath, Reason> Walk(RunRequest request, KitShapes kit, IGrid grid, IReadOnlyList<PortTarget>? ports = null)
+    {
+        var walked = Walk(request, kit, grid);
+        if (ports is null || !walked.TryGet(out var path))
+            return walked;
+        foreach (var port in ports)
+            path.Join(port.Cell, port.Back);
+        return walked;
+    }
+
+    private static Result<RunPath, Reason> Walk(RunRequest request, KitShapes kit, IGrid grid)
     {
         var points = new List<Cell>(request.Via.Count + 2) { request.From };
         points.AddRange(request.Via);

@@ -61,5 +61,16 @@ internal sealed class StubCatalogue : IPieceCatalogue
 
     public Option<PieceFamily> ParentOf(PieceFamily family) => family == PieceFamilies.Window ? Option.Some(PieceFamilies.Wall) : Option<PieceFamily>.None;
 
+    /// <summary>One power port toward +X from the piece's own cell, whatever its turn: enough for a consumer's flow.</summary>
+    public Result<ValueList<Port>, Reason> PortsAt(Placement placement) =>
+        Piece(placement.Piece).Bind(_ => PortIndex.Create(0).Map(index => ValueList.Of(new Port(
+            index,
+            ValueSet.Of(PortKinds.Power),
+            "Power",
+            Option.Some(PortRole.Input),
+            placement.At,
+            Face.PlusX,
+            placement.At.Neighbour(Face.PlusX, PieceGrid.Small)))));
+
     private static Reason Unknown() => Reason.Of(ReasonCodes.UnknownPiece, RuleId.Contract);
 }

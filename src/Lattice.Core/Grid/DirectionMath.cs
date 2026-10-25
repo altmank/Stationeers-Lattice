@@ -19,6 +19,30 @@ internal static class DirectionMath
         _ => throw NotADirection(direction),
     };
 
+    /// <summary>The contract's face with this outward normal.</summary>
+    public static Face ToFace(this Direction direction) => direction switch
+    {
+        Direction.XPlus => Face.PlusX,
+        Direction.XMinus => Face.MinusX,
+        Direction.YPlus => Face.PlusY,
+        Direction.YMinus => Face.MinusY,
+        Direction.ZPlus => Face.PlusZ,
+        Direction.ZMinus => Face.MinusZ,
+        _ => throw NotADirection(direction),
+    };
+
+    /// <summary>The direction of a face's outward normal; none for a value outside the contract's faces.</summary>
+    public static Direction? DirectionOf(Face face) => face switch
+    {
+        Face.PlusX => Direction.XPlus,
+        Face.MinusX => Direction.XMinus,
+        Face.PlusY => Direction.YPlus,
+        Face.MinusY => Direction.YMinus,
+        Face.PlusZ => Direction.ZPlus,
+        Face.MinusZ => Direction.ZMinus,
+        _ => null,
+    };
+
     /// <summary>The direction pointing the other way.</summary>
     public static Direction Opposite(this Direction direction) => direction switch
     {

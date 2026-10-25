@@ -53,6 +53,48 @@ public abstract class ConsumerFlows
     }
 
     [Fact]
+    public void A_placed_ghosts_ports_are_read_from_its_placement_and_each_names_a_run_end_at_its_joining_cell()
+    {
+        var ghost = Place(0);
+        var placement = ghost.Intent switch
+        {
+            Intent.Build build => build.Target,
+            Intent.Swap swap => swap.New,
+            _ => throw new Xunit.Sdk.XunitException("no new piece"),
+        };
+
+        foreach (var port in Must(System.Catalogue.PortsAt(placement)))
+        {
+            var end = new PortEnd.OnGhost(ghost.Id, port.Index);
+            var run = new RunRequest(default, port.Joins, ValueList<Cell>.Empty, port.Joins, Option<PlanId>.None, ghost.MadeBy)
+            {
+                FromPort = Option.Some<PortEnd>(end),
+            };
+            var route = new RouteRequest(default, port.Joins, port.Joins, new RouteToggles(false, false, false, true, false), Option<PlanId>.None, ghost.MadeBy)
+            {
+                ToPort = Option.Some<PortEnd>(end),
+            };
+
+            Assert.Equal(port.Joins, run.From);
+            Assert.Equal(route.ToPort, run.FromPort);
+            Assert.NotEmpty(port.Kinds);
+            Assert.Equal(port.Joins, port.From.Neighbour(port.Toward, PieceGrid.Small));
+        }
+    }
+
+    /// <summary>What a consumer shows for each port end a run report names.</summary>
+    private protected static IEnumerable<string> PortEndLines(RunReport report)
+    {
+        foreach (var join in report.PortEnds)
+            yield return join.End switch
+            {
+                PortEnd.OnGhost onGhost => $"ghost {onGhost.Ghost.Value} port {onGhost.Port.Value} ({join.Port.GameName}): " +
+                                           (join.JoinedBy.TryGet(out var by) ? $"joined at {by.At}" : "open"),
+                _ => "an end this consumer does not know",
+            };
+    }
+
+    [Fact]
     public void A_placed_ghost_is_answered_at_once_and_raised_as_a_change()
     {
         var changed = new List<GhostId>();

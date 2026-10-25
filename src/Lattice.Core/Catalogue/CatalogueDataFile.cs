@@ -12,8 +12,9 @@ namespace Lattice.Core.Catalogue;
 /// <c>CatalogueFile</c>): every kit with its kind, display name and every option in scroll order, then every piece that
 /// mapped, once, under the kit its first build step uses (its other kits after <c>also=</c>), then the pieces no kit
 /// places, with their display names, build steps, ends, footprint, ratings, support group, family, face placement and
-/// look. Display names, family, face placement and look are optional: a file without them reads names as prefab names,
-/// family <c>other</c>, every piece placed in a cell and no look. Comments at the top say it came from the game, how long the load took, and what was left out.
+/// look. Display names, family, face placement, look, and an end's game index (<c>index=</c>) and kind name
+/// (<c>game=</c>) are optional: a file without them reads names as prefab names, family <c>other</c>, every piece placed
+/// in a cell, no look, and each end numbered by its place among its piece's ends. Comments at the top say it came from the game, how long the load took, and what was left out.
 /// </summary>
 internal static class CatalogueDataFile
 {
@@ -140,6 +141,10 @@ internal static class CatalogueDataFile
                 writer.Write(" reach=" + Number(reach.Value));
             if (end.Role.TryGet(out var role))
                 writer.Write(" role=" + CatalogueText.Role(role));
+            if (end.GameIndex.TryGet(out var index))
+                writer.Write(" index=" + Number(index));
+            if (end.GameName.TryGet(out var gameName))
+                writer.Write(" game=" + CatalogueText.Name(gameName));
             writer.Write("\n");
         }
 

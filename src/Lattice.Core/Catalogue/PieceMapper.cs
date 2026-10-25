@@ -33,7 +33,8 @@ internal static class PieceMapper
 
     /// <summary>
     /// The piece's facts, with every kit that places it (the kit its first build step uses first; none for a piece no
-    /// kit places). Every end with a network kind is kept, a modded kind as <see cref="NetworkType.Unknown"/>.
+    /// kit places). Every end with a network kind is kept, a modded kind as <see cref="NetworkType.Unknown"/>, with its
+    /// index in the prefab's <c>OpenEnds</c> and the game's name for its kinds.
     /// <paramref name="firstKitMergeTool"/> is the merge tool of the piece's first kit: the piece merges with it when
     /// its type is the game's <c>IGridMergeable</c> (a modded subclass too) and the piece does not refuse merges.
     /// </summary>
@@ -62,11 +63,12 @@ internal static class PieceMapper
         }
 
         var ends = new System.Collections.Generic.List<ConnectionEnd>(prefab.Ends.Count);
-        foreach (var data in prefab.Ends)
+        for (var i = 0; i < prefab.Ends.Count; i++)
         {
+            var data = prefab.Ends[i];
             if (data.Kinds == NetworkKinds.None)
                 continue;
-            var end = End(data);
+            var end = End(data, data.Index.Reduce(i));
             if (end is null)
                 return Refuse(prefab, "end-off-axis");
             ends.Add(end);
@@ -294,7 +296,7 @@ internal static class PieceMapper
     // Connection.SetGrids: the end's own cell (LocalGrid) is where it sits; the cell 0.5 m along its forward
     // (FacingGrid) is the piece cell it leaves from. Outward is LocalGrid - FacingGrid. The reach is how far the end's
     // point lies from the centre of the cell it leaves from, along the outward direction.
-    private static ConnectionEnd? End(EndData end)
+    private static ConnectionEnd? End(EndData end, int index)
     {
         var at = SmallCell(end.Position, default);
         var from = SmallCell(end.Position, end.Forward);
@@ -318,6 +320,8 @@ internal static class PieceMapper
         {
             Reach = reach >= 0 ? Option.Some(new Millimetres(reach)) : Option<Millimetres>.None,
             Role = end.Role is >= 1 and <= 5 ? Option.Some((ConnectionRole)end.Role) : Option<ConnectionRole>.None,
+            GameIndex = Option.Some(index),
+            GameName = Option.Some(end.KindName),
         };
     }
 

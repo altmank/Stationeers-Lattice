@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
+using Lattice.Core.Catalogue;
 using Lattice.Core.Openings;
 using Lattice.Core.Ports;
 using Lattice.Core.Runs;
@@ -78,7 +79,11 @@ internal sealed class RouteJob : ISlicedWork
 
     private Result<RoutePlan, Reason> Lay(RouteOutcome.Found found)
     {
-        var run = new RunRequest(_request.Kit, _request.From, Bends(found.Cells), _request.To, _request.Into, _request.MadeBy);
+        var run = new RunRequest(_request.Kit, _request.From, Bends(found.Cells), _request.To, _request.Into, _request.MadeBy)
+        {
+            FromPort = _request.FromPort,
+            ToPort = _request.ToPort,
+        };
         return _lay(run).Map(plan => new RoutePlan(plan, run, found.Bends, found.Expanded));
     }
 
@@ -115,6 +120,7 @@ internal sealed class RoutePlanner(
     private readonly Shapes _shapes = new(catalogue, grid);
     private readonly PieceChooser _chooser = new(catalogue, grid);
     private readonly RunPlanner _runs = new(catalogue, grid, placementCheck);
+    private readonly PortEnds _ports = new(new PiecePorts(catalogue, new Shapes(catalogue, grid)), RouteCodes.Routes);
 
     /// <summary>The route as a job to step; refused when it cannot be searched at all.</summary>
     public Result<RouteJob, Reason> Start(RouteRequest request, IGhostBoard board, IWorldQuery world)
@@ -132,6 +138,10 @@ internal sealed class RoutePlanner(
                 .Of("problem", "search-bound")
                 .With("bound", bound.ToString(System.Globalization.CultureInfo.InvariantCulture))));
 
+        var resolved = _ports.Resolve(request.FromPort, request.From, request.ToPort, request.To, kit, board);
+        if (!resolved.TryGet(out var named))
+            return Result<RouteJob, Reason>.Error(resolved.ErrorOf());
+
         var planned = new PlannedWorld(board, world);
         var reach = kit.Step * limits.Margin;
         var min = new Cell(Math.Min(request.From.X, request.To.X) - reach, Math.Min(request.From.Y, request.To.Y) - reach, Math.Min(request.From.Z, request.To.Z) - reach);
@@ -139,7 +149,7 @@ internal sealed class RoutePlanner(
         var cells = new CellRules(
             kit, grid, _shapes, planned, request.Toggles, request.From, request.To,
             new OpeningKeepOuts(planned, _shapes, openings, bands), support,
-            new RouteNetworks(planned, _shapes, grid, kit.Grid, min, max));
+            new RouteNetworks(planned, _shapes, grid, kit.Grid, min, max), named);
         var bounded = request.SearchBound.IsSome ? limits with { Expansions = request.SearchBound } : limits;
         var search = new RouteSearch(grid, kit.Grid, request.From, request.To, cells, request.Toggles.FewestBends, bounded);
         return Result<RouteJob, Reason>.Ok(new RouteJob(request, search, run => _runs.Plan(run, board, world)));

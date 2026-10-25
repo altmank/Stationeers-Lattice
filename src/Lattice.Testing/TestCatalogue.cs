@@ -16,7 +16,7 @@ public sealed class TestCatalogue
     {
         Pieces = pieces;
         Source = source;
-        View = new PieceCatalogue(pieces.Listing, new CatalogueAdditions(pieces));
+        View = new PieceCatalogue(pieces.Listing, new CatalogueAdditions(pieces), PiecePorts.Over(pieces));
     }
 
     /// <summary>

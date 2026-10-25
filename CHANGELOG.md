@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0
+
+- **Every placed piece's ports.** The catalogue answers the ports of any piece at a cell and turn: a ghost, a draft, a
+  preview's ghost or a built structure. Each port has the game's own index, its networks, its role, the cell it
+  leaves from and the cell a joining piece takes. A tool that plans pipe or cable runs between ghosts no longer needs
+  a real build to find them. Contract 0.8, which only adds.
+- **Runs and routes can end at a ghost's port.** The run's last piece joins that port, and the run's report says
+  which port ends joined. A port that does not match the run's network is refused with its own reason.
+- **A batch's steps see the earlier steps of the same batch.** A trunk and its branches in one batch now meet in tees,
+  as one change that undoes together; before, a branch replaced the trunk's pieces where they met. Batches whose
+  steps do not touch are unchanged.
+- The window family's description now says what decides it: a see-through face that seals air once built.
+
 ## 0.7.1
 
 - **Validation stops asking the game about ghosts that are already gone.** A ghost built, removed or finished while

@@ -99,6 +99,8 @@ public sealed class CommandFormTests
             Option.Some(new Revision(12)));
         yield return new Command.PlanRun(new RunRequest(ModdedKit, new Cell(0, 0, 0), L(new Cell(0, 0, 50), new Cell(50, 0, 50)), new Cell(50, 10, 50), Option.Some(new PlanId(2)), Maker));
         yield return new Command.PlanRoute(new RouteRequest(ModdedKit, new Cell(0, 0, 0), new Cell(100, 0, 0), new RouteToggles(true, false, true, false, true), Option<PlanId>.None, Maker) { SearchBound = Option.Some(5000) });
+        yield return PortRun;
+        yield return PortRoute;
         yield return new Command.Transform(Nested, new Transformation.Move(new CellOffset(20, 0, -20)), new TransformMode.Move());
         yield return new Command.Transform(Nested, new Transformation.Rotate(new Cell(0, 0, 0), Quarter), new TransformMode.Copy(Maker));
         yield return new Command.Transform(Nested, new Transformation.Mirror(new MirrorPlane(Axis.Z, 10)), new TransformMode.Copy(Maker));
@@ -106,6 +108,51 @@ public sealed class CommandFormTests
         yield return new Command.Repair(new PlanId(8), Maker);
         yield return new Command.TakeDown(new PlanId(9), Maker);
         yield return new Command.Reopen(new PlanId(10));
+    }
+
+    private static readonly Command.PlanRun PortRun = new(new RunRequest(ModdedKit, new Cell(0, 0, 0), ValueList<Cell>.Empty, new Cell(50, 0, 0), Option<PlanId>.None, Maker)
+    {
+        ToPort = Option.Some<PortEnd>(new PortEnd.OnGhost(new GhostId(12), TestKitIds.Must(PortIndex.Create(3)))),
+    });
+
+    private static readonly Command.PlanRoute PortRoute = new(new RouteRequest(ModdedKit, new Cell(0, 0, 0), new Cell(100, 0, 0), new RouteToggles(false, false, false, true, false), Option.Some(new PlanId(4)), Maker)
+    {
+        FromPort = Option.Some<PortEnd>(new PortEnd.OnGhost(new GhostId(7), TestKitIds.Must(PortIndex.Create(0)))),
+        ToPort = Option.Some<PortEnd>(new PortEnd.OnGhost(new GhostId(8), TestKitIds.Must(PortIndex.Create(2)))),
+    });
+
+    [Fact]
+    public void A_run_or_route_without_port_ends_writes_as_before_ports_were_added()
+    {
+        var run = new Command.PlanRun(new RunRequest(ModdedKit, new Cell(0, 0, 0), L(new Cell(0, 0, 50), new Cell(50, 0, 50)), new Cell(50, 10, 50), Option.Some(new PlanId(2)), Maker));
+        var route = new Command.PlanRoute(new RouteRequest(ModdedKit, new Cell(0, 0, 0), new Cell(100, 0, 0), new RouteToggles(true, false, true, false, true), Option<PlanId>.None, Maker) { SearchBound = Option.Some(5000) });
+
+        Assert.Equal(
+            "lattice-command 1 id=KQAAAAMACQABAgMEBQYHCA\nplan-run kit=1101555311 from=0,0,0 via=0,0,50 via=50,0,50 to=50,10,50 made=testkit/board-test into=2\n",
+            Written(run));
+        Assert.Equal(
+            "lattice-command 1 id=KQAAAAMACQABAgMEBQYHCA\nplan-route kit=1101555311 from=0,0,0 to=100,0,0 made=testkit/board-test frames=1 bends=0 doors=1 ports=0 no-bridge=1 bound=5000\n",
+            Written(route));
+    }
+
+    [Fact]
+    public void Port_ends_are_written_as_the_ghost_and_its_port_index()
+    {
+        Assert.Contains(" to-port=12:3", Written(PortRun));
+        Assert.Contains(" from-port=7:0 to-port=8:2", Written(PortRoute));
+    }
+
+    [Theory]
+    [InlineData("12")]
+    [InlineData("12:")]
+    [InlineData(":3")]
+    [InlineData("12:-1")]
+    [InlineData("x:3")]
+    public void A_port_end_that_does_not_read_is_refused(string text)
+    {
+        var why = Problem($"lattice-command 1 id=KQAAAAMACQABAgMEBQYHCA\nplan-run kit=1101555311 from=0,0,0 to=50,0,0 made=testkit/board-test to-port={text}\n");
+
+        Assert.Equal(ReasonCodes.InvalidValue, why.Code);
     }
 
     private static string Written(Command command) =>

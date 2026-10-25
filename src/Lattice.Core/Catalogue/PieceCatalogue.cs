@@ -9,19 +9,21 @@ namespace Lattice.Core.Catalogue;
 /// every answer built once, so a read is a dictionary lookup that allocates nothing. A piece's first kit is the one
 /// <see cref="KitHomes.Primary"/> picks among the kits that place it in source order, the same kit
 /// <see cref="PrefabCatalogue"/> gives its facts; the rest follow in the sorted kit order. Families come from
-/// <see cref="IPieceFamilies"/>, the registry style rules read. A key listed twice keeps its first entry; a piece whose
-/// grid the listing could not tell is not listed.
+/// <see cref="IPieceFamilies"/>, the registry style rules read; ports from <see cref="PiecePorts"/>. A key listed twice
+/// keeps its first entry; a piece whose grid the listing could not tell is not listed.
 /// </summary>
 internal sealed class PieceCatalogue : IPieceCatalogue
 {
     private readonly IPieceFamilies _families;
+    private readonly PiecePorts _ports;
     private readonly Dictionary<PrefabKey, PieceEntry> _pieces;
     private readonly Dictionary<KitKey, KitEntry> _kits;
     private readonly Dictionary<PrefabKey, Result<KitPlace, Reason>> _kitOf;
 
-    public PieceCatalogue(CatalogueListing listing, IPieceFamilies families)
+    public PieceCatalogue(CatalogueListing listing, IPieceFamilies families, PiecePorts ports)
     {
         _families = families;
+        _ports = ports;
         var sourceKits = new List<ListedKit>(listing.Kits.Count);
         _kits = new Dictionary<KitKey, KitEntry>(listing.Kits.Count);
         foreach (var kit in listing.Kits)
@@ -115,6 +117,12 @@ internal sealed class PieceCatalogue : IPieceCatalogue
 
     /// <inheritdoc />
     public Option<PieceFamily> ParentOf(PieceFamily family) => FamilyTree.ParentOf(family);
+
+    /// <inheritdoc />
+    public Result<ValueList<Port>, Reason> PortsAt(Placement placement) =>
+        _pieces.ContainsKey(placement.Piece)
+            ? _ports.At(placement)
+            : Result<ValueList<Port>, Reason>.Error(Unknown(placement.Piece));
 
     // The game's choice first, then the others by the sorted kit order and option.
     private static ValueList<KitPlace> Ordered(List<KitPlace> homes, ValueList<ItemKey> firstStep, Dictionary<KitKey, int> rank)
