@@ -1,0 +1,3 @@
+T:System.Linq.Enumerable;LINQ allocates per call: use a loop with a preset capacity.
+T:System.Linq.Queryable;LINQ allocates per call: use a loop with a preset capacity.
+T:System.Linq.ParallelEnumerable;LINQ allocates per call: use a loop with a preset capacity.

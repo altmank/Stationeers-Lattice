@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+tests/fixtures/generated/
+.vs/
+TestResults/
+__pycache__/
+artifacts/

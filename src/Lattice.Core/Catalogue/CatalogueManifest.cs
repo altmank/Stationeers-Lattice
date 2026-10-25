@@ -1,0 +1,112 @@
+using System;
+using Lattice.Api;
+using Lattice.Core.Modules;
+
+namespace Lattice.Core.Catalogue;
+
+/// <summary>
+/// Every game member the catalogue reader uses, checked when a world starts: the reader reads prefab tables,
+/// build states and constructors that a game update can change. The kernel needs the catalogue, so when any member is
+/// missing Lattice does not start for that world and the log names the members. A test reads the
+/// reader's compiled references and fails when one is not listed here.
+/// </summary>
+internal static class CatalogueManifest
+{
+    /// <summary>The catalogue: its name, no other module, and every game member the reader uses.</summary>
+    public static readonly ModuleManifest Module = new(
+        ModuleName.Create("catalogue").TryGet(out var name) ? name : throw new InvalidOperationException("module name"),
+        ValueList<ModuleName>.Empty,
+        ValueList.From(new GameMember[]
+        {
+            new GameMember.Event("Assets.Scripts.Objects.Prefab", "OnPrefabsLoaded"),
+            new GameMember.Field("Assets.Scripts.GridSystem.Grid3", "x"),
+            new GameMember.Field("Assets.Scripts.GridSystem.Grid3", "y"),
+            new GameMember.Field("Assets.Scripts.GridSystem.Grid3", "z"),
+            new GameMember.Field("Assets.Scripts.Localization", "CurrentLanguage"),
+            new GameMember.Field("Assets.Scripts.Objects.BuildState", "BlockAir"),
+            new GameMember.Field("Assets.Scripts.Objects.BuildState", "BlockGravity"),
+            new GameMember.Field("Assets.Scripts.Objects.BuildState", "Tool"),
+            new GameMember.Field("Assets.Scripts.Objects.Connection", "ConnectionRole"),
+            new GameMember.Field("Assets.Scripts.Objects.Connection", "ConnectionType"),
+            new GameMember.Field("Assets.Scripts.Objects.Connection", "Transform"),
+            new GameMember.Field("Assets.Scripts.Objects.Constructor", "BuildStructure"),
+            new GameMember.Field("Assets.Scripts.Objects.Electrical.Cable", "BlockMergeWithOtherCables"),
+            new GameMember.Field("Assets.Scripts.Objects.Electrical.Cable", "MaxVoltage"),
+            new GameMember.Field("Assets.Scripts.Objects.GridBounds", "_gridsSmall"),
+            new GameMember.Field("Assets.Scripts.Objects.Interactable", "Action"),
+            new GameMember.Field("Assets.Scripts.Objects.Interactable", "Bounds"),
+            new GameMember.Field("Assets.Scripts.Objects.MultiConstructor", "Constructables"),
+            new GameMember.Field("Assets.Scripts.Objects.MultiMergeConstructor", "ToolExit"),
+            new GameMember.Field("Assets.Scripts.Objects.Pipes.Piping", "DontAllowMergingWithWrench"),
+            new GameMember.Field("Assets.Scripts.Objects.Prefab", "AllPrefabs"),
+            new GameMember.Field("Assets.Scripts.Objects.SmallGrid", "OpenEnds"),
+            new GameMember.Field("Assets.Scripts.Objects.SmallGrid", "SmallCollisionType"),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "BuildStates"),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "PlacementType"),
+            new GameMember.Field("Assets.Scripts.Objects.Thing", "Bounds"),
+            new GameMember.Method("Assets.Scripts.Objects.Thing", "CheckBounds", Params()),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "GridBounds"),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "GridSize"),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "maxPressureDelta"),
+            new GameMember.Field("Assets.Scripts.Objects.Thing", "Interactables"),
+            new GameMember.Field("Assets.Scripts.Objects.Thing", "PrefabHash"),
+            new GameMember.Field("Assets.Scripts.Objects.Thing", "PrefabName"),
+            new GameMember.Field("Assets.Scripts.Objects.ToolBasic", "EntryQuantity"),
+            new GameMember.Field("Assets.Scripts.Objects.ToolBasic", "EntryQuantity2"),
+            new GameMember.Field("Assets.Scripts.Objects.ToolBasic", "ToolEntry"),
+            new GameMember.Field("Assets.Scripts.Objects.ToolBasic", "ToolEntry2"),
+            new GameMember.Field("Assets.Scripts.Objects.ToolUse", "ToolExit"),
+            new GameMember.Field("UnityEngine.Vector3", "x"),
+            new GameMember.Field("UnityEngine.Vector3", "y"),
+            new GameMember.Field("UnityEngine.Vector3", "z"),
+            new GameMember.Method("Assets.Scripts.Atmospherics.PressurekPa", "ToDouble", Params()),
+            new GameMember.Method("Assets.Scripts.Objects.Prefab", "Find", Params("System.Int32")),
+            new GameMember.Method("UnityEngine.Application", "Quit", Params()),
+            new GameMember.Method("UnityEngine.Object", "op_Equality", Params("UnityEngine.Object", "UnityEngine.Object")),
+            new GameMember.Method("UnityEngine.Object", "op_Inequality", Params("UnityEngine.Object", "UnityEngine.Object")),
+            new GameMember.Method("UnityEngine.Transform", "InverseTransformDirection", Params("UnityEngine.Vector3")),
+            new GameMember.Method("UnityEngine.Transform", "InverseTransformPoint", Params("UnityEngine.Vector3")),
+            new GameMember.Method("UnityEngine.Transform", "TransformPoint", Params("UnityEngine.Vector3")),
+            new GameMember.Property("Assets.Scripts.Objects.Pipes.Pipe", "MaxPressure"),
+            new GameMember.Property("Assets.Scripts.Objects.Thing", "DisplayName"),
+            new GameMember.Property("Objects.Rockets.IRocketInternals", "StrictlyInternal"),
+            new GameMember.Property("UnityEngine.Bounds", "center"),
+            new GameMember.Property("UnityEngine.Component", "transform"),
+            new GameMember.Property("UnityEngine.Transform", "forward"),
+            new GameMember.Property("UnityEngine.Transform", "position"),
+            new GameMember.Type("Assets.Scripts.GridSystem.Grid3"),
+            new GameMember.Type("Assets.Scripts.Networks.CableNetwork"),
+            new GameMember.Type("Assets.Scripts.Objects.BuildState"),
+            new GameMember.Type("Assets.Scripts.Objects.Connection"),
+            new GameMember.Type("Assets.Scripts.Objects.Constructor"),
+            new GameMember.Type("Assets.Scripts.Objects.Electrical.Cable"),
+            new GameMember.Type("Assets.Scripts.Objects.Interactable"),
+            new GameMember.Type("Assets.Scripts.Objects.Item"),
+            new GameMember.Type("Assets.Scripts.Objects.Items.IConstructor"),
+            new GameMember.Type("Assets.Scripts.Objects.Items.Stackable"),
+            new GameMember.Type("Assets.Scripts.Objects.MultiConstructor"),
+            new GameMember.Type("Assets.Scripts.Objects.MultiMergeConstructor"),
+            new GameMember.Type("Assets.Scripts.Objects.NetworkType"),
+            new GameMember.Type("Assets.Scripts.Objects.Pipes.Chute"),
+            new GameMember.Type("Assets.Scripts.Objects.Pipes.Device"),
+            new GameMember.Type("Assets.Scripts.Objects.Pipes.Pipe"),
+            new GameMember.Type("Assets.Scripts.Objects.Pipes.Pipe+ContentType"),
+            new GameMember.Type("Assets.Scripts.Objects.Pipes.Piping"),
+            new GameMember.Type("Assets.Scripts.Objects.SmallGrid"),
+            new GameMember.Type("Assets.Scripts.Objects.Structure"),
+            new GameMember.Type("Assets.Scripts.Objects.Thing"),
+            new GameMember.Type("LanguageCode"),
+            new GameMember.Type("Objects.RoboticArm.IRoboticArmRail"),
+            new GameMember.Type("Objects.Rockets.IRocketInternals"),
+            new GameMember.Type("UnityEngine.Component"),
+            new GameMember.Type("UnityEngine.MonoBehaviour"),
+            new GameMember.Type("UnityEngine.Object"),
+            new GameMember.Type("UnityEngine.Vector3"),
+            new GameMember.Field("Assets.Scripts.Objects.Pipes.Pipe", "pipeContentType"),
+            new GameMember.Field("Assets.Scripts.Objects.Interactable", "Collider"),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "blockingGrids"),
+            new GameMember.Method("Assets.Scripts.Objects.Pipes.Device", "GetGeneratedPower", Params("Assets.Scripts.Networks.CableNetwork")),
+        }));
+
+    private static ValueList<string> Params(params string[] types) => ValueList.From(types);
+}

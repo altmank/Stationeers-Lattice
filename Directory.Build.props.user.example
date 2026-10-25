@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Copy to Directory.Build.props.user (git-ignored) and set the game folder for this machine.
+    Without the file, the STATIONEERS_DIR environment variable is used.
+    The three folders below default from StationeersDir; set one only if it lives elsewhere.
+  -->
+  <PropertyGroup>
+    <StationeersDir>C:\Program Files (x86)\Steam\steamapps\common\Stationeers</StationeersDir>
+    <!-- <GameManagedDir>$(StationeersDir)\rocketstation_Data\Managed</GameManagedDir> -->
+    <!-- <BepInExCoreDir>$(StationeersDir)\BepInEx\core</BepInExCoreDir> -->
+    <!-- <LaunchPadDir>$(StationeersDir)\BepInEx\plugins\StationeersLaunchPad</LaunchPadDir> -->
+  </PropertyGroup>
+</Project>

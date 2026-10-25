@@ -1,0 +1,34 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Shipped assemblies: the game's target; no LINQ (BannedSymbols.txt); a public API baseline per project
+    (PublicAPI.Shipped.txt, PublicAPI.Unshipped.txt); every public member documented; every switch expression exhaustive.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>$(WarningsAsErrors);RS0030;RS0016;RS0017;RS0026;RS0027;RS0041;CS1591;CS8509</WarningsAsErrors>
+  </PropertyGroup>
+
+  <!--
+    SemVer for the mod. AssemblyVersion carries the major only, so every consumer of one major binds without a
+    resolver. Keep ApiVersion.ContractMajor and ContractMinor equal to these.
+  -->
+  <PropertyGroup>
+    <LatticeMajor>0</LatticeMajor>
+    <LatticeMinor>6</LatticeMinor>
+    <LatticePatch>0</LatticePatch>
+    <Version>$(LatticeMajor).$(LatticeMinor).$(LatticePatch)</Version>
+    <AssemblyVersion>$(LatticeMajor).0.0.0</AssemblyVersion>
+    <FileVersion>$(LatticeMajor).$(LatticeMinor).$(LatticePatch).0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+    <AdditionalFiles Include="$(RepoRoot)BannedSymbols.txt" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+</Project>

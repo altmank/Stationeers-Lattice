@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The world bridge's tests inside the game: the test kit's port suites (linked sources) run against the bridge over
+    the real game, on the Lattice test instance only: the two-player client refuses to run unless the environment
+    variable LATTICE_TEST_ROOT names the test instance's root folder. Never shipped. build.ps1 compiles it and does not
+    run it; the live-check runner copies it into the test instance (modes bridge-new, bridge-load).
+    The suites compile against a small xunit-shaped shim (Xunit.cs): the game's Mono gets no test framework.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <IsTestProject>false</IsTestProject>
+    <StationeersDir Condition="'$(StationeersDir)' == ''">$(STATIONEERS_DIR)</StationeersDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">$(StationeersDir)\rocketstation_Data\Managed</GameManagedDir>
+    <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory};{RawFileName}</AssemblySearchPaths>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Lattice.Tests\Contracts\WorldViewContract.cs" Link="Contracts\WorldViewContract.cs" />
+    <Compile Include="..\Lattice.Tests\Contracts\WorldChangesContract.cs" Link="Contracts\WorldChangesContract.cs" />
+    <Compile Include="..\Lattice.Tests\Contracts\PlacementCheckContract.cs" Link="Contracts\PlacementCheckContract.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" Private="false" />
+    <ProjectReference Include="..\..\src\Lattice.Core\Lattice.Core.csproj" Private="false" />
+    <ProjectReference Include="..\..\src\Lattice.Game\Lattice.Game.csproj" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp" HintPath="$(GameManagedDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(GameManagedDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UniTask" HintPath="$(GameManagedDir)\UniTask.dll" Private="false" />
+    <Reference Include="UnityEngine.PhysicsModule" HintPath="$(GameManagedDir)\UnityEngine.PhysicsModule.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(StationeersDir)\BepInEx\core\0Harmony.dll" Private="false" />
+    <Reference Include="UnityEngine.AssetBundleModule" HintPath="$(GameManagedDir)\UnityEngine.AssetBundleModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AnimationModule" HintPath="$(GameManagedDir)\UnityEngine.AnimationModule.dll" Private="false" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Fakes and loaders over Core's internal ports. No game or Unity types and no test framework: netstandard2.1, so
+    Lattice.Testing (which consumers' tests reference) carries it. Everything is internal.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Catalogue\hand-catalogue.lcat" LogicalName="Lattice.TestKit.hand-catalogue.lcat" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Core\Lattice.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lattice.Tests" />
+    <InternalsVisibleTo Include="Lattice.Testing" />
+  </ItemGroup>
+</Project>

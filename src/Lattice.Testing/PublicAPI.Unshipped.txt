@@ -1,0 +1,188 @@
+#nullable enable
+Lattice.Testing.AllocationException
+Lattice.Testing.AllocationException.Bytes.get -> long
+Lattice.Testing.AllocationException.Call.get -> string!
+Lattice.Testing.Allocations
+Lattice.Testing.FakeClip
+Lattice.Testing.FakeClip.Dispose() -> void
+Lattice.Testing.FakeClip.Disposed.get -> bool
+Lattice.Testing.FakeClip.FakeClip(Lattice.Api.ClipShape! shape) -> void
+Lattice.Testing.FakeClip.Move(Lattice.Api.ClipShape! to) -> void
+Lattice.Testing.FakeClip.Shape.get -> Lattice.Api.ClipShape!
+Lattice.Testing.FakeDrafts
+Lattice.Testing.FakeDrafts.Clear() -> void
+Lattice.Testing.FakeDrafts.Dispose() -> void
+Lattice.Testing.FakeDrafts.Disposed.get -> bool
+Lattice.Testing.FakeDrafts.FakeDrafts(Lattice.Api.DraftsId id, System.Action! freed) -> void
+Lattice.Testing.FakeDrafts.Hand(Lattice.Api.Submission! submission) -> void
+Lattice.Testing.FakeDrafts.Hands.get -> System.Collections.Generic.IReadOnlyList<Lattice.Api.Submission!>!
+Lattice.Testing.FakeDrafts.Id.get -> Lattice.Api.DraftsId
+Lattice.Testing.FakeDrafts.PendingOn.get -> Lattice.Api.Option<Lattice.Api.Ticket>
+Lattice.Testing.FakeDrafts.Show(Lattice.Api.Preview! preview) -> void
+Lattice.Testing.FakeDrafts.Show(Lattice.Api.ValueList<Lattice.Api.GhostDraft!>! drafts) -> void
+Lattice.Testing.FakeDrafts.Shown.get -> Lattice.Api.ValueList<Lattice.Api.GhostDraft!>!
+Lattice.Testing.FakeDrafts.ShownPreview.get -> Lattice.Api.Option<Lattice.Api.Preview!>
+Lattice.Testing.FakeDrafts.ShowsAnything.get -> bool
+Lattice.Testing.FakeGhostStyles
+Lattice.Testing.FakeGhostStyles.Add(Lattice.Api.StyleLayerDescriptor! layer) -> Lattice.Api.Result<Lattice.Api.IStyleLayer!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.Answered(Lattice.Api.Ticket ticket) -> void
+Lattice.Testing.FakeGhostStyles.Clip(Lattice.Api.ClipShape! shape) -> Lattice.Api.Result<Lattice.Api.IClip!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.ClipChanged -> System.Action<Lattice.Api.Option<Lattice.Api.ClipShape!>>?
+Lattice.Testing.FakeGhostStyles.Clips.get -> System.Collections.Generic.IReadOnlyList<Lattice.Testing.FakeClip!>!
+Lattice.Testing.FakeGhostStyles.DraftHandles.get -> System.Collections.Generic.IReadOnlyDictionary<Lattice.Api.DraftsId, Lattice.Testing.FakeDrafts!>!
+Lattice.Testing.FakeGhostStyles.Drafts(Lattice.Api.DraftsId id) -> Lattice.Api.Result<Lattice.Api.IDrafts!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.Explain(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.StyleStory!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.FakeGhostStyles() -> void
+Lattice.Testing.FakeGhostStyles.Frame() -> void
+Lattice.Testing.FakeGhostStyles.Highlight(Lattice.Api.HighlightRequest! request) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.Highlights.get -> System.Collections.Generic.IReadOnlyList<Lattice.Testing.FakeHighlight!>!
+Lattice.Testing.FakeGhostStyles.InForce.get -> Lattice.Api.Option<Lattice.Api.ClipShape!>
+Lattice.Testing.FakeGhostStyles.Layers.get -> System.Collections.Generic.IReadOnlyList<Lattice.Testing.FakeStyleLayer!>!
+Lattice.Testing.FakeGhostStyles.Matches(Lattice.Api.StyleMatch! match, Lattice.Api.StructureRef structure) -> bool
+Lattice.Testing.FakeGhostStyles.Pick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options) -> Lattice.Api.Option<Lattice.Api.PickHit!>
+Lattice.Testing.FakeGhostStyles.Picks.get -> System.Collections.Generic.IReadOnlyList<(Lattice.Api.PickRay Ray, Lattice.Api.PickOptions! Options)>!
+Lattice.Testing.FakeGhostStyles.Set(Lattice.Api.StyleSetId id) -> Lattice.Api.Result<Lattice.Api.IStyleSet!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.Sets.get -> System.Collections.Generic.IReadOnlyDictionary<Lattice.Api.StyleSetId, Lattice.Testing.FakeStyleSet!>!
+Lattice.Testing.FakeGhostStyles.StructureSet(Lattice.Api.StyleSetId id) -> Lattice.Api.Result<Lattice.Api.IStructureSet!, Lattice.Api.Reason!>
+Lattice.Testing.FakeGhostStyles.StructureSets.get -> System.Collections.Generic.IReadOnlyDictionary<Lattice.Api.StyleSetId, Lattice.Testing.FakeStructureSet!>!
+Lattice.Testing.FakeGhostStyles.WillExplain(Lattice.Api.GhostId ghost, Lattice.Api.StyleStory! story) -> void
+Lattice.Testing.FakeGhostStyles.WillMatch(Lattice.Api.StyleMatch! match, Lattice.Api.StructureRef structure) -> void
+Lattice.Testing.FakeGhostStyles.WillPick(Lattice.Api.PickHit! hit) -> void
+Lattice.Testing.FakeGhostStyles.WillPickNothing() -> void
+Lattice.Testing.FakeHighlight
+Lattice.Testing.FakeHighlight.Dispose() -> void
+Lattice.Testing.FakeHighlight.Ended.get -> bool
+Lattice.Testing.FakeHighlight.FakeHighlight(Lattice.Api.HighlightRequest! request) -> void
+Lattice.Testing.FakeHighlight.Request.get -> Lattice.Api.HighlightRequest!
+Lattice.Testing.FakeStructureSet
+Lattice.Testing.FakeStructureSet.Add(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Testing.FakeStructureSet.Clear() -> void
+Lattice.Testing.FakeStructureSet.Contains(Lattice.Api.StructureRef structure) -> bool
+Lattice.Testing.FakeStructureSet.Count.get -> int
+Lattice.Testing.FakeStructureSet.FakeStructureSet(Lattice.Api.StyleSetId id) -> void
+Lattice.Testing.FakeStructureSet.Id.get -> Lattice.Api.StyleSetId
+Lattice.Testing.FakeStructureSet.Put(Lattice.Api.StructureRef structure) -> void
+Lattice.Testing.FakeStructureSet.Remove(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Testing.FakeStructureSet.Replace(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Testing.FakeStyleLayer
+Lattice.Testing.FakeStyleLayer.Descriptor.get -> Lattice.Api.StyleLayerDescriptor!
+Lattice.Testing.FakeStyleLayer.Disable() -> void
+Lattice.Testing.FakeStyleLayer.Dispose() -> void
+Lattice.Testing.FakeStyleLayer.Disposed.get -> bool
+Lattice.Testing.FakeStyleLayer.Enable() -> void
+Lattice.Testing.FakeStyleLayer.Enabled.get -> bool
+Lattice.Testing.FakeStyleLayer.FakeStyleLayer(Lattice.Api.StyleLayerDescriptor! descriptor) -> void
+Lattice.Testing.FakeStyleLayer.Id.get -> Lattice.Api.StyleLayerId
+Lattice.Testing.FakeStyleSet
+Lattice.Testing.FakeStyleSet.Add(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Testing.FakeStyleSet.Clear() -> void
+Lattice.Testing.FakeStyleSet.Contains(Lattice.Api.GhostId ghost) -> bool
+Lattice.Testing.FakeStyleSet.Count.get -> int
+Lattice.Testing.FakeStyleSet.FakeStyleSet(Lattice.Api.StyleSetId id) -> void
+Lattice.Testing.FakeStyleSet.Id.get -> Lattice.Api.StyleSetId
+Lattice.Testing.FakeStyleSet.Put(Lattice.Api.GhostId ghost) -> void
+Lattice.Testing.FakeStyleSet.Remove(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Testing.FakeStyleSet.Replace(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Testing.TestCatalogue
+Lattice.Testing.TestCatalogue.Count.get -> int
+Lattice.Testing.TestCatalogue.Key(string! prefabName) -> Lattice.Api.Option<Lattice.Api.PrefabKey>
+Lattice.Testing.TestCatalogue.Kit(string! kitName) -> Lattice.Api.Option<Lattice.Api.KitKey>
+Lattice.Testing.TestCatalogue.Source.get -> string!
+Lattice.Testing.TestCodes
+Lattice.Testing.TestNetwork
+Lattice.Testing.TestNetwork.TestNetwork() -> void
+Lattice.Testing.TestNetwork.Word.get -> string!
+Lattice.Testing.TestPiece
+Lattice.Testing.TestPiece.Collision.get -> int
+Lattice.Testing.TestPiece.Family.get -> Lattice.Api.PieceFamily
+Lattice.Testing.TestPiece.Grid.get -> Lattice.Api.PieceGrid
+Lattice.Testing.TestPiece.InFamily(Lattice.Api.PieceFamily family) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.Key.get -> Lattice.Api.PrefabKey
+Lattice.Testing.TestPiece.Kit.get -> string!
+Lattice.Testing.TestPiece.KitKey.get -> Lattice.Api.KitKey
+Lattice.Testing.TestPiece.Name.get -> string!
+Lattice.Testing.TestPiece.Steps.get -> int
+Lattice.Testing.TestPiece.SupportedBy(Lattice.Api.RuleId group) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.SupportGroup.get -> Lattice.Api.Option<Lattice.Api.RuleId>
+Lattice.Testing.TestPiece.WithCell(Lattice.Api.CellOffset at, Lattice.Testing.TestSlot slot) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.WithCollision(int bits) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.WithEnd(Lattice.Api.CellOffset at, Lattice.Api.SignedAxis facing, Lattice.Api.ValueSet<Lattice.Testing.TestNetwork>! networks) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.WithEnd(Lattice.Api.CellOffset at, Lattice.Api.SignedAxis facing, Lattice.Testing.TestNetwork network) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.WithSteps(int count) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestScenario
+Lattice.Testing.TestScenario.As(Lattice.Api.Actor! viewer) -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.Catalogue.get -> Lattice.Testing.TestCatalogue!
+Lattice.Testing.TestScenario.Pieces.get -> Lattice.Api.ValueList<Lattice.Testing.TestPiece!>!
+Lattice.Testing.TestScenario.Save.get -> Lattice.Api.Option<string!>
+Lattice.Testing.TestScenario.Viewer.get -> Lattice.Api.Actor!
+Lattice.Testing.TestScenario.WithCatalogue(Lattice.Testing.TestCatalogue! catalogue) -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.WithPiece(Lattice.Testing.TestPiece! piece) -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.WithSave(string! path) -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.WithStructure(Lattice.Api.PrefabKey piece, Lattice.Api.Cell at, Lattice.Api.Turn turn) -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.WithStructure(Lattice.Api.PrefabKey piece, Lattice.Api.Cell at, Lattice.Api.Turn turn, Lattice.Api.BuildState! state) -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.WithWorkerThreads() -> Lattice.Testing.TestScenario!
+Lattice.Testing.TestScenario.WorkerThreads.get -> bool
+Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Cable = 8 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Centre = 1 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Chute = 10 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Device = 11 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.FaceXMinus = 3 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.FaceXPlus = 2 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.FaceYMinus = 5 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.FaceYPlus = 4 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.FaceZMinus = 7 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.FaceZPlus = 6 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Other = 13 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Pipe = 9 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestSlot.Rail = 12 -> Lattice.Testing.TestSlot
+Lattice.Testing.TestWorld
+Lattice.Testing.TestWorld.Advance(Lattice.Api.GameTime by) -> void
+Lattice.Testing.TestWorld.Advance(Lattice.Api.StructureRef structure) -> Lattice.Api.Result<Lattice.Api.BuildState!, Lattice.Api.Reason!>
+Lattice.Testing.TestWorld.Build(Lattice.Api.PrefabKey piece, Lattice.Api.Cell at, Lattice.Api.Turn turn) -> Lattice.Api.Result<Lattice.Api.StructureRef, Lattice.Api.Reason!>
+Lattice.Testing.TestWorld.Dispose() -> void
+Lattice.Testing.TestWorld.Frame() -> void
+Lattice.Testing.TestWorld.FrameCount.get -> int
+Lattice.Testing.TestWorld.Frames(int count) -> void
+Lattice.Testing.TestWorld.GameTime.get -> Lattice.Api.GameTime
+Lattice.Testing.TestWorld.Paint(Lattice.Api.StructureRef structure, Lattice.Api.PaintColour colour) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Testing.TestWorld.Remove(Lattice.Api.StructureRef structure) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Testing.TestWorld.Settle(int maxFrames = 64) -> Lattice.Api.Result<int, Lattice.Api.Reason!>
+Lattice.Testing.TestWorld.System.get -> Lattice.Api.IGhostSystem!
+Lattice.Testing.TestWorld.Viewer.get -> Lattice.Api.Actor!
+static Lattice.Testing.Allocations.AssertNone(System.Action! call, string! what, int repeat = 100) -> void
+static Lattice.Testing.Allocations.Measure(System.Action! call, int repeat = 100) -> long
+static Lattice.Testing.TestCatalogue.FromFile(string! path) -> Lattice.Api.Result<Lattice.Testing.TestCatalogue!, Lattice.Api.Reason!>
+static Lattice.Testing.TestCatalogue.Hand.get -> Lattice.Testing.TestCatalogue!
+static Lattice.Testing.TestNetwork.Chute.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.Data.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.Elevator.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.Gas.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.LandingPad.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.LaunchPad.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.Liquid.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.Modded(string! gameTypeName, int bits) -> Lattice.Api.Result<Lattice.Testing.TestNetwork, Lattice.Api.Reason!>
+static Lattice.Testing.TestNetwork.Power.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestNetwork.Rail.get -> Lattice.Testing.TestNetwork
+static Lattice.Testing.TestPiece.Create(string! name, string! kit, Lattice.Api.PieceGrid grid) -> Lattice.Api.Result<Lattice.Testing.TestPiece!, Lattice.Api.Reason!>
+static Lattice.Testing.TestScenario.DefaultViewer.get -> Lattice.Api.Actor!
+static Lattice.Testing.TestScenario.Empty.get -> Lattice.Testing.TestScenario!
+static Lattice.Testing.TestWorld.Start(Lattice.Testing.TestScenario! scenario) -> Lattice.Api.Result<Lattice.Testing.TestWorld!, Lattice.Api.Reason!>
+static readonly Lattice.Testing.TestCodes.Host -> Lattice.Api.RuleId
+static readonly Lattice.Testing.TestCodes.NotSettled -> Lattice.Api.ReasonCode
+static readonly Lattice.Testing.TestCodes.WorldRunning -> Lattice.Api.ReasonCode
+Lattice.Testing.TestWorld.Log.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Lattice.Testing.TestCatalogue.View.get -> Lattice.Api.IPieceCatalogue!
+Lattice.Testing.TestKitPlace
+Lattice.Testing.TestKitPlace.Kit.get -> string!
+Lattice.Testing.TestKitPlace.Kit.init -> void
+Lattice.Testing.TestKitPlace.Option.get -> int
+Lattice.Testing.TestKitPlace.Option.init -> void
+Lattice.Testing.TestKitPlace.TestKitPlace(string! Kit, int Option) -> void
+Lattice.Testing.TestPiece.AlsoIn(string! kit, int option) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.AtOption(int option) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.ChosenOption.get -> Lattice.Api.Option<int>
+Lattice.Testing.TestPiece.DisplayName.get -> string!
+Lattice.Testing.TestPiece.Named(string! displayName) -> Lattice.Testing.TestPiece!
+Lattice.Testing.TestPiece.OtherKits.get -> Lattice.Api.ValueList<Lattice.Testing.TestKitPlace!>!
+Lattice.Testing.FakeGhostStyles.TryPick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options, out Lattice.Api.PickResult hit) -> bool

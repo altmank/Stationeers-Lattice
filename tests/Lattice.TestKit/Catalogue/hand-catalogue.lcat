@@ -1,0 +1,268 @@
+lattice-catalogue 3
+# Hand-written catalogue for tests. A generated tests/fixtures/generated/catalogue.lcat replaces it when present.
+# Test values (not game claims): each kit's options run from 0 in the order listed here; the game's pipe, chute
+#   and rail kits hold more options between them.
+# Game facts: StructureWallIron finishes at state 1,
+#   StructureFrameIron and StructureCompositeWindowIron at state 2; the steel frame's states 2 and 3 block air.
+# Game facts: ItemCableCoil option order and cost per piece, one build state,
+#   exit tool ItemWireCutters, ratings 5000 W normal / 100000 W heavy, the local end directions of each normal shape,
+#   long straights (pivot plus N-1 cells along -z, ends +z at the pivot and -z at the far cell).
+# From the game catalogue (the catalogue reader's headless export on the test instance): each small
+#   piece's ends and footprint cells. Long straights do not all run one way: cables pivot..-z, pipes pivot..+z
+#   (StructurePipeStraight3), chutes pivot..-x with x ends (StructureChuteStraight, StructureChuteStraight3), rails
+#   pivot..-y (StructureRoboticArmRailStraightStop); the pipe corner's ends are x- and z-.
+# Game facts (connection is geometric): the area power control's input at -x, output at +x.
+# Game facts: a frame takes its cell's centre slot, a wall one
+#   face slot; one slot per kind per small cell; collision classes cables 2, pipes 1,
+#   chutes 23, small devices 23, the APC Everything (31), cable fuses 21; cable ends 0.34 m (-) and 0.40 m (+) from
+#   centre, pipe ends 0.34 m (-) and 0.37 m (+).
+# Test values (not game claims): which face the unturned wall and window take; the chute's and fuse's names, kits
+#   and ends.
+# Test values (not game claims): the small tank's single cell and y- port (the game's tank fills 3 x 4 x 3 small cells
+#   with x+ and z+ ports); the slots of large pieces (the reader gives large pieces no footprint).
+# Test values (not game claims): the kits, tools and materials of frames, walls, windows, pipes, the tank and the APC;
+#   which states of the iron frame and window block air; pipe ends and ratings; the tank's port and its role;
+#   which steps block gravity (the last step of frames, walls and windows).
+# Game facts: any IConstructor tool takes a broken structure apart;
+#   the game's are ItemAngleGrinder, ItemArcWelder and ItemWeldingTorch.
+
+broken-tools ItemAngleGrinder,ItemArcWelder,ItemWeldingTorch
+
+piece StructureFrame kit=ItemSteelFrames option=0 grid=large
+  step entry=ItemSteelFrames material=ItemSteelFrames*1 exit=ItemWrench air=no
+  step entry=ItemSteelSheets material=ItemSteelSheets*2 exit=ItemCrowbar air=no
+  step entry=ItemWeldingTorch exit=ItemAngleGrinder air=yes
+  step entry=ItemWeldingTorch exit=ItemAngleGrinder air=yes gravity=yes
+  cell 0 0 0 centre
+
+piece StructureFrameIron kit=ItemIronFrames option=0 grid=large
+  step entry=ItemIronFrames material=ItemIronFrames*1 exit=ItemWrench air=no
+  step entry=ItemIronSheets material=ItemIronSheets*1 exit=ItemCrowbar air=no
+  step entry=ItemIronSheets material=ItemIronSheets*1 exit=ItemCrowbar air=yes gravity=yes
+  cell 0 0 0 centre
+
+piece StructureWallIron kit=ItemKitWall option=0 grid=large
+  step entry=ItemKitWall material=ItemKitWall*1 exit=ItemWrench air=no
+  step entry=ItemIronSheets material=ItemIronSheets*2 exit=ItemCrowbar air=yes gravity=yes
+  rating face=50
+  cell 0 0 0 face-z-
+
+piece StructureCompositeWindowIron kit=ItemKitWindowIron option=0 grid=large
+  step entry=ItemKitWindowIron material=ItemKitWindowIron*1 exit=ItemWrench air=no
+  step entry=ItemIronSheets material=ItemIronSheets*1 exit=ItemCrowbar air=no
+  step entry=ItemCompositeGlass material=ItemCompositeGlass*1 exit=ItemCrowbar air=yes gravity=yes
+  rating face=40
+  cell 0 0 0 face-z-
+
+piece StructureCableStraight kit=ItemCableCoil option=0 grid=small
+  step material=ItemCableCoil*1 exit=ItemWireCutters air=no
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableCorner kit=ItemCableCoil option=1 grid=small
+  step material=ItemCableCoil*1 exit=ItemWireCutters air=no
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 z+ power,data reach=400
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableJunction kit=ItemCableCoil option=2 grid=small
+  step material=ItemCableCoil*2 exit=ItemWireCutters air=no
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableJunction4 kit=ItemCableCoil option=3 grid=small
+  step material=ItemCableCoil*2 exit=ItemWireCutters air=no
+  end 0 0 0 x+ power,data reach=400
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableJunction5 kit=ItemCableCoil option=4 grid=small
+  step material=ItemCableCoil*3 exit=ItemWireCutters air=no
+  end 0 0 0 x+ power,data reach=400
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 y+ power,data reach=400
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableJunction6 kit=ItemCableCoil option=5 grid=small
+  step material=ItemCableCoil*3 exit=ItemWireCutters air=no
+  end 0 0 0 x+ power,data reach=400
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 y+ power,data reach=400
+  end 0 0 0 y- power,data reach=340
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableCorner3 kit=ItemCableCoil option=6 grid=small
+  step material=ItemCableCoil*2 exit=ItemWireCutters air=no
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 y- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableCorner4 kit=ItemCableCoil option=7 grid=small
+  step material=ItemCableCoil*3 exit=ItemWireCutters air=no
+  end 0 0 0 x- power,data reach=340
+  end 0 0 0 y- power,data reach=340
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructureCableStraight3 kit=ItemCableCoil option=8 grid=small
+  step material=ItemCableCoil*3 exit=ItemWireCutters air=no
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 -10 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  cell 0 0 -5 cable
+  cell 0 0 -10 cable
+  collision 2
+
+piece StructureCableStraight5 kit=ItemCableCoil option=9 grid=small
+  step material=ItemCableCoil*4 exit=ItemWireCutters air=no
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 -20 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  cell 0 0 -5 cable
+  cell 0 0 -10 cable
+  cell 0 0 -15 cable
+  cell 0 0 -20 cable
+  collision 2
+
+piece StructureCableStraight10 kit=ItemCableCoil option=10 grid=small
+  step material=ItemCableCoil*7 exit=ItemWireCutters air=no
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 -45 z- power,data reach=340
+  rating cable=5000
+  cell 0 0 0 cable
+  cell 0 0 -5 cable
+  cell 0 0 -10 cable
+  cell 0 0 -15 cable
+  cell 0 0 -20 cable
+  cell 0 0 -25 cable
+  cell 0 0 -30 cable
+  cell 0 0 -35 cable
+  cell 0 0 -40 cable
+  cell 0 0 -45 cable
+  collision 2
+
+piece StructureCableStraightH kit=ItemCableCoilHeavy option=0 grid=small
+  step material=ItemCableCoilHeavy*1 exit=ItemWireCutters air=no
+  end 0 0 0 z+ power,data reach=400
+  end 0 0 0 z- power,data reach=340
+  rating cable=100000
+  cell 0 0 0 cable
+  collision 2
+
+piece StructurePipeStraight kit=ItemKitPipe option=0 grid=small pipe=gas
+  step material=ItemKitPipe*1 exit=ItemWrench air=no
+  end 0 0 0 z+ gas reach=370
+  end 0 0 0 z- gas reach=340
+  rating pipe=60000
+  cell 0 0 0 pipe
+  collision 1
+
+piece StructurePipeCorner kit=ItemKitPipe option=1 grid=small pipe=gas
+  step material=ItemKitPipe*1 exit=ItemWrench air=no
+  end 0 0 0 x- gas reach=340
+  end 0 0 0 z- gas reach=340
+  rating pipe=60000
+  cell 0 0 0 pipe
+  collision 1
+
+piece StructurePipeTJunction kit=ItemKitPipe option=2 grid=small pipe=gas
+  step material=ItemKitPipe*1 exit=ItemWrench air=no
+  end 0 0 0 x- gas reach=340
+  end 0 0 0 z+ gas reach=370
+  end 0 0 0 z- gas reach=340
+  rating pipe=60000
+  cell 0 0 0 pipe
+  collision 1
+
+piece StructurePipeCrossJunction kit=ItemKitPipe option=3 grid=small pipe=gas
+  step material=ItemKitPipe*1 exit=ItemWrench air=no
+  end 0 0 0 x+ gas reach=370
+  end 0 0 0 x- gas reach=340
+  end 0 0 0 z+ gas reach=370
+  end 0 0 0 z- gas reach=340
+  rating pipe=60000
+  cell 0 0 0 pipe
+  collision 1
+
+piece StructurePipeStraight3 kit=ItemKitPipe option=4 grid=small pipe=gas
+  step material=ItemKitPipe*3 exit=ItemWrench air=no
+  end 0 0 0 z- gas reach=354
+  end 0 0 10 z+ gas reach=369
+  rating pipe=60000
+  cell 0 0 0 pipe
+  cell 0 0 5 pipe
+  cell 0 0 10 pipe
+  collision 1
+
+piece StructureTankSmall kit=ItemKitTank option=0 grid=small
+  step material=ItemKitTank*1 exit=ItemWrench air=no
+  end 0 0 0 y- gas role=input
+  cell 0 0 0 device
+  collision 23
+
+piece StructureAreaPowerControl kit=ItemKitAreaPowerControl option=0 grid=small
+  step material=ItemKitAreaPowerControl*1 exit=ItemWrench air=no
+  end 0 0 0 x- power role=input
+  end 0 0 0 x+ power role=output
+  cell 0 0 0 device
+  collision 31
+
+piece StructureChuteStraight kit=ItemKitChute option=0 grid=small
+  step material=ItemKitChute*1 exit=ItemWrench air=no
+  end 0 0 0 x+ chute
+  end 0 0 0 x- chute
+  cell 0 0 0 chute
+  collision 23
+
+piece StructureChuteStraight3 kit=ItemKitChute option=1 grid=small
+  step material=ItemKitChute*3 exit=ItemWrench air=no
+  end 0 0 0 x+ chute reach=396
+  end -10 0 0 x- chute reach=579
+  cell 0 0 0 chute
+  cell -5 0 0 chute
+  cell -10 0 0 chute
+  collision 23
+
+piece StructureRoboticArmRailStraightStop kit=ItemKitLinearRail option=0 grid=small
+  step material=ItemKitLinearRail*1 exit=ItemWrench air=no
+  end 0 0 0 x- rail reach=360
+  end 0 0 0 x+ rail reach=360
+  cell 0 0 0 rail
+  cell 0 -5 0 rail
+  cell 0 -10 0 rail
+  cell 0 -15 0 rail
+  collision 24
+
+piece StructureCableFuse kit=ItemKitCableFuse option=0 grid=small
+  step material=ItemKitCableFuse*1 exit=ItemWrench air=no
+  cell 0 0 0 device
+  collision 21

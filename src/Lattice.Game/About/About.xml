@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Lattice</Name>
+  <ModID>net.xceled.stationeers.lattice</ModID>
+  <Author>XCeled</Author>
+  <Version>0.0.0</Version>
+  <Description>[h1]The ghost core library other Stationeers mods build on[/h1]
+Lattice holds planned structures, called ghosts: see-through outlines of frames, walls, pipes and anything else, placed where you mean to build them. It does nothing on its own. Install it when a mod you use asks for it, such as a building planner, a builder or an agent tool. Mod authors get one shared, tested system for plans instead of writing their own.
+
+[hr][/hr]
+[h2]Features[/h2]
+[list]
+[*][b]Plans of ghosts.[/b] Build, remove, swap, paint and finish structures as ghosts, grouped in named plans, as many per world as you like.
+[*][b]Placement checks.[/b] Every ghost is checked against the game's own placement rules; a ghost that cannot be built says why.
+[*][b]Build order.[/b] What has to stand before what, so a plan goes up in an order that holds together.
+[*][b]Steps and materials.[/b] The build steps of every ghost and the materials they need: a shopping list for a plan.
+[*][b]Previews.[/b] What a change would do before it is made, such as a room it opens or the gas a removed pipe lets out.
+[*][b]Move, turn, mirror and copy.[/b] Whole plans or parts of them, and templates to place again.
+[*][b]Done tracking.[/b] Build a piece where its ghost stands and the ghost is marked done.
+[*][b]Drawing.[/b] Ghosts are drawn in the world with Lattice's own shaders: colours, highlights, blinking errors and labels. Other mods add looks of their own.
+[*][b]Saving.[/b] Plans are kept per world, beside the saves, never inside one.
+[*][b]Multiplayer.[/b] The host decides; every player sees the host's plans as they change.
+[*][b]Light on the frame.[/b] Long work is spread over frames, so a large base stays smooth.
+[/list]
+
+[hr][/hr]
+[h2]Removing it[/h2]
+Lattice keeps plans in a [i]lattice[/i] folder beside the game's saves, never inside a save, so your saves load the same without it. Removing it hides every ghost, and the mods that need it cannot work without it. Put it back and the plans come back. Delete that folder to drop them for good.
+
+[hr][/hr]
+[h2]Good to know[/h2]
+[list]
+[*]Each save loads the plans as they were when it was written.
+[*]Multiplayer: the host and every player need Lattice at the same version. A dedicated server keeps and saves plans without drawing them.
+[*]After a game update, a part of Lattice that relies on game code that changed turns itself off and says so in the log; the rest keeps working.
+[*]Mod authors: the guides to building on Lattice are in the repository's [i]docs[/i] folder (link below).
+[/list]
+
+[hr][/hr]
+[b]Requires[/b] [url=https://github.com/StationeersLaunchPad/StationeersLaunchPad]StationeersLaunchPad[/url]
+
+[b]Source, issues, the full readme and the mod author guides:[/b] [url=https://github.com/altmank/Stationeers-Lattice]github.com/altmank/Stationeers-Lattice[/url]
+
+Developed with the use of generative AI, and tokens aren't free. Buy me a coffee:
+[url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
+  </Description>
+  <ChangeLog>
+v0.6.0
+- First release of Lattice, the ghost core library other mods build on: it holds planned structures (ghosts) and answers whether they can be built, in what order, the steps and materials each needs, and what a change would look like before it is made. It does nothing on its own: install it when a mod you use asks for it.
+- Plans are saved with the world, in a lattice folder beside the game's saves, never inside a save; each save loads the plans as they were when it was written.
+- Multiplayer: the host and every player need Lattice at the same version. The host decides; players see the host's plans as they change.
+- Ghosts are drawn in game, with a styling system other mods can extend with looks of their own.
+</ChangeLog>
+  <Visibility>Public</Visibility>
+  <WorkshopHandle>3826716939</WorkshopHandle>
+  <Tags />
+</ModMetadata>

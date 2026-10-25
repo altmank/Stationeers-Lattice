@@ -1,0 +1,80 @@
+#nullable enable
+Lattice.Api.ClaimedThing
+Lattice.Api.ClaimedThing.ClaimedThing() -> void
+Lattice.Api.ClaimedThing.ClaimedThing(Lattice.Api.DrawnThing! Thing, Lattice.Api.PartKind Part, Lattice.Api.PrefabKey Piece, UnityEngine.Matrix4x4 Matrix, Lattice.Api.Style! Style) -> void
+Lattice.Api.ClaimedThing.Matrix.get -> UnityEngine.Matrix4x4
+Lattice.Api.ClaimedThing.Matrix.init -> void
+Lattice.Api.ClaimedThing.Part.get -> Lattice.Api.PartKind
+Lattice.Api.ClaimedThing.Part.init -> void
+Lattice.Api.ClaimedThing.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.ClaimedThing.Piece.init -> void
+Lattice.Api.ClaimedThing.Style.get -> Lattice.Api.Style!
+Lattice.Api.ClaimedThing.Style.init -> void
+Lattice.Api.ClaimedThing.Thing.get -> Lattice.Api.DrawnThing!
+Lattice.Api.ClaimedThing.Thing.init -> void
+Lattice.Api.ClaimParts
+Lattice.Api.ClaimParts.Everything = 2 -> Lattice.Api.ClaimParts
+Lattice.Api.ClaimParts.Mesh = 1 -> Lattice.Api.ClaimParts
+Lattice.Api.DrawOrder
+Lattice.Api.DrawOrder.DrawOrder(int FadedWorld, int Ghosts, int Overlays, int SeeThrough, int Labels) -> void
+Lattice.Api.DrawOrder.FadedWorld.get -> int
+Lattice.Api.DrawOrder.FadedWorld.init -> void
+Lattice.Api.DrawOrder.Ghosts.get -> int
+Lattice.Api.DrawOrder.Ghosts.init -> void
+Lattice.Api.DrawOrder.Labels.get -> int
+Lattice.Api.DrawOrder.Labels.init -> void
+Lattice.Api.DrawOrder.Overlays.get -> int
+Lattice.Api.DrawOrder.Overlays.init -> void
+Lattice.Api.DrawOrder.SeeThrough.get -> int
+Lattice.Api.DrawOrder.SeeThrough.init -> void
+Lattice.Api.IClaimFrame
+Lattice.Api.IClaimFrame.Count.get -> int
+Lattice.Api.IClaimFrame.this[int index].get -> Lattice.Api.ClaimedThing
+Lattice.Api.IGhostDrawing
+Lattice.Api.IGhostDrawing.Camera.get -> Lattice.Api.Option<UnityEngine.Camera!>
+Lattice.Api.IGhostDrawing.Claim(Lattice.Api.RendererClaimDescriptor! claim) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IGhostDrawing.Material(Lattice.Api.MaterialKey key) -> Lattice.Api.Result<UnityEngine.Material!, Lattice.Api.Reason!>
+Lattice.Api.IGhostDrawing.Order.get -> Lattice.Api.DrawOrder!
+Lattice.Api.IGhostDrawing.Override(Lattice.Api.MaterialKey key, UnityEngine.Material! material) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IGhostDrawing.Register(Lattice.Api.DecorationKey key, UnityEngine.Mesh! mesh, UnityEngine.Material! material) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IGhostDrawing.Register(Lattice.Api.IconKey key, UnityEngine.Texture2D! icon) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IGhostDrawing.Register(Lattice.Api.PieceLook! look) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IGhostDrawing.Register(Lattice.Api.TextStyleKey key, Lattice.Api.TextStyle! style) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.LatticeDrawing
+Lattice.Api.PieceLook
+Lattice.Api.PieceLook.Meshes.get -> Lattice.Api.ValueList<Lattice.Api.PieceMesh>!
+Lattice.Api.PieceLook.Meshes.init -> void
+Lattice.Api.PieceLook.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.PieceLook.Piece.init -> void
+Lattice.Api.PieceLook.PieceLook(Lattice.Api.PrefabKey Piece, Lattice.Api.ValueList<Lattice.Api.PieceMesh>! Meshes) -> void
+Lattice.Api.PieceMesh
+Lattice.Api.PieceMesh.Local.get -> UnityEngine.Matrix4x4
+Lattice.Api.PieceMesh.Local.init -> void
+Lattice.Api.PieceMesh.Mesh.get -> UnityEngine.Mesh!
+Lattice.Api.PieceMesh.Mesh.init -> void
+Lattice.Api.PieceMesh.PieceMesh() -> void
+Lattice.Api.PieceMesh.PieceMesh(UnityEngine.Mesh! Mesh, UnityEngine.Matrix4x4 Local) -> void
+Lattice.Api.RendererClaimDescriptor
+Lattice.Api.RendererClaimDescriptor.Draw.get -> System.Action<Lattice.Api.IClaimFrame!>!
+Lattice.Api.RendererClaimDescriptor.Draw.init -> void
+Lattice.Api.RendererClaimDescriptor.Id.get -> Lattice.Api.ClaimId
+Lattice.Api.RendererClaimDescriptor.Id.init -> void
+Lattice.Api.RendererClaimDescriptor.Match.get -> Lattice.Api.StyleMatch!
+Lattice.Api.RendererClaimDescriptor.Match.init -> void
+Lattice.Api.RendererClaimDescriptor.Order.get -> int
+Lattice.Api.RendererClaimDescriptor.Order.init -> void
+Lattice.Api.RendererClaimDescriptor.Parts.get -> Lattice.Api.ClaimParts
+Lattice.Api.RendererClaimDescriptor.Parts.init -> void
+Lattice.Api.RendererClaimDescriptor.RendererClaimDescriptor(Lattice.Api.ClaimId Id, Lattice.Api.StyleMatch! Match, Lattice.Api.ClaimParts Parts, System.Action<Lattice.Api.IClaimFrame!>! Draw) -> void
+Lattice.Api.TextStyle
+Lattice.Api.TextStyle.Colour.get -> Lattice.Api.Rgba
+Lattice.Api.TextStyle.Colour.init -> void
+Lattice.Api.TextStyle.Font.get -> TMPro.TMP_FontAsset!
+Lattice.Api.TextStyle.Font.init -> void
+Lattice.Api.TextStyle.Size.get -> float
+Lattice.Api.TextStyle.Size.init -> void
+Lattice.Api.TextStyle.TextStyle(TMPro.TMP_FontAsset! Font, float Size, Lattice.Api.Rgba Colour) -> void
+Lattice.Api.TextStyle.Wording.get -> Lattice.Api.ValueMap<Lattice.Api.ReasonCode, Lattice.Api.Label>!
+Lattice.Api.TextStyle.Wording.init -> void
+static Lattice.Api.LatticeDrawing.Current.get -> Lattice.Api.Option<Lattice.Api.IGhostDrawing!>
+static Lattice.Api.LatticeDrawing.Started -> System.Action<Lattice.Api.IGhostDrawing!>?

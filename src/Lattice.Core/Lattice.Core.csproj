@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Pure code: no Unity or game types. Nothing public: Game and the tests reach it through InternalsVisibleTo. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Lattice.Api\Lattice.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lattice.Game" />
+    <InternalsVisibleTo Include="Lattice.Render" />
+    <InternalsVisibleTo Include="Lattice.Game.Live" />
+    <InternalsVisibleTo Include="Lattice.TestKit" />
+    <InternalsVisibleTo Include="Lattice.Testing" />
+    <InternalsVisibleTo Include="Lattice.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A consumer of the test host, as another mod would be: references only Lattice.Api and Lattice.Testing, from
+    the packaged folder (artifacts/<Configuration>/Lattice.Testing), copied into the test output. The project reference
+    only orders the build.
+  -->
+  <PropertyGroup>
+    <TestingDir>$(RepoRoot)artifacts\$(Configuration)\Lattice.Testing\</TestingDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lattice.Testing\Lattice.Testing.csproj" ReferenceOutputAssembly="false" />
+    <Reference Include="Lattice.Api" HintPath="$(TestingDir)Lattice.Api.dll" Private="true" />
+    <Reference Include="Lattice.Testing" HintPath="$(TestingDir)Lattice.Testing.dll" Private="true" />
+    <None Include="$(TestingDir)Lattice.Core.dll;$(TestingDir)Lattice.TestKit.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Lattice.Consumer.Tests\ConsumerFlows.cs" Link="Flows\ConsumerFlows.cs" />
+    <Compile Include="..\Lattice.Consumer.Tests\StyleFlows.cs" Link="Flows\StyleFlows.cs" />
+  </ItemGroup>
+</Project>

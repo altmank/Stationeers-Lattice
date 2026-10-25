@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Ghost drawing: materials, instanced submission, culling, effects, labels, overlays and
+    claims, over Core's draw plan. References Lattice.Api, Lattice.Api.Unity, Lattice.Core and Unity's engine modules
+    only, none copied; no game assembly (Game hands it piece meshes and the camera through its ports).
+    Exposes nothing public.
+  -->
+  <PropertyGroup>
+    <StationeersDir Condition="'$(StationeersDir)' == ''">$(STATIONEERS_DIR)</StationeersDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">$(StationeersDir)\rocketstation_Data\Managed</GameManagedDir>
+    <!-- Game references resolve from their HintPath only, so no same-named assembly elsewhere can stand in. -->
+    <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory};{RawFileName}</AssemblySearchPaths>
+    <!-- The game's assemblies are built against its own framework; version conflicts with netstandard are expected. -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The shader sources and their Unity editor script build in the Unity project build-shaders.ps1 makes, never here. -->
+    <Compile Remove="Shaders\**" />
+    <None Remove="Shaders\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\Lattice.Api.Unity\Lattice.Api.Unity.csproj" />
+    <ProjectReference Include="..\Lattice.Core\Lattice.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AssetBundleModule" HintPath="$(GameManagedDir)\UnityEngine.AssetBundleModule.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(GameManagedDir)\Unity.TextMeshPro.dll" Private="false" />
+    <!-- TextMeshPro's world-space text derives from UnityEngine.UI's graphic types. -->
+    <Reference Include="UnityEngine.UI" HintPath="$(GameManagedDir)\UnityEngine.UI.dll" Private="false" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(GameManagedDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lattice.Game" />
+    <InternalsVisibleTo Include="Lattice.Game.Live" />
+    <InternalsVisibleTo Include="Lattice.Tests" />
+  </ItemGroup>
+
+  <Target Name="CheckGamePaths" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(GameManagedDir)\UnityEngine.CoreModule.dll')"
+           Text="Game assemblies not found in '$(GameManagedDir)'. Set StationeersDir in Directory.Build.props.user (see Directory.Build.props.user.example) or the STATIONEERS_DIR environment variable." />
+  </Target>
+</Project>

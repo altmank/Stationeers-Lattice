@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The consumer test host: Lattice's real Core over the test kit's fakes, for other mods' .NET tests. A contract of
+    its own (public API baseline, documented, no test framework). Never in the mod folder: it must not load in game.
+    Artifacts: artifacts/<Configuration>/Lattice.Testing holds it with the Api, Core and TestKit it runs.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\Lattice.Core\Lattice.Core.csproj" />
+    <ProjectReference Include="..\..\tests\Lattice.TestKit\Lattice.TestKit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lattice.Tests" />
+  </ItemGroup>
+
+  <Target Name="Package" AfterTargets="Build">
+    <PropertyGroup>
+      <TestingPackageDir>$(RepoRoot)artifacts\$(Configuration)\Lattice.Testing\</TestingPackageDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(TestingPackageDir)" />
+    <Copy SourceFiles="$(OutDir)Lattice.Testing.dll;$(OutDir)Lattice.Testing.xml;$(OutDir)Lattice.Api.dll;$(OutDir)Lattice.Api.xml;$(OutDir)Lattice.Core.dll;$(OutDir)Lattice.TestKit.dll" DestinationFolder="$(TestingPackageDir)" />
+  </Target>
+</Project>

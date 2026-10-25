@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A renderer mod's use of the Unity half of the contract, compiled and never run: Unity types need the game's
+    Mono, so the .NET 8 tests cannot load them. References Lattice.Api, Lattice.Api.Unity and the two Unity assemblies
+    the contract names, as a consumer mod would. Never shipped.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <IsTestProject>false</IsTestProject>
+    <StationeersDir Condition="'$(StationeersDir)' == ''">$(STATIONEERS_DIR)</StationeersDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">$(StationeersDir)\rocketstation_Data\Managed</GameManagedDir>
+    <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory};{RawFileName}</AssemblySearchPaths>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Api.Unity\Lattice.Api.Unity.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(GameManagedDir)\Unity.TextMeshPro.dll" Private="false" />
+  </ItemGroup>
+</Project>

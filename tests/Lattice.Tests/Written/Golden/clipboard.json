@@ -1,0 +1,7 @@
+{"form":"lattice-clipboard","schema":1,"items":[
+{"build":"1432509316@10,20,30","made":"planner/run-tool"},
+{"build":"-1912345678@-5,0,15/17","plan":9,"made":"planner/run-tool","data.builder/job":"a=b c%d\nline two","data.builder/preferred-bay":"{\"bay\": 2, \"note\": \"left of door\"}"},
+{"remove":"901234:-1529819532@10,20,-30","made":"planner/run-tool","vis":"owner","label":"North store #2 (100% done)"},
+{"swap":"901234:-1529819532@10,20,-30","to":"-1123456789@10,20,-30/5","paint":4,"name":"Main bus = 50%, east","setting":"0.1","made":"planner/run-tool","tint":"ff008040","group":["Air","Hydro power","zone=b"]},
+{"finish":"901234:-1529819532@10,20,-30","paint":4,"name":"Main bus = 50%, east","setting":"0.1","made":"planner/run-tool","vis":"team:Night shift"}
+]}

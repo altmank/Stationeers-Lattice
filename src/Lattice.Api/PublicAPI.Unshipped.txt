@@ -1,0 +1,2511 @@
+#nullable enable
+abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
+const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 6 -> int
+const Lattice.Api.Turn.Count = 24 -> int
+Lattice.Api.AccessPolicy
+Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
+Lattice.Api.AccessPolicy.MayChange.get -> System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>!
+Lattice.Api.AccessPolicy.MayChange.init -> void
+Lattice.Api.AccessPolicy.MaySeeGhost.get -> System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>!
+Lattice.Api.AccessPolicy.MaySeeGhost.init -> void
+Lattice.Api.AccessPolicy.MaySeePlan.get -> System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>!
+Lattice.Api.AccessPolicy.MaySeePlan.init -> void
+Lattice.Api.AccessRequest
+Lattice.Api.AccessRequest.AccessRequest(Lattice.Api.Actor! Actor, Lattice.Api.Command! Command, Lattice.Api.PlanId Plan, Lattice.Api.Option<Lattice.Api.Ghost!> Ghost) -> void
+Lattice.Api.AccessRequest.Actor.get -> Lattice.Api.Actor!
+Lattice.Api.AccessRequest.Actor.init -> void
+Lattice.Api.AccessRequest.Command.get -> Lattice.Api.Command!
+Lattice.Api.AccessRequest.Command.init -> void
+Lattice.Api.AccessRequest.Ghost.get -> Lattice.Api.Option<Lattice.Api.Ghost!>
+Lattice.Api.AccessRequest.Ghost.init -> void
+Lattice.Api.AccessRequest.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.AccessRequest.Plan.init -> void
+Lattice.Api.Actor
+Lattice.Api.Actor.Agent
+Lattice.Api.Actor.Agent.Agent(Lattice.Api.AgentId Id) -> void
+Lattice.Api.Actor.Agent.Id.get -> Lattice.Api.AgentId
+Lattice.Api.Actor.Agent.Id.init -> void
+Lattice.Api.Actor.Mod
+Lattice.Api.Actor.Mod.Id.get -> Lattice.Api.ModId
+Lattice.Api.Actor.Mod.Id.init -> void
+Lattice.Api.Actor.Mod.Mod(Lattice.Api.ModId Id) -> void
+Lattice.Api.Actor.Player
+Lattice.Api.Actor.Player.Client.get -> Lattice.Api.ClientId
+Lattice.Api.Actor.Player.Client.init -> void
+Lattice.Api.Actor.Player.Player(Lattice.Api.ClientId Client) -> void
+Lattice.Api.AgentId
+Lattice.Api.AgentId.AgentId() -> void
+Lattice.Api.AgentId.Value.get -> string!
+Lattice.Api.AnalysisReport
+Lattice.Api.AnalysisReport.AnalysisReport(Lattice.Api.ValueList<Lattice.Api.NetworkEffect!>! Networks, Lattice.Api.ValueList<Lattice.Api.RoomEffect!>! Rooms, Lattice.Api.ValueList<Lattice.Api.GasEffect!>! Gas, Lattice.Api.ValueList<Lattice.Api.AnalyzerFact!>! Facts) -> void
+Lattice.Api.AnalysisReport.Facts.get -> Lattice.Api.ValueList<Lattice.Api.AnalyzerFact!>!
+Lattice.Api.AnalysisReport.Facts.init -> void
+Lattice.Api.AnalysisReport.Gas.get -> Lattice.Api.ValueList<Lattice.Api.GasEffect!>!
+Lattice.Api.AnalysisReport.Gas.init -> void
+Lattice.Api.AnalysisReport.Networks.get -> Lattice.Api.ValueList<Lattice.Api.NetworkEffect!>!
+Lattice.Api.AnalysisReport.Networks.init -> void
+Lattice.Api.AnalysisReport.Rooms.get -> Lattice.Api.ValueList<Lattice.Api.RoomEffect!>!
+Lattice.Api.AnalysisReport.Rooms.init -> void
+Lattice.Api.AnalyzerDescriptor
+Lattice.Api.AnalyzerDescriptor.Analyze.get -> System.Func<Lattice.Api.AnalyzerInput!, Lattice.Api.ValueList<Lattice.Api.AnalyzerFact!>!>!
+Lattice.Api.AnalyzerDescriptor.Analyze.init -> void
+Lattice.Api.AnalyzerDescriptor.AnalyzerDescriptor(Lattice.Api.RuleId Id, System.Func<Lattice.Api.AnalyzerInput!, Lattice.Api.ValueList<Lattice.Api.AnalyzerFact!>!>! Analyze) -> void
+Lattice.Api.AnalyzerDescriptor.Id.get -> Lattice.Api.RuleId
+Lattice.Api.AnalyzerDescriptor.Id.init -> void
+Lattice.Api.AnalyzerDescriptor.Thread.get -> Lattice.Api.CallbackThread
+Lattice.Api.AnalyzerDescriptor.Thread.init -> void
+Lattice.Api.AnalyzerFact
+Lattice.Api.AnalyzerFact.AnalyzerFact(Lattice.Api.RuleId From, Lattice.Api.ReasonCode Code, Lattice.Api.ValueMap<string!, string!>! Values) -> void
+Lattice.Api.AnalyzerFact.Code.get -> Lattice.Api.ReasonCode
+Lattice.Api.AnalyzerFact.Code.init -> void
+Lattice.Api.AnalyzerFact.From.get -> Lattice.Api.RuleId
+Lattice.Api.AnalyzerFact.From.init -> void
+Lattice.Api.AnalyzerFact.Values.get -> Lattice.Api.ValueMap<string!, string!>!
+Lattice.Api.AnalyzerFact.Values.init -> void
+Lattice.Api.AnalyzerInput
+Lattice.Api.AnalyzerInput.AnalyzerInput(Lattice.Api.ValueList<Lattice.Api.Ghost!>! Ghosts, Lattice.Api.IWorldQuery! World) -> void
+Lattice.Api.AnalyzerInput.Ghosts.get -> Lattice.Api.ValueList<Lattice.Api.Ghost!>!
+Lattice.Api.AnalyzerInput.Ghosts.init -> void
+Lattice.Api.AnalyzerInput.World.get -> Lattice.Api.IWorldQuery!
+Lattice.Api.AnalyzerInput.World.init -> void
+Lattice.Api.Answer<T>
+Lattice.Api.Answer<T>.At.get -> Lattice.Api.Revision
+Lattice.Api.Answer<T>.Pending
+Lattice.Api.Answer<T>.Pending.Pending(Lattice.Api.Revision At) -> void
+Lattice.Api.Answer<T>.Ready
+Lattice.Api.Answer<T>.Ready.Ready(T Value, Lattice.Api.Revision At) -> void
+Lattice.Api.Answer<T>.Ready.Value.get -> T
+Lattice.Api.Answer<T>.Ready.Value.init -> void
+Lattice.Api.ApiVersion
+Lattice.Api.ApiVersion.ApiVersion() -> void
+Lattice.Api.ApiVersion.ApiVersion(int Major, int Minor) -> void
+Lattice.Api.ApiVersion.Major.get -> int
+Lattice.Api.ApiVersion.Major.init -> void
+Lattice.Api.ApiVersion.Minor.get -> int
+Lattice.Api.ApiVersion.Minor.init -> void
+Lattice.Api.Attachment
+Lattice.Api.Attachment.Attachment() -> void
+Lattice.Api.Attachment.Value.get -> string!
+Lattice.Api.AttachmentDescriptor
+Lattice.Api.AttachmentDescriptor.AttachmentDescriptor(Lattice.Api.AttachmentKey Key, Lattice.Api.DisplayName Description) -> void
+Lattice.Api.AttachmentDescriptor.Description.get -> Lattice.Api.DisplayName
+Lattice.Api.AttachmentDescriptor.Description.init -> void
+Lattice.Api.AttachmentDescriptor.Key.get -> Lattice.Api.AttachmentKey
+Lattice.Api.AttachmentDescriptor.Key.init -> void
+Lattice.Api.AttachmentDescriptor.MaxLength.get -> int
+Lattice.Api.AttachmentDescriptor.MaxLength.init -> void
+Lattice.Api.AttachmentKey
+Lattice.Api.AttachmentKey.AttachmentKey() -> void
+Lattice.Api.AttachmentKey.Value.get -> string!
+Lattice.Api.Axis
+Lattice.Api.Axis.X = 1 -> Lattice.Api.Axis
+Lattice.Api.Axis.Y = 2 -> Lattice.Api.Axis
+Lattice.Api.Axis.Z = 3 -> Lattice.Api.Axis
+Lattice.Api.BeyondClipLook
+Lattice.Api.BeyondClipLook.Dim
+Lattice.Api.BeyondClipLook.Dim.By.get -> Lattice.Api.Fraction
+Lattice.Api.BeyondClipLook.Dim.By.init -> void
+Lattice.Api.BeyondClipLook.Dim.Dim(Lattice.Api.Fraction By) -> void
+Lattice.Api.BeyondClipLook.Drawn
+Lattice.Api.BeyondClipLook.Hidden
+Lattice.Api.BeyondClipLook.Wire
+Lattice.Api.BeyondClipPicks
+Lattice.Api.BeyondClipPicks.Exclude = 1 -> Lattice.Api.BeyondClipPicks
+Lattice.Api.BeyondClipPicks.Include = 2 -> Lattice.Api.BeyondClipPicks
+Lattice.Api.Bill
+Lattice.Api.Bill.Bill(Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! Needed, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! GivenBack, Lattice.Api.ValueList<Lattice.Api.ItemDelta>! Net, Lattice.Api.ValueSet<Lattice.Api.ItemKey>! Tools) -> void
+Lattice.Api.Bill.GivenBack.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+Lattice.Api.Bill.GivenBack.init -> void
+Lattice.Api.Bill.Needed.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+Lattice.Api.Bill.Needed.init -> void
+Lattice.Api.Bill.Net.get -> Lattice.Api.ValueList<Lattice.Api.ItemDelta>!
+Lattice.Api.Bill.Net.init -> void
+Lattice.Api.Bill.Tools.get -> Lattice.Api.ValueSet<Lattice.Api.ItemKey>!
+Lattice.Api.Bill.Tools.init -> void
+Lattice.Api.BlockedGhost
+Lattice.Api.BlockedGhost.BlockedGhost(Lattice.Api.GhostId Ghost, Lattice.Api.Reason! Why) -> void
+Lattice.Api.BlockedGhost.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.BlockedGhost.Ghost.init -> void
+Lattice.Api.BlockedGhost.Why.get -> Lattice.Api.Reason!
+Lattice.Api.BlockedGhost.Why.init -> void
+Lattice.Api.Branch
+Lattice.Api.Branch.Branch(Lattice.Api.LineNumber Follows, Lattice.Api.LineNumber Head, Lattice.Api.ValueList<Lattice.Api.SaveName>! Saves) -> void
+Lattice.Api.Branch.Follows.get -> Lattice.Api.LineNumber
+Lattice.Api.Branch.Follows.init -> void
+Lattice.Api.Branch.Head.get -> Lattice.Api.LineNumber
+Lattice.Api.Branch.Head.init -> void
+Lattice.Api.Branch.Saves.get -> Lattice.Api.ValueList<Lattice.Api.SaveName>!
+Lattice.Api.Branch.Saves.init -> void
+Lattice.Api.BuildState
+Lattice.Api.BuildState.Broken
+Lattice.Api.BuildState.Building
+Lattice.Api.BuildState.Building.At.get -> Lattice.Api.StepIndex
+Lattice.Api.BuildState.Building.At.init -> void
+Lattice.Api.BuildState.Building.Building(Lattice.Api.StepIndex At) -> void
+Lattice.Api.BuildState.Built
+Lattice.Api.CallbackThread
+Lattice.Api.CallbackThread.Main = 1 -> Lattice.Api.CallbackThread
+Lattice.Api.CallbackThread.Worker = 2 -> Lattice.Api.CallbackThread
+Lattice.Api.CatalogueAddition
+Lattice.Api.CatalogueAddition.InFamily
+Lattice.Api.CatalogueAddition.InFamily.Family.get -> Lattice.Api.PieceFamily
+Lattice.Api.CatalogueAddition.InFamily.Family.init -> void
+Lattice.Api.CatalogueAddition.InFamily.InFamily(Lattice.Api.PrefabKey Piece, Lattice.Api.PieceFamily Family) -> void
+Lattice.Api.CatalogueAddition.InFamily.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.CatalogueAddition.InFamily.Piece.init -> void
+Lattice.Api.CatalogueAddition.MirrorPartner
+Lattice.Api.CatalogueAddition.MirrorPartner.Mirror.get -> Lattice.Api.PrefabKey
+Lattice.Api.CatalogueAddition.MirrorPartner.Mirror.init -> void
+Lattice.Api.CatalogueAddition.MirrorPartner.MirrorPartner(Lattice.Api.PrefabKey Piece, Lattice.Api.PrefabKey Mirror) -> void
+Lattice.Api.CatalogueAddition.MirrorPartner.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.CatalogueAddition.MirrorPartner.Piece.init -> void
+Lattice.Api.Cell
+Lattice.Api.Cell.Cell() -> void
+Lattice.Api.Cell.Cell(int X, int Y, int Z) -> void
+Lattice.Api.Cell.Neighbour(Lattice.Api.Face face, Lattice.Api.PieceGrid grid) -> Lattice.Api.Cell
+Lattice.Api.Cell.Plus(Lattice.Api.CellOffset offset) -> Lattice.Api.Cell
+Lattice.Api.Cell.X.get -> int
+Lattice.Api.Cell.X.init -> void
+Lattice.Api.Cell.Y.get -> int
+Lattice.Api.Cell.Y.init -> void
+Lattice.Api.Cell.Z.get -> int
+Lattice.Api.Cell.Z.init -> void
+static Lattice.Api.Cell.FromWorld(Lattice.Api.WorldPoint point, Lattice.Api.PieceGrid grid) -> Lattice.Api.Cell
+Lattice.Api.CellFailure
+Lattice.Api.CellFailure.At.get -> Lattice.Api.Cell
+Lattice.Api.CellFailure.At.init -> void
+Lattice.Api.CellFailure.CellFailure(Lattice.Api.Cell At, Lattice.Api.Reason! Why) -> void
+Lattice.Api.CellFailure.Why.get -> Lattice.Api.Reason!
+Lattice.Api.CellFailure.Why.init -> void
+Lattice.Api.CellOffset
+Lattice.Api.CellOffset.CellOffset() -> void
+Lattice.Api.CellOffset.CellOffset(int X, int Y, int Z) -> void
+Lattice.Api.CellOffset.X.get -> int
+Lattice.Api.CellOffset.X.init -> void
+Lattice.Api.CellOffset.Y.get -> int
+Lattice.Api.CellOffset.Y.init -> void
+Lattice.Api.CellOffset.Z.get -> int
+Lattice.Api.CellOffset.Z.init -> void
+Lattice.Api.ChangeSet
+Lattice.Api.ChangeSet.Added.get -> Lattice.Api.ValueList<Lattice.Api.Ghost!>!
+Lattice.Api.ChangeSet.Added.init -> void
+Lattice.Api.ChangeSet.At.get -> System.DateTimeOffset
+Lattice.Api.ChangeSet.At.init -> void
+Lattice.Api.ChangeSet.By.get -> Lattice.Api.Actor!
+Lattice.Api.ChangeSet.By.init -> void
+Lattice.Api.ChangeSet.Changed.get -> Lattice.Api.ValueList<Lattice.Api.GhostChange!>!
+Lattice.Api.ChangeSet.Changed.init -> void
+Lattice.Api.ChangeSet.ChangeSet(Lattice.Api.ChangeSetId Id, Lattice.Api.CommandId Command, Lattice.Api.Actor! By, Lattice.Api.Revision Revision, System.DateTimeOffset At, Lattice.Api.ValueList<Lattice.Api.Ghost!>! Added, Lattice.Api.ValueList<Lattice.Api.GhostChange!>! Changed, Lattice.Api.ValueList<Lattice.Api.GhostRemoval!>! Removed, Lattice.Api.ValueList<Lattice.Api.Plan!>! PlansOpened, Lattice.Api.ValueList<Lattice.Api.PlanChange!>! PlansChanged, Lattice.Api.ValueList<Lattice.Api.PlanId>! PlansFinished) -> void
+Lattice.Api.ChangeSet.Command.get -> Lattice.Api.CommandId
+Lattice.Api.ChangeSet.Command.init -> void
+Lattice.Api.ChangeSet.Id.get -> Lattice.Api.ChangeSetId
+Lattice.Api.ChangeSet.Id.init -> void
+Lattice.Api.ChangeSet.PlansChanged.get -> Lattice.Api.ValueList<Lattice.Api.PlanChange!>!
+Lattice.Api.ChangeSet.PlansChanged.init -> void
+Lattice.Api.ChangeSet.PlansFinished.get -> Lattice.Api.ValueList<Lattice.Api.PlanId>!
+Lattice.Api.ChangeSet.PlansFinished.init -> void
+Lattice.Api.ChangeSet.PlansOpened.get -> Lattice.Api.ValueList<Lattice.Api.Plan!>!
+Lattice.Api.ChangeSet.PlansOpened.init -> void
+Lattice.Api.ChangeSet.Removed.get -> Lattice.Api.ValueList<Lattice.Api.GhostRemoval!>!
+Lattice.Api.ChangeSet.Removed.init -> void
+Lattice.Api.ChangeSet.Revision.get -> Lattice.Api.Revision
+Lattice.Api.ChangeSet.Revision.init -> void
+Lattice.Api.ChangeSetId
+Lattice.Api.ChangeSetId.ChangeSetId() -> void
+Lattice.Api.ChangeSetId.ChangeSetId(long Value) -> void
+Lattice.Api.ChangeSetId.Value.get -> long
+Lattice.Api.ChangeSetId.Value.init -> void
+Lattice.Api.Claim
+Lattice.Api.Claim.By.get -> Lattice.Api.ExecutorId
+Lattice.Api.Claim.By.init -> void
+Lattice.Api.Claim.Claim(Lattice.Api.GhostId Ghost, Lattice.Api.ExecutorId By, Lattice.Api.GameTime Until) -> void
+Lattice.Api.Claim.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.Claim.Ghost.init -> void
+Lattice.Api.Claim.Until.get -> Lattice.Api.GameTime
+Lattice.Api.Claim.Until.init -> void
+Lattice.Api.ClaimId
+Lattice.Api.ClaimId.ClaimId() -> void
+Lattice.Api.ClaimId.Value.get -> string!
+Lattice.Api.ClaimRefused
+Lattice.Api.ClaimRefused.ClaimRefused(Lattice.Api.Reason! Why, Lattice.Api.Option<Lattice.Api.ExecutorId> HeldBy) -> void
+Lattice.Api.ClaimRefused.HeldBy.get -> Lattice.Api.Option<Lattice.Api.ExecutorId>
+Lattice.Api.ClaimRefused.HeldBy.init -> void
+Lattice.Api.ClaimRefused.Why.get -> Lattice.Api.Reason!
+Lattice.Api.ClaimRefused.Why.init -> void
+Lattice.Api.ClientId
+Lattice.Api.ClientId.ClientId() -> void
+Lattice.Api.ClientId.ClientId(ulong Value) -> void
+Lattice.Api.ClientId.Value.get -> ulong
+Lattice.Api.ClientId.Value.init -> void
+Lattice.Api.ClipShape
+Lattice.Api.ClipShape.Box
+Lattice.Api.ClipShape.Box.Max.get -> Lattice.Api.WorldPoint
+Lattice.Api.ClipShape.Box.Min.get -> Lattice.Api.WorldPoint
+Lattice.Api.ClipShape.Plane
+Lattice.Api.ClipShape.Plane.Normal.get -> Lattice.Api.WorldVector
+Lattice.Api.ClipShape.Plane.Point.get -> Lattice.Api.WorldPoint
+Lattice.Api.Command
+Lattice.Api.Command.Batch
+Lattice.Api.Command.Batch.Batch(Lattice.Api.ValueList<Lattice.Api.Command!>! Steps) -> void
+Lattice.Api.Command.Batch.Steps.get -> Lattice.Api.ValueList<Lattice.Api.Command!>!
+Lattice.Api.Command.Batch.Steps.init -> void
+Lattice.Api.Command.CatchUp
+Lattice.Api.Command.CatchUp.CatchUp(Lattice.Api.PlanId Plan) -> void
+Lattice.Api.Command.CatchUp.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Command.CatchUp.Plan.init -> void
+Lattice.Api.Command.Change
+Lattice.Api.Command.Change.Change(Lattice.Api.Selector! Which, Lattice.Api.GhostEdit! Edit, Lattice.Api.Option<Lattice.Api.Revision> UnchangedSince) -> void
+Lattice.Api.Command.Change.Edit.get -> Lattice.Api.GhostEdit!
+Lattice.Api.Command.Change.Edit.init -> void
+Lattice.Api.Command.Change.UnchangedSince.get -> Lattice.Api.Option<Lattice.Api.Revision>
+Lattice.Api.Command.Change.UnchangedSince.init -> void
+Lattice.Api.Command.Change.Which.get -> Lattice.Api.Selector!
+Lattice.Api.Command.Change.Which.init -> void
+Lattice.Api.Command.CreatePlan
+Lattice.Api.Command.CreatePlan.CreatePlan(Lattice.Api.PlanDraft! Draft) -> void
+Lattice.Api.Command.CreatePlan.Draft.get -> Lattice.Api.PlanDraft!
+Lattice.Api.Command.CreatePlan.Draft.init -> void
+Lattice.Api.Command.CreatePlan.Ghosts.get -> Lattice.Api.ValueList<Lattice.Api.GhostDraft!>!
+Lattice.Api.Command.CreatePlan.Ghosts.init -> void
+Lattice.Api.Command.EditPlan
+Lattice.Api.Command.EditPlan.Edit.get -> Lattice.Api.PlanEdit!
+Lattice.Api.Command.EditPlan.Edit.init -> void
+Lattice.Api.Command.EditPlan.EditPlan(Lattice.Api.PlanId Plan, Lattice.Api.PlanEdit! Edit, Lattice.Api.Option<Lattice.Api.Revision> UnchangedSince) -> void
+Lattice.Api.Command.EditPlan.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Command.EditPlan.Plan.init -> void
+Lattice.Api.Command.EditPlan.UnchangedSince.get -> Lattice.Api.Option<Lattice.Api.Revision>
+Lattice.Api.Command.EditPlan.UnchangedSince.init -> void
+Lattice.Api.Command.FinishPlan
+Lattice.Api.Command.FinishPlan.FinishPlan(Lattice.Api.PlanId Plan) -> void
+Lattice.Api.Command.FinishPlan.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Command.FinishPlan.Plan.init -> void
+Lattice.Api.Command.MarkRemoval
+Lattice.Api.Command.MarkRemoval.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.Command.MarkRemoval.Into.init -> void
+Lattice.Api.Command.MarkRemoval.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Command.MarkRemoval.MadeBy.init -> void
+Lattice.Api.Command.MarkRemoval.MarkRemoval(Lattice.Api.StructureSelector! Which, Lattice.Api.Option<Lattice.Api.PlanId> Into, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.Command.MarkRemoval.Which.get -> Lattice.Api.StructureSelector!
+Lattice.Api.Command.MarkRemoval.Which.init -> void
+Lattice.Api.Command.Move
+Lattice.Api.Command.Move.Move(Lattice.Api.ValueMap<Lattice.Api.GhostId, Lattice.Api.Placement!>! To, Lattice.Api.Option<Lattice.Api.Revision> UnchangedSince) -> void
+Lattice.Api.Command.Move.To.get -> Lattice.Api.ValueMap<Lattice.Api.GhostId, Lattice.Api.Placement!>!
+Lattice.Api.Command.Move.To.init -> void
+Lattice.Api.Command.Move.UnchangedSince.get -> Lattice.Api.Option<Lattice.Api.Revision>
+Lattice.Api.Command.Move.UnchangedSince.init -> void
+Lattice.Api.Command.MoveToPlan
+Lattice.Api.Command.MoveToPlan.MoveToPlan(Lattice.Api.Selector! Which, Lattice.Api.PlanId To) -> void
+Lattice.Api.Command.MoveToPlan.To.get -> Lattice.Api.PlanId
+Lattice.Api.Command.MoveToPlan.To.init -> void
+Lattice.Api.Command.MoveToPlan.Which.get -> Lattice.Api.Selector!
+Lattice.Api.Command.MoveToPlan.Which.init -> void
+Lattice.Api.Command.Place
+Lattice.Api.Command.Place.Ghosts.get -> Lattice.Api.ValueList<Lattice.Api.GhostDraft!>!
+Lattice.Api.Command.Place.Ghosts.init -> void
+Lattice.Api.Command.Place.Place(Lattice.Api.ValueList<Lattice.Api.GhostDraft!>! Ghosts) -> void
+Lattice.Api.Command.PlaceTemplate
+Lattice.Api.Command.PlaceTemplate.As.get -> Lattice.Api.PlanDraft!
+Lattice.Api.Command.PlaceTemplate.As.init -> void
+Lattice.Api.Command.PlaceTemplate.Origin.get -> Lattice.Api.Cell
+Lattice.Api.Command.PlaceTemplate.Origin.init -> void
+Lattice.Api.Command.PlaceTemplate.PlaceTemplate(Lattice.Api.Template! Template, Lattice.Api.Cell Origin, Lattice.Api.Turn Turn, Lattice.Api.PlanDraft! As) -> void
+Lattice.Api.Command.PlaceTemplate.Template.get -> Lattice.Api.Template!
+Lattice.Api.Command.PlaceTemplate.Template.init -> void
+Lattice.Api.Command.PlaceTemplate.Turn.get -> Lattice.Api.Turn
+Lattice.Api.Command.PlaceTemplate.Turn.init -> void
+Lattice.Api.Command.PlanFinish
+Lattice.Api.Command.PlanFinish.Finish.get -> Lattice.Api.Finish!
+Lattice.Api.Command.PlanFinish.Finish.init -> void
+Lattice.Api.Command.PlanFinish.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.Command.PlanFinish.Into.init -> void
+Lattice.Api.Command.PlanFinish.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Command.PlanFinish.MadeBy.init -> void
+Lattice.Api.Command.PlanFinish.PlanFinish(Lattice.Api.StructureSelector! Which, Lattice.Api.Finish! Finish, Lattice.Api.Option<Lattice.Api.PlanId> Into, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.Command.PlanFinish.Which.get -> Lattice.Api.StructureSelector!
+Lattice.Api.Command.PlanFinish.Which.init -> void
+Lattice.Api.Command.PlanRoute
+Lattice.Api.Command.PlanRoute.PlanRoute(Lattice.Api.RouteRequest! Request) -> void
+Lattice.Api.Command.PlanRoute.Request.get -> Lattice.Api.RouteRequest!
+Lattice.Api.Command.PlanRoute.Request.init -> void
+Lattice.Api.Command.PlanRun
+Lattice.Api.Command.PlanRun.PlanRun(Lattice.Api.RunRequest! Request) -> void
+Lattice.Api.Command.PlanRun.Request.get -> Lattice.Api.RunRequest!
+Lattice.Api.Command.PlanRun.Request.init -> void
+Lattice.Api.Command.PlanSwap
+Lattice.Api.Command.PlanSwap.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.Command.PlanSwap.Into.init -> void
+Lattice.Api.Command.PlanSwap.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Command.PlanSwap.MadeBy.init -> void
+Lattice.Api.Command.PlanSwap.PlanSwap(Lattice.Api.StructureSelector! Which, Lattice.Api.SwapTo! To, Lattice.Api.Option<Lattice.Api.PlanId> Into, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.Command.PlanSwap.To.get -> Lattice.Api.SwapTo!
+Lattice.Api.Command.PlanSwap.To.init -> void
+Lattice.Api.Command.PlanSwap.Which.get -> Lattice.Api.StructureSelector!
+Lattice.Api.Command.PlanSwap.Which.init -> void
+Lattice.Api.Command.Remove
+Lattice.Api.Command.Remove.Remove(Lattice.Api.Selector! Which) -> void
+Lattice.Api.Command.Remove.Which.get -> Lattice.Api.Selector!
+Lattice.Api.Command.Remove.Which.init -> void
+Lattice.Api.Command.Reopen
+Lattice.Api.Command.Reopen.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Command.Reopen.Plan.init -> void
+Lattice.Api.Command.Reopen.Reopen(Lattice.Api.PlanId Plan) -> void
+Lattice.Api.Command.Repair
+Lattice.Api.Command.Repair.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Command.Repair.MadeBy.init -> void
+Lattice.Api.Command.Repair.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Command.Repair.Plan.init -> void
+Lattice.Api.Command.Repair.Repair(Lattice.Api.PlanId Plan, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.Command.Revert
+Lattice.Api.Command.Revert.ChangeSet.get -> Lattice.Api.ChangeSetId
+Lattice.Api.Command.Revert.ChangeSet.init -> void
+Lattice.Api.Command.Revert.Revert(Lattice.Api.ChangeSetId ChangeSet) -> void
+Lattice.Api.Command.TakeDown
+Lattice.Api.Command.TakeDown.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Command.TakeDown.MadeBy.init -> void
+Lattice.Api.Command.TakeDown.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Command.TakeDown.Plan.init -> void
+Lattice.Api.Command.TakeDown.TakeDown(Lattice.Api.PlanId Plan, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.Command.Transform
+Lattice.Api.Command.Transform.How.get -> Lattice.Api.Transformation!
+Lattice.Api.Command.Transform.How.init -> void
+Lattice.Api.Command.Transform.Mode.get -> Lattice.Api.TransformMode!
+Lattice.Api.Command.Transform.Mode.init -> void
+Lattice.Api.Command.Transform.Transform(Lattice.Api.Selector! Which, Lattice.Api.Transformation! How, Lattice.Api.TransformMode! Mode) -> void
+Lattice.Api.Command.Transform.Which.get -> Lattice.Api.Selector!
+Lattice.Api.Command.Transform.Which.init -> void
+Lattice.Api.CommandExpander<TCommand>
+Lattice.Api.CommandExpander<TCommand>.CommandExpander(Lattice.Api.ModuleName Module, System.Func<Lattice.Api.ExpansionInput<TCommand!>!, Lattice.Api.Result<Lattice.Api.Command!, Lattice.Api.Reason!>>! Expand) -> void
+Lattice.Api.CommandExpander<TCommand>.Expand.get -> System.Func<Lattice.Api.ExpansionInput<TCommand!>!, Lattice.Api.Result<Lattice.Api.Command!, Lattice.Api.Reason!>>!
+Lattice.Api.CommandExpander<TCommand>.Expand.init -> void
+Lattice.Api.CommandExpander<TCommand>.Module.get -> Lattice.Api.ModuleName
+Lattice.Api.CommandExpander<TCommand>.Module.init -> void
+Lattice.Api.CommandId
+Lattice.Api.CommandId.CommandId() -> void
+Lattice.Api.CommandId.CommandId(System.Guid Value) -> void
+Lattice.Api.CommandId.Value.get -> System.Guid
+Lattice.Api.CommandId.Value.init -> void
+Lattice.Api.Completion
+Lattice.Api.Completion.At.get -> System.DateTimeOffset
+Lattice.Api.Completion.At.init -> void
+Lattice.Api.Completion.Built.get -> Lattice.Api.Option<Lattice.Api.StructureRef>
+Lattice.Api.Completion.Built.init -> void
+Lattice.Api.Completion.Completion(Lattice.Api.Option<Lattice.Api.StructureRef> Built, System.DateTimeOffset At) -> void
+Lattice.Api.Constraint
+Lattice.Api.Constraint.After
+Lattice.Api.Constraint.After.After(Lattice.Api.GhostId Ghost) -> void
+Lattice.Api.Constraint.After.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.Constraint.After.Ghost.init -> void
+Lattice.Api.Constraint.NetworkOff
+Lattice.Api.Constraint.NetworkOff.Network.get -> Lattice.Api.NetworkRef
+Lattice.Api.Constraint.NetworkOff.Network.init -> void
+Lattice.Api.Constraint.NetworkOff.NetworkOff(Lattice.Api.NetworkRef Network) -> void
+Lattice.Api.Constraint.OnePipeJoinPerTick
+Lattice.Api.DecorationKey
+Lattice.Api.DecorationKey.DecorationKey() -> void
+Lattice.Api.DecorationKey.Value.get -> string!
+Lattice.Api.DisplayName
+Lattice.Api.DisplayName.DisplayName() -> void
+Lattice.Api.DisplayName.Value.get -> string!
+Lattice.Api.DraftPicks
+Lattice.Api.DraftPicks.Exclude = 2 -> Lattice.Api.DraftPicks
+Lattice.Api.DraftPicks.Include = 1 -> Lattice.Api.DraftPicks
+Lattice.Api.DraftPicks.Only = 3 -> Lattice.Api.DraftPicks
+Lattice.Api.DraftsId
+Lattice.Api.DraftsId.DraftsId() -> void
+Lattice.Api.DraftsId.Value.get -> string!
+Lattice.Api.DrawnThing
+Lattice.Api.DrawnThing.OfDraft
+Lattice.Api.DrawnThing.OfDraft.Drafts.get -> Lattice.Api.DraftsId
+Lattice.Api.DrawnThing.OfDraft.Drafts.init -> void
+Lattice.Api.DrawnThing.OfDraft.Index.get -> int
+Lattice.Api.DrawnThing.OfDraft.Index.init -> void
+Lattice.Api.DrawnThing.OfDraft.OfDraft(Lattice.Api.DraftsId Drafts, int Index) -> void
+Lattice.Api.DrawnThing.OfGhost
+Lattice.Api.DrawnThing.OfGhost.Id.get -> Lattice.Api.GhostId
+Lattice.Api.DrawnThing.OfGhost.Id.init -> void
+Lattice.Api.DrawnThing.OfGhost.OfGhost(Lattice.Api.GhostId Id) -> void
+Lattice.Api.DrawnThing.OfStructure
+Lattice.Api.DrawnThing.OfStructure.OfStructure(Lattice.Api.StructureRef Structure) -> void
+Lattice.Api.DrawnThing.OfStructure.Structure.get -> Lattice.Api.StructureRef
+Lattice.Api.DrawnThing.OfStructure.Structure.init -> void
+Lattice.Api.Duration
+Lattice.Api.Duration.Duration() -> void
+Lattice.Api.Duration.Seconds.get -> float
+Lattice.Api.EdgeLook
+Lattice.Api.EdgeLook.Line
+Lattice.Api.EdgeLook.Line.Line(Lattice.Api.LineStyle Style, Lattice.Api.Pixels Width, Lattice.Api.Paint! Paint) -> void
+Lattice.Api.EdgeLook.Line.Paint.get -> Lattice.Api.Paint!
+Lattice.Api.EdgeLook.Line.Paint.init -> void
+Lattice.Api.EdgeLook.Line.Style.get -> Lattice.Api.LineStyle
+Lattice.Api.EdgeLook.Line.Style.init -> void
+Lattice.Api.EdgeLook.Line.Width.get -> Lattice.Api.Pixels
+Lattice.Api.EdgeLook.Line.Width.init -> void
+Lattice.Api.EdgeLook.None
+Lattice.Api.EffectLook
+Lattice.Api.EffectLook.Blink
+Lattice.Api.EffectLook.Blink.Blink(Lattice.Api.Period Period, Lattice.Api.Fraction Duty) -> void
+Lattice.Api.EffectLook.Blink.Duty.get -> Lattice.Api.Fraction
+Lattice.Api.EffectLook.Blink.Duty.init -> void
+Lattice.Api.EffectLook.Blink.Period.get -> Lattice.Api.Period
+Lattice.Api.EffectLook.Blink.Period.init -> void
+Lattice.Api.EffectLook.Pulse
+Lattice.Api.EffectLook.Pulse.Low.get -> Lattice.Api.Fraction
+Lattice.Api.EffectLook.Pulse.Low.init -> void
+Lattice.Api.EffectLook.Pulse.Period.get -> Lattice.Api.Period
+Lattice.Api.EffectLook.Pulse.Period.init -> void
+Lattice.Api.EffectLook.Pulse.Pulse(Lattice.Api.Period Period, Lattice.Api.Fraction Low) -> void
+Lattice.Api.EffectLook.Steady
+Lattice.Api.EnterLook
+Lattice.Api.EnterLook.Flash
+Lattice.Api.EnterLook.Flash.Count.get -> Lattice.Api.Repeats
+Lattice.Api.EnterLook.Flash.Count.init -> void
+Lattice.Api.EnterLook.Flash.Flash(Lattice.Api.Repeats Count, Lattice.Api.Period Period) -> void
+Lattice.Api.EnterLook.Flash.Period.get -> Lattice.Api.Period
+Lattice.Api.EnterLook.Flash.Period.init -> void
+Lattice.Api.EnterLook.None
+Lattice.Api.ExecutorId
+Lattice.Api.ExecutorId.ExecutorId() -> void
+Lattice.Api.ExecutorId.Value.get -> string!
+Lattice.Api.ExecutorInfo
+Lattice.Api.ExecutorInfo.ExecutorInfo(Lattice.Api.ExecutorId Id, Lattice.Api.DisplayName Name) -> void
+Lattice.Api.ExecutorInfo.Id.get -> Lattice.Api.ExecutorId
+Lattice.Api.ExecutorInfo.Id.init -> void
+Lattice.Api.ExecutorInfo.Name.get -> Lattice.Api.DisplayName
+Lattice.Api.ExecutorInfo.Name.init -> void
+Lattice.Api.ExecutorReport
+Lattice.Api.ExecutorReport.By.get -> Lattice.Api.ExecutorInfo!
+Lattice.Api.ExecutorReport.By.init -> void
+Lattice.Api.ExecutorReport.ExecutorReport(Lattice.Api.ExecutorInfo! By, Lattice.Api.ExecutorStatus! Status) -> void
+Lattice.Api.ExecutorReport.Status.get -> Lattice.Api.ExecutorStatus!
+Lattice.Api.ExecutorReport.Status.init -> void
+Lattice.Api.ExecutorStatus
+Lattice.Api.ExecutorStatus.Paused
+Lattice.Api.ExecutorStatus.Waiting
+Lattice.Api.ExecutorStatus.Waiting.Waiting(Lattice.Api.Reason! Why) -> void
+Lattice.Api.ExecutorStatus.Waiting.Why.get -> Lattice.Api.Reason!
+Lattice.Api.ExecutorStatus.Waiting.Why.init -> void
+Lattice.Api.ExecutorStatus.Working
+Lattice.Api.ExecutorStatus.Working.Of.get -> int
+Lattice.Api.ExecutorStatus.Working.Of.init -> void
+Lattice.Api.ExecutorStatus.Working.Step.get -> int
+Lattice.Api.ExecutorStatus.Working.Step.init -> void
+Lattice.Api.ExecutorStatus.Working.Working(int Step, int Of) -> void
+Lattice.Api.ExpansionInput<TCommand>
+Lattice.Api.ExpansionInput<TCommand>.Actor.get -> Lattice.Api.Actor!
+Lattice.Api.ExpansionInput<TCommand>.Actor.init -> void
+Lattice.Api.ExpansionInput<TCommand>.Board.get -> Lattice.Api.IGhostBoard!
+Lattice.Api.ExpansionInput<TCommand>.Board.init -> void
+Lattice.Api.ExpansionInput<TCommand>.Command.get -> TCommand!
+Lattice.Api.ExpansionInput<TCommand>.Command.init -> void
+Lattice.Api.ExpansionInput<TCommand>.ExpansionInput(TCommand! Command, Lattice.Api.CommandId Id, Lattice.Api.Actor! Actor, Lattice.Api.IGhostBoard! Board, Lattice.Api.IWorldQuery! World) -> void
+Lattice.Api.ExpansionInput<TCommand>.Id.get -> Lattice.Api.CommandId
+Lattice.Api.ExpansionInput<TCommand>.Id.init -> void
+Lattice.Api.ExpansionInput<TCommand>.World.get -> Lattice.Api.IWorldQuery!
+Lattice.Api.ExpansionInput<TCommand>.World.init -> void
+Lattice.Api.Face
+Lattice.Api.Face.MinusX = 2 -> Lattice.Api.Face
+Lattice.Api.Face.MinusY = 4 -> Lattice.Api.Face
+Lattice.Api.Face.MinusZ = 6 -> Lattice.Api.Face
+Lattice.Api.Face.PlusX = 1 -> Lattice.Api.Face
+Lattice.Api.Face.PlusY = 3 -> Lattice.Api.Face
+Lattice.Api.Face.PlusZ = 5 -> Lattice.Api.Face
+Lattice.Api.FaceLoad
+Lattice.Api.FaceLoad.Cell.get -> Lattice.Api.Cell
+Lattice.Api.FaceLoad.Cell.init -> void
+Lattice.Api.FaceLoad.Difference.get -> Lattice.Api.Kilopascals
+Lattice.Api.FaceLoad.Difference.init -> void
+Lattice.Api.FaceLoad.FaceLoad(Lattice.Api.Cell Cell, Lattice.Api.Axis Normal, Lattice.Api.Kilopascals Rating, Lattice.Api.Kilopascals Difference) -> void
+Lattice.Api.FaceLoad.Normal.get -> Lattice.Api.Axis
+Lattice.Api.FaceLoad.Normal.init -> void
+Lattice.Api.FaceLoad.Over.get -> bool
+Lattice.Api.FaceLoad.Rating.get -> Lattice.Api.Kilopascals
+Lattice.Api.FaceLoad.Rating.init -> void
+Lattice.Api.FadeRange
+Lattice.Api.FadeRange.End.get -> Lattice.Api.Metres
+Lattice.Api.FadeRange.FadeRange() -> void
+Lattice.Api.FadeRange.Start.get -> Lattice.Api.Metres
+Lattice.Api.FillMode
+Lattice.Api.FillMode.Ghost = 1 -> Lattice.Api.FillMode
+Lattice.Api.FillMode.None = 4 -> Lattice.Api.FillMode
+Lattice.Api.FillMode.Solid = 2 -> Lattice.Api.FillMode
+Lattice.Api.FillMode.Wire = 3 -> Lattice.Api.FillMode
+Lattice.Api.Finding
+Lattice.Api.Finding.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.Finding.Passes
+Lattice.Api.Finding.Passes.Passes(Lattice.Api.GhostId Ghost) -> void
+Lattice.Api.Finding.WaitsFor
+Lattice.Api.Finding.WaitsFor.Others.get -> Lattice.Api.ValueList<Lattice.Api.GhostId>!
+Lattice.Api.Finding.WaitsFor.Others.init -> void
+Lattice.Api.Finding.WaitsFor.WaitsFor(Lattice.Api.GhostId Ghost, Lattice.Api.ValueList<Lattice.Api.GhostId>! Others) -> void
+Lattice.Api.Finding.Warns
+Lattice.Api.Finding.Warns.Warns(Lattice.Api.GhostId Ghost, Lattice.Api.Reason! Why) -> void
+Lattice.Api.Finding.Warns.Why.get -> Lattice.Api.Reason!
+Lattice.Api.Finding.Warns.Why.init -> void
+Lattice.Api.Finding.WillFail
+Lattice.Api.Finding.WillFail.Why.get -> Lattice.Api.Reason!
+Lattice.Api.Finding.WillFail.Why.init -> void
+Lattice.Api.Finding.WillFail.WillFail(Lattice.Api.GhostId Ghost, Lattice.Api.Reason! Why) -> void
+Lattice.Api.FindingKind
+Lattice.Api.FindingKind.Passes = 2 -> Lattice.Api.FindingKind
+Lattice.Api.FindingKind.Unchecked = 1 -> Lattice.Api.FindingKind
+Lattice.Api.FindingKind.WaitsFor = 3 -> Lattice.Api.FindingKind
+Lattice.Api.FindingKind.Warns = 5 -> Lattice.Api.FindingKind
+Lattice.Api.FindingKind.WillFail = 4 -> Lattice.Api.FindingKind
+Lattice.Api.Finish
+Lattice.Api.Finish.Colour.get -> Lattice.Api.Option<Lattice.Api.PaintColour>
+Lattice.Api.Finish.Name.get -> Lattice.Api.Option<Lattice.Api.ThingName>
+Lattice.Api.Finish.Setting.get -> Lattice.Api.Option<Lattice.Api.Setting>
+Lattice.Api.FinishedPlan
+Lattice.Api.FinishedPlan.FinishedAt.get -> System.DateTimeOffset
+Lattice.Api.FinishedPlan.FinishedAt.init -> void
+Lattice.Api.FinishedPlan.FinishedPlan(Lattice.Api.PlanId Id, Lattice.Api.PlanName Name, Lattice.Api.Actor! Owner, System.DateTimeOffset FinishedAt, int Pieces, Lattice.Api.Cell Min, Lattice.Api.Cell Max) -> void
+Lattice.Api.FinishedPlan.Id.get -> Lattice.Api.PlanId
+Lattice.Api.FinishedPlan.Id.init -> void
+Lattice.Api.FinishedPlan.Max.get -> Lattice.Api.Cell
+Lattice.Api.FinishedPlan.Max.init -> void
+Lattice.Api.FinishedPlan.Min.get -> Lattice.Api.Cell
+Lattice.Api.FinishedPlan.Min.init -> void
+Lattice.Api.FinishedPlan.Name.get -> Lattice.Api.PlanName
+Lattice.Api.FinishedPlan.Name.init -> void
+Lattice.Api.FinishedPlan.Owner.get -> Lattice.Api.Actor!
+Lattice.Api.FinishedPlan.Owner.init -> void
+Lattice.Api.FinishedPlan.Pieces.get -> int
+Lattice.Api.FinishedPlan.Pieces.init -> void
+Lattice.Api.Fraction
+Lattice.Api.Fraction.Fraction() -> void
+Lattice.Api.Fraction.Value.get -> float
+Lattice.Api.GameTime
+Lattice.Api.GameTime.GameTime() -> void
+Lattice.Api.GameTime.GameTime(double Seconds) -> void
+Lattice.Api.GameTime.Seconds.get -> double
+Lattice.Api.GameTime.Seconds.init -> void
+Lattice.Api.GasAmount
+Lattice.Api.GasAmount.Amount.get -> Lattice.Api.Moles
+Lattice.Api.GasAmount.Amount.init -> void
+Lattice.Api.GasAmount.Gas.get -> Lattice.Api.GasKind
+Lattice.Api.GasAmount.Gas.init -> void
+Lattice.Api.GasAmount.GasAmount(Lattice.Api.GasKind Gas, Lattice.Api.Moles Amount) -> void
+Lattice.Api.GasEffect
+Lattice.Api.GasEffect.Pollutes
+Lattice.Api.GasEffect.Pollutes.Amount.get -> Lattice.Api.Moles
+Lattice.Api.GasEffect.Pollutes.Amount.init -> void
+Lattice.Api.GasEffect.Pollutes.Pollutes(Lattice.Api.RoomRef Room, Lattice.Api.Moles Amount) -> void
+Lattice.Api.GasEffect.Pollutes.Room.get -> Lattice.Api.RoomRef
+Lattice.Api.GasEffect.Pollutes.Room.init -> void
+Lattice.Api.GasEffect.Releases
+Lattice.Api.GasEffect.Releases.At.get -> Lattice.Api.Cell
+Lattice.Api.GasEffect.Releases.At.init -> void
+Lattice.Api.GasEffect.Releases.Gas.get -> Lattice.Api.GasMix!
+Lattice.Api.GasEffect.Releases.Gas.init -> void
+Lattice.Api.GasEffect.Releases.Into.get -> Lattice.Api.Option<Lattice.Api.RoomRef>
+Lattice.Api.GasEffect.Releases.Into.init -> void
+Lattice.Api.GasEffect.Releases.Releases(Lattice.Api.Cell At, Lattice.Api.Option<Lattice.Api.RoomRef> Into, Lattice.Api.GasMix! Gas) -> void
+Lattice.Api.GasKind
+Lattice.Api.GasKind.GasKind() -> void
+Lattice.Api.GasKind.Value.get -> string!
+Lattice.Api.GasMix
+Lattice.Api.GasMix.Gases.get -> Lattice.Api.ValueList<Lattice.Api.GasAmount!>!
+Lattice.Api.GasMix.Gases.init -> void
+Lattice.Api.GasMix.GasMix(Lattice.Api.ValueList<Lattice.Api.GasAmount!>! Gases, Lattice.Api.Kelvin Temperature) -> void
+Lattice.Api.GasMix.Temperature.get -> Lattice.Api.Kelvin
+Lattice.Api.GasMix.Temperature.init -> void
+Lattice.Api.Ghost
+Lattice.Api.Ghost.Attached.get -> Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>!
+Lattice.Api.Ghost.Attached.init -> void
+Lattice.Api.Ghost.Ghost(Lattice.Api.GhostId Id, Lattice.Api.PlanId Plan, Lattice.Api.Revision Revision, Lattice.Api.Intent! Intent, Lattice.Api.GhostState! State, Lattice.Api.Actor! PlacedBy, Lattice.Api.Maker MadeBy, System.DateTimeOffset PlacedAt, Lattice.Api.Visibility! Visibility, Lattice.Api.Option<Lattice.Api.Label> Label, Lattice.Api.Option<Lattice.Api.Tint> Tint, Lattice.Api.ValueSet<Lattice.Api.GroupName>! Groups, Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>! Attached) -> void
+Lattice.Api.Ghost.Groups.get -> Lattice.Api.ValueSet<Lattice.Api.GroupName>!
+Lattice.Api.Ghost.Groups.init -> void
+Lattice.Api.Ghost.Id.get -> Lattice.Api.GhostId
+Lattice.Api.Ghost.Id.init -> void
+Lattice.Api.Ghost.Intent.get -> Lattice.Api.Intent!
+Lattice.Api.Ghost.Intent.init -> void
+Lattice.Api.Ghost.Label.get -> Lattice.Api.Option<Lattice.Api.Label>
+Lattice.Api.Ghost.Label.init -> void
+Lattice.Api.Ghost.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Ghost.MadeBy.init -> void
+Lattice.Api.Ghost.PlacedAt.get -> System.DateTimeOffset
+Lattice.Api.Ghost.PlacedAt.init -> void
+Lattice.Api.Ghost.PlacedBy.get -> Lattice.Api.Actor!
+Lattice.Api.Ghost.PlacedBy.init -> void
+Lattice.Api.Ghost.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Ghost.Plan.init -> void
+Lattice.Api.Ghost.Revision.get -> Lattice.Api.Revision
+Lattice.Api.Ghost.Revision.init -> void
+Lattice.Api.Ghost.State.get -> Lattice.Api.GhostState!
+Lattice.Api.Ghost.State.init -> void
+Lattice.Api.Ghost.Tint.get -> Lattice.Api.Option<Lattice.Api.Tint>
+Lattice.Api.Ghost.Tint.init -> void
+Lattice.Api.Ghost.Visibility.get -> Lattice.Api.Visibility!
+Lattice.Api.Ghost.Visibility.init -> void
+Lattice.Api.GhostChange
+Lattice.Api.GhostChange.After.get -> Lattice.Api.Ghost!
+Lattice.Api.GhostChange.After.init -> void
+Lattice.Api.GhostChange.Before.get -> Lattice.Api.Ghost!
+Lattice.Api.GhostChange.Before.init -> void
+Lattice.Api.GhostChange.GhostChange(Lattice.Api.Ghost! Before, Lattice.Api.Ghost! After) -> void
+Lattice.Api.GhostDraft
+Lattice.Api.GhostDraft.Attached.get -> Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>!
+Lattice.Api.GhostDraft.Attached.init -> void
+Lattice.Api.GhostDraft.GhostDraft(Lattice.Api.Intent! Intent, Lattice.Api.Option<Lattice.Api.PlanId> Plan, Lattice.Api.Maker MadeBy, Lattice.Api.Visibility! Visibility, Lattice.Api.Option<Lattice.Api.Label> Label, Lattice.Api.Option<Lattice.Api.Tint> Tint, Lattice.Api.ValueSet<Lattice.Api.GroupName>! Groups, Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>! Attached) -> void
+Lattice.Api.GhostDraft.Groups.get -> Lattice.Api.ValueSet<Lattice.Api.GroupName>!
+Lattice.Api.GhostDraft.Groups.init -> void
+Lattice.Api.GhostDraft.Intent.get -> Lattice.Api.Intent!
+Lattice.Api.GhostDraft.Intent.init -> void
+Lattice.Api.GhostDraft.Label.get -> Lattice.Api.Option<Lattice.Api.Label>
+Lattice.Api.GhostDraft.Label.init -> void
+Lattice.Api.GhostDraft.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.GhostDraft.MadeBy.init -> void
+Lattice.Api.GhostDraft.Plan.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.GhostDraft.Plan.init -> void
+Lattice.Api.GhostDraft.Tint.get -> Lattice.Api.Option<Lattice.Api.Tint>
+Lattice.Api.GhostDraft.Tint.init -> void
+Lattice.Api.GhostDraft.Visibility.get -> Lattice.Api.Visibility!
+Lattice.Api.GhostDraft.Visibility.init -> void
+Lattice.Api.GhostEdit
+Lattice.Api.GhostEdit.Attach
+Lattice.Api.GhostEdit.Attach.Attach(Lattice.Api.AttachmentKey Key, Lattice.Api.Attachment Value) -> void
+Lattice.Api.GhostEdit.Attach.Key.get -> Lattice.Api.AttachmentKey
+Lattice.Api.GhostEdit.Attach.Key.init -> void
+Lattice.Api.GhostEdit.Attach.Value.get -> Lattice.Api.Attachment
+Lattice.Api.GhostEdit.Attach.Value.init -> void
+Lattice.Api.GhostEdit.Detach
+Lattice.Api.GhostEdit.Detach.Detach(Lattice.Api.AttachmentKey Key) -> void
+Lattice.Api.GhostEdit.Detach.Key.get -> Lattice.Api.AttachmentKey
+Lattice.Api.GhostEdit.Detach.Key.init -> void
+Lattice.Api.GhostEdit.JoinGroup
+Lattice.Api.GhostEdit.JoinGroup.Group.get -> Lattice.Api.GroupName
+Lattice.Api.GhostEdit.JoinGroup.Group.init -> void
+Lattice.Api.GhostEdit.JoinGroup.JoinGroup(Lattice.Api.GroupName Group) -> void
+Lattice.Api.GhostEdit.LeaveGroup
+Lattice.Api.GhostEdit.LeaveGroup.Group.get -> Lattice.Api.GroupName
+Lattice.Api.GhostEdit.LeaveGroup.Group.init -> void
+Lattice.Api.GhostEdit.LeaveGroup.LeaveGroup(Lattice.Api.GroupName Group) -> void
+Lattice.Api.GhostEdit.SetFinish
+Lattice.Api.GhostEdit.SetFinish.SetFinish(Lattice.Api.Option<Lattice.Api.Finish!> To) -> void
+Lattice.Api.GhostEdit.SetFinish.To.get -> Lattice.Api.Option<Lattice.Api.Finish!>
+Lattice.Api.GhostEdit.SetFinish.To.init -> void
+Lattice.Api.GhostEdit.SetLabel
+Lattice.Api.GhostEdit.SetLabel.SetLabel(Lattice.Api.Option<Lattice.Api.Label> To) -> void
+Lattice.Api.GhostEdit.SetLabel.To.get -> Lattice.Api.Option<Lattice.Api.Label>
+Lattice.Api.GhostEdit.SetLabel.To.init -> void
+Lattice.Api.GhostEdit.SetTint
+Lattice.Api.GhostEdit.SetTint.SetTint(Lattice.Api.Option<Lattice.Api.Tint> To) -> void
+Lattice.Api.GhostEdit.SetTint.To.get -> Lattice.Api.Option<Lattice.Api.Tint>
+Lattice.Api.GhostEdit.SetTint.To.init -> void
+Lattice.Api.GhostEdit.SetVisibility
+Lattice.Api.GhostEdit.SetVisibility.SetVisibility(Lattice.Api.Visibility! To) -> void
+Lattice.Api.GhostEdit.SetVisibility.To.get -> Lattice.Api.Visibility!
+Lattice.Api.GhostEdit.SetVisibility.To.init -> void
+Lattice.Api.GhostId
+Lattice.Api.GhostId.GhostId() -> void
+Lattice.Api.GhostId.GhostId(long Value) -> void
+Lattice.Api.GhostId.Value.get -> long
+Lattice.Api.GhostId.Value.init -> void
+Lattice.Api.GhostRemoval
+Lattice.Api.GhostRemoval.Cause.get -> Lattice.Api.RemovalCause!
+Lattice.Api.GhostRemoval.Cause.init -> void
+Lattice.Api.GhostRemoval.Ghost.get -> Lattice.Api.Ghost!
+Lattice.Api.GhostRemoval.Ghost.init -> void
+Lattice.Api.GhostRemoval.GhostRemoval(Lattice.Api.Ghost! Ghost, Lattice.Api.RemovalCause! Cause) -> void
+Lattice.Api.GhostState
+Lattice.Api.GhostState.Planned
+Lattice.Api.GhostState.Stale
+Lattice.Api.GhostState.Stale.Stale(Lattice.Api.Reason! Why) -> void
+Lattice.Api.GhostState.Stale.Why.get -> Lattice.Api.Reason!
+Lattice.Api.GhostState.Stale.Why.init -> void
+Lattice.Api.GhostState.Started
+Lattice.Api.GhostState.Started.PartBuilt.get -> Lattice.Api.StructureRef
+Lattice.Api.GhostState.Started.PartBuilt.init -> void
+Lattice.Api.GhostState.Started.Started(Lattice.Api.StructureRef PartBuilt) -> void
+Lattice.Api.GhostStory
+Lattice.Api.GhostStory.Entries.get -> Lattice.Api.ValueList<Lattice.Api.HistoryEntry!>!
+Lattice.Api.GhostStory.Entries.init -> void
+Lattice.Api.GhostStory.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.GhostStory.Ghost.init -> void
+Lattice.Api.GhostStory.GhostStory(Lattice.Api.GhostId Ghost, Lattice.Api.ValueList<Lattice.Api.HistoryEntry!>! Entries) -> void
+Lattice.Api.GlowLook
+Lattice.Api.GlowLook.Lit
+Lattice.Api.GlowLook.Lit.Lit(Lattice.Api.Paint! Paint, Lattice.Api.Fraction Strength) -> void
+Lattice.Api.GlowLook.Lit.Paint.get -> Lattice.Api.Paint!
+Lattice.Api.GlowLook.Lit.Paint.init -> void
+Lattice.Api.GlowLook.Lit.Strength.get -> Lattice.Api.Fraction
+Lattice.Api.GlowLook.Lit.Strength.init -> void
+Lattice.Api.GlowLook.None
+Lattice.Api.GroupName
+Lattice.Api.GroupName.GroupName() -> void
+Lattice.Api.GroupName.Value.get -> string!
+Lattice.Api.HighlightRequest
+Lattice.Api.HighlightRequest.For.get -> Lattice.Api.Duration
+Lattice.Api.HighlightRequest.For.init -> void
+Lattice.Api.HighlightRequest.HighlightRequest(Lattice.Api.HighlightTargets! Targets, Lattice.Api.Style! Style, Lattice.Api.Duration For) -> void
+Lattice.Api.HighlightRequest.Style.get -> Lattice.Api.Style!
+Lattice.Api.HighlightRequest.Style.init -> void
+Lattice.Api.HighlightRequest.Targets.get -> Lattice.Api.HighlightTargets!
+Lattice.Api.HighlightRequest.Targets.init -> void
+Lattice.Api.HighlightTargets
+Lattice.Api.HighlightTargets.Ghosts
+Lattice.Api.HighlightTargets.Ghosts.Ghosts(Lattice.Api.ValueList<Lattice.Api.GhostId>! Ids) -> void
+Lattice.Api.HighlightTargets.Ghosts.Ids.get -> Lattice.Api.ValueList<Lattice.Api.GhostId>!
+Lattice.Api.HighlightTargets.Ghosts.Ids.init -> void
+Lattice.Api.HighlightTargets.Picked
+Lattice.Api.HighlightTargets.Picked.Picked(Lattice.Api.Selector! Which) -> void
+Lattice.Api.HighlightTargets.Picked.Which.get -> Lattice.Api.Selector!
+Lattice.Api.HighlightTargets.Picked.Which.init -> void
+Lattice.Api.HighlightTargets.Structures
+Lattice.Api.HighlightTargets.Structures.Refs.get -> Lattice.Api.ValueList<Lattice.Api.StructureRef>!
+Lattice.Api.HighlightTargets.Structures.Refs.init -> void
+Lattice.Api.HighlightTargets.Structures.Structures(Lattice.Api.ValueList<Lattice.Api.StructureRef>! Refs) -> void
+Lattice.Api.HistoryEntry
+Lattice.Api.HistoryEntry.At.get -> System.DateTimeOffset
+Lattice.Api.HistoryEntry.At.init -> void
+Lattice.Api.HistoryEntry.By.get -> Lattice.Api.Actor!
+Lattice.Api.HistoryEntry.By.init -> void
+Lattice.Api.HistoryEntry.Command.get -> Lattice.Api.CommandId
+Lattice.Api.HistoryEntry.Command.init -> void
+Lattice.Api.HistoryEntry.Follows.get -> Lattice.Api.Option<Lattice.Api.LineNumber>
+Lattice.Api.HistoryEntry.Follows.init -> void
+Lattice.Api.HistoryEntry.HistoryEntry(Lattice.Api.LineNumber Line, Lattice.Api.Option<Lattice.Api.LineNumber> Follows, Lattice.Api.CommandId Command, Lattice.Api.Actor! By, System.DateTimeOffset At, string! Written) -> void
+Lattice.Api.HistoryEntry.Line.get -> Lattice.Api.LineNumber
+Lattice.Api.HistoryEntry.Line.init -> void
+Lattice.Api.HistoryEntry.Written.get -> string!
+Lattice.Api.HistoryEntry.Written.init -> void
+Lattice.Api.IAnalysis
+Lattice.Api.IAnalysis.Of(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.AnalysisReport!>!, Lattice.Api.Reason!>
+Lattice.Api.IBills
+Lattice.Api.IBills.For(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Bill!, Lattice.Api.Reason!>
+Lattice.Api.IClip
+Lattice.Api.IClip.Move(Lattice.Api.ClipShape! to) -> void
+Lattice.Api.IClip.Shape.get -> Lattice.Api.ClipShape!
+Lattice.Api.ICommands
+Lattice.Api.ICommands.Submit(Lattice.Api.CommandId id, Lattice.Api.Command! command, Lattice.Api.Actor! actor) -> Lattice.Api.Submission!
+Lattice.Api.IconKey
+Lattice.Api.IconKey.IconKey() -> void
+Lattice.Api.IconKey.Value.get -> string!
+Lattice.Api.IconLook
+Lattice.Api.IconLook.None
+Lattice.Api.IconLook.Shown
+Lattice.Api.IconLook.Shown.Icon.get -> Lattice.Api.IconKey
+Lattice.Api.IconLook.Shown.Icon.init -> void
+Lattice.Api.IconLook.Shown.Shown(Lattice.Api.IconKey Icon) -> void
+Lattice.Api.IDrafts
+Lattice.Api.IDrafts.Clear() -> void
+Lattice.Api.IDrafts.Hand(Lattice.Api.Submission! submission) -> void
+Lattice.Api.IDrafts.Id.get -> Lattice.Api.DraftsId
+Lattice.Api.IDrafts.Show(Lattice.Api.Preview! preview) -> void
+Lattice.Api.IDrafts.Show(Lattice.Api.ValueList<Lattice.Api.GhostDraft!>! drafts) -> void
+Lattice.Api.IExecutorHandle
+Lattice.Api.IExecutorHandle.Claim(Lattice.Api.GhostId ghost, Lattice.Api.Lease lease) -> Lattice.Api.Result<Lattice.Api.Claim!, Lattice.Api.ClaimRefused!>
+Lattice.Api.IExecutorHandle.Release(Lattice.Api.Claim! claim) -> void
+Lattice.Api.IExecutorHandle.Renew(Lattice.Api.Claim! claim) -> Lattice.Api.Result<Lattice.Api.Claim!, Lattice.Api.ClaimRefused!>
+Lattice.Api.IExecutorHandle.Report(Lattice.Api.GhostId ghost, Lattice.Api.ExecutorStatus! status) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Api.IExecutors
+Lattice.Api.IExecutors.ClaimOn(Lattice.Api.GhostId ghost) -> Lattice.Api.Option<Lattice.Api.Claim!>
+Lattice.Api.IExecutors.Register(Lattice.Api.ExecutorInfo! info) -> Lattice.Api.Result<Lattice.Api.IExecutorHandle!, Lattice.Api.Reason!>
+Lattice.Api.IExecutors.StatusOf(Lattice.Api.GhostId ghost) -> Lattice.Api.ValueList<Lattice.Api.ExecutorReport!>!
+Lattice.Api.IGhostBoard
+Lattice.Api.IGhostBoard.As(Lattice.Api.Actor! viewer) -> Lattice.Api.IGhostBoard!
+Lattice.Api.IGhostBoard.At(Lattice.Api.Cell cell) -> Lattice.Api.ValueList<Lattice.Api.Ghost!>!
+Lattice.Api.IGhostBoard.Find(Lattice.Api.GhostId id) -> Lattice.Api.Option<Lattice.Api.Ghost!>
+Lattice.Api.IGhostBoard.On(Lattice.Api.StructureRef structure) -> Lattice.Api.ValueList<Lattice.Api.Ghost!>!
+Lattice.Api.IGhostBoard.Revision.get -> Lattice.Api.Revision
+Lattice.Api.IGhostBoard.Select(Lattice.Api.Selector! selector) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Ghost!>!, Lattice.Api.Reason!>
+Lattice.Api.IGhostEvents
+Lattice.Api.IGhostEvents.Answered -> System.Action<Lattice.Api.Ticket, Lattice.Api.Outcome!>!
+Lattice.Api.IGhostEvents.AnswersReady -> System.Action<Lattice.Api.Revision>!
+Lattice.Api.IGhostEvents.Blocked -> System.Action<Lattice.Api.Maker, Lattice.Api.ValueList<Lattice.Api.BlockedGhost!>!>!
+Lattice.Api.IGhostEvents.BoardReset -> System.Action!
+Lattice.Api.IGhostEvents.Changed -> System.Action<Lattice.Api.ChangeSet!>!
+Lattice.Api.IGhostEvents.Completed -> System.Action<Lattice.Api.GhostId, Lattice.Api.Completion!>!
+Lattice.Api.IGhostEvents.Loaded -> System.Action<Lattice.Api.LoadReport!>!
+Lattice.Api.IGhostEvents.PlanStateChanged -> System.Action<Lattice.Api.PlanId>!
+Lattice.Api.IGhostEvents.StatusChanged -> System.Action<Lattice.Api.GhostId>!
+Lattice.Api.IGhostEvents.StructuresMoved -> System.Action<Lattice.Api.ValueList<Lattice.Api.StructureMove!>!>!
+Lattice.Api.IGhostStyles
+Lattice.Api.IGhostStyles.Add(Lattice.Api.StyleLayerDescriptor! layer) -> Lattice.Api.Result<Lattice.Api.IStyleLayer!, Lattice.Api.Reason!>
+Lattice.Api.IGhostStyles.Clip(Lattice.Api.ClipShape! shape) -> Lattice.Api.Result<Lattice.Api.IClip!, Lattice.Api.Reason!>
+Lattice.Api.IGhostStyles.ClipChanged -> System.Action<Lattice.Api.Option<Lattice.Api.ClipShape!>>!
+Lattice.Api.IGhostStyles.Drafts(Lattice.Api.DraftsId id) -> Lattice.Api.Result<Lattice.Api.IDrafts!, Lattice.Api.Reason!>
+Lattice.Api.IGhostStyles.Explain(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.StyleStory!, Lattice.Api.Reason!>
+Lattice.Api.IGhostStyles.Highlight(Lattice.Api.HighlightRequest! request) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IGhostStyles.InForce.get -> Lattice.Api.Option<Lattice.Api.ClipShape!>
+Lattice.Api.IGhostStyles.Matches(Lattice.Api.StyleMatch! match, Lattice.Api.StructureRef structure) -> bool
+Lattice.Api.IGhostStyles.Pick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options) -> Lattice.Api.Option<Lattice.Api.PickHit!>
+Lattice.Api.IGhostStyles.Set(Lattice.Api.StyleSetId id) -> Lattice.Api.Result<Lattice.Api.IStyleSet!, Lattice.Api.Reason!>
+Lattice.Api.IGhostStyles.StructureSet(Lattice.Api.StyleSetId id) -> Lattice.Api.Result<Lattice.Api.IStructureSet!, Lattice.Api.Reason!>
+Lattice.Api.IGhostSystem
+Lattice.Api.IGhostSystem.Analysis.get -> Lattice.Api.IAnalysis!
+Lattice.Api.IGhostSystem.Bills.get -> Lattice.Api.IBills!
+Lattice.Api.IGhostSystem.Board.get -> Lattice.Api.IGhostBoard!
+Lattice.Api.IGhostSystem.Commands.get -> Lattice.Api.ICommands!
+Lattice.Api.IGhostSystem.Events.get -> Lattice.Api.IGhostEvents!
+Lattice.Api.IGhostSystem.Executors.get -> Lattice.Api.IExecutors!
+Lattice.Api.IGhostSystem.Has(Lattice.Api.IntentKind kind) -> bool
+Lattice.Api.IGhostSystem.Inspector.get -> Lattice.Api.IInspector!
+Lattice.Api.IGhostSystem.Modules.get -> Lattice.Api.ValueList<Lattice.Api.ModuleStatus!>!
+Lattice.Api.IGhostSystem.Plans.get -> Lattice.Api.IPlans!
+Lattice.Api.IGhostSystem.Preview.get -> Lattice.Api.IPreview!
+Lattice.Api.IGhostSystem.Registries.get -> Lattice.Api.IRegistries!
+Lattice.Api.IGhostSystem.Slices.get -> Lattice.Api.ISlices!
+Lattice.Api.IGhostSystem.Steps.get -> Lattice.Api.ISteps!
+Lattice.Api.IGhostSystem.Styles.get -> Lattice.Api.IGhostStyles!
+Lattice.Api.IGhostSystem.Swaps.get -> Lattice.Api.ISwaps!
+Lattice.Api.IGhostSystem.Validation.get -> Lattice.Api.IValidation!
+Lattice.Api.IGhostSystem.Version.get -> Lattice.Api.ApiVersion
+Lattice.Api.IGhostSystem.World.get -> Lattice.Api.IWorldQuery!
+Lattice.Api.IInspector
+Lattice.Api.IInspector.Export(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.ValueList<string!>!, Lattice.Api.Reason!>
+Lattice.Api.IInspector.Story(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.GhostStory!, Lattice.Api.Reason!>
+Lattice.Api.IInspector.Story(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.PlanStory!, Lattice.Api.Reason!>
+Lattice.Api.Intent
+Lattice.Api.Intent.Build
+Lattice.Api.Intent.Build.Build(Lattice.Api.Placement! Target, Lattice.Api.Option<Lattice.Api.Finish!> Finish) -> void
+Lattice.Api.Intent.Build.Finish.get -> Lattice.Api.Option<Lattice.Api.Finish!>
+Lattice.Api.Intent.Build.Finish.init -> void
+Lattice.Api.Intent.Build.Target.get -> Lattice.Api.Placement!
+Lattice.Api.Intent.Build.Target.init -> void
+Lattice.Api.Intent.FinishOnly
+Lattice.Api.Intent.FinishOnly.Finish.get -> Lattice.Api.Finish!
+Lattice.Api.Intent.FinishOnly.Finish.init -> void
+Lattice.Api.Intent.FinishOnly.FinishOnly(Lattice.Api.StructureRef Target, Lattice.Api.Finish! Finish) -> void
+Lattice.Api.Intent.FinishOnly.Target.get -> Lattice.Api.StructureRef
+Lattice.Api.Intent.FinishOnly.Target.init -> void
+Lattice.Api.Intent.Remove
+Lattice.Api.Intent.Remove.Remove(Lattice.Api.StructureRef Target) -> void
+Lattice.Api.Intent.Remove.Target.get -> Lattice.Api.StructureRef
+Lattice.Api.Intent.Remove.Target.init -> void
+Lattice.Api.Intent.Swap
+Lattice.Api.Intent.Swap.Finish.get -> Lattice.Api.Option<Lattice.Api.Finish!>
+Lattice.Api.Intent.Swap.Finish.init -> void
+Lattice.Api.Intent.Swap.New.get -> Lattice.Api.Placement!
+Lattice.Api.Intent.Swap.New.init -> void
+Lattice.Api.Intent.Swap.Old.get -> Lattice.Api.StructureRef
+Lattice.Api.Intent.Swap.Old.init -> void
+Lattice.Api.Intent.Swap.Swap(Lattice.Api.StructureRef Old, Lattice.Api.Placement! New, Lattice.Api.Option<Lattice.Api.Finish!> Finish) -> void
+Lattice.Api.IntentKind
+Lattice.Api.IntentKind.Build = 1 -> Lattice.Api.IntentKind
+Lattice.Api.IntentKind.FinishOnly = 4 -> Lattice.Api.IntentKind
+Lattice.Api.IntentKind.Remove = 2 -> Lattice.Api.IntentKind
+Lattice.Api.IntentKind.Swap = 3 -> Lattice.Api.IntentKind
+Lattice.Api.IPlans
+Lattice.Api.IPlans.AheadOfSave(Lattice.Api.PlanId plan) -> Lattice.Api.Result<int, Lattice.Api.Reason!>
+Lattice.Api.IPlans.All.get -> Lattice.Api.ValueList<Lattice.Api.Plan!>!
+Lattice.Api.IPlans.AsTemplate(Lattice.Api.PlanId plan, Lattice.Api.TemplateName name) -> Lattice.Api.Result<Lattice.Api.Template!, Lattice.Api.Reason!>
+Lattice.Api.IPlans.Default.get -> Lattice.Api.PlanId
+Lattice.Api.IPlans.Facts(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.PlanFacts!>!, Lattice.Api.Reason!>
+Lattice.Api.IPlans.Find(Lattice.Api.PlanId plan) -> Lattice.Api.Option<Lattice.Api.Plan!>
+Lattice.Api.IPlans.Finished.get -> Lattice.Api.ValueList<Lattice.Api.FinishedPlan!>!
+Lattice.Api.IPlans.LastLoad.get -> Lattice.Api.Option<Lattice.Api.LoadReport!>
+Lattice.Api.IPlans.State(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.PlanState!>!, Lattice.Api.Reason!>
+Lattice.Api.IPolicyHandle
+Lattice.Api.IPolicyHandle.Changed() -> void
+Lattice.Api.IPreview
+Lattice.Api.IPreview.Of(Lattice.Api.Command! command, Lattice.Api.Actor! actor) -> Lattice.Api.Answer<Lattice.Api.Result<Lattice.Api.Preview!, Lattice.Api.ValueList<Lattice.Api.Refusal!>!>>!
+Lattice.Api.IRegistries
+Lattice.Api.IRegistries.Install(Lattice.Api.AccessPolicy! policy) -> Lattice.Api.Result<Lattice.Api.IPolicyHandle!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.LimitPlanSize(int maxGhosts) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.Register(Lattice.Api.AnalyzerDescriptor! analyzer) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.Register(Lattice.Api.AttachmentDescriptor! attachment) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.Register(Lattice.Api.CatalogueAddition! addition) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.Register(Lattice.Api.RuleDescriptor! rule) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.Register(Lattice.Api.SupportRuleDescriptor! rule) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.IRegistries.Register<TCommand>(Lattice.Api.CommandExpander<TCommand!>! expander) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.ISlices
+Lattice.Api.ISlices.Schedule(Lattice.Api.SlicedWorkDescriptor! work) -> Lattice.Api.Result<System.IDisposable!, Lattice.Api.Reason!>
+Lattice.Api.ISteps
+Lattice.Api.ISteps.For(Lattice.Api.GhostId ghost) -> Lattice.Api.Result<Lattice.Api.StepPlan!, Lattice.Api.Reason!>
+Lattice.Api.IStructureSet
+Lattice.Api.IStructureSet.Add(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Api.IStructureSet.Clear() -> void
+Lattice.Api.IStructureSet.Contains(Lattice.Api.StructureRef structure) -> bool
+Lattice.Api.IStructureSet.Count.get -> int
+Lattice.Api.IStructureSet.Id.get -> Lattice.Api.StyleSetId
+Lattice.Api.IStructureSet.Put(Lattice.Api.StructureRef structure) -> void
+Lattice.Api.IStructureSet.Remove(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Api.IStructureSet.Replace(Lattice.Api.ValueList<Lattice.Api.StructureRef>! structures) -> void
+Lattice.Api.IStyleLayer
+Lattice.Api.IStyleLayer.Disable() -> void
+Lattice.Api.IStyleLayer.Enable() -> void
+Lattice.Api.IStyleLayer.Enabled.get -> bool
+Lattice.Api.IStyleLayer.Id.get -> Lattice.Api.StyleLayerId
+Lattice.Api.IStyleSet
+Lattice.Api.IStyleSet.Add(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Api.IStyleSet.Clear() -> void
+Lattice.Api.IStyleSet.Contains(Lattice.Api.GhostId ghost) -> bool
+Lattice.Api.IStyleSet.Count.get -> int
+Lattice.Api.IStyleSet.Id.get -> Lattice.Api.StyleSetId
+Lattice.Api.IStyleSet.Put(Lattice.Api.GhostId ghost) -> void
+Lattice.Api.IStyleSet.Remove(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Api.IStyleSet.Replace(Lattice.Api.ValueList<Lattice.Api.GhostId>! ghosts) -> void
+Lattice.Api.ISwaps
+Lattice.Api.ISwaps.OptionsFor(Lattice.Api.StructureRef structure) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.SwapOption!>!, Lattice.Api.Reason!>
+Lattice.Api.ItemDelta
+Lattice.Api.ItemDelta.Change.get -> int
+Lattice.Api.ItemDelta.Change.init -> void
+Lattice.Api.ItemDelta.Item.get -> Lattice.Api.ItemKey
+Lattice.Api.ItemDelta.Item.init -> void
+Lattice.Api.ItemDelta.ItemDelta() -> void
+Lattice.Api.ItemDelta.ItemDelta(Lattice.Api.ItemKey Item, int Change) -> void
+Lattice.Api.ItemKey
+Lattice.Api.ItemKey.Hash.get -> int
+Lattice.Api.ItemKey.Hash.init -> void
+Lattice.Api.ItemKey.ItemKey() -> void
+Lattice.Api.ItemKey.ItemKey(int Hash) -> void
+Lattice.Api.ItemQuantity
+Lattice.Api.ItemQuantity.Count.get -> int
+Lattice.Api.ItemQuantity.Item.get -> Lattice.Api.ItemKey
+Lattice.Api.ItemQuantity.ItemQuantity() -> void
+Lattice.Api.IValidation
+Lattice.Api.IValidation.Check(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.ValidationReport!>!, Lattice.Api.Reason!>
+Lattice.Api.IWorldQuery
+Lattice.Api.IWorldQuery.AssumedFrom(Lattice.Api.StructureRef structure) -> Lattice.Api.Option<Lattice.Api.GhostId>
+Lattice.Api.IWorldQuery.At(Lattice.Api.Cell cell) -> Lattice.Api.ValueList<Lattice.Api.StructureInfo!>!
+Lattice.Api.IWorldQuery.NetworkOf(Lattice.Api.ReferenceId id) -> Lattice.Api.Option<Lattice.Api.NetworkRef>
+Lattice.Api.IWorldQuery.RoomAt(Lattice.Api.Cell cell) -> Lattice.Api.Option<Lattice.Api.RoomRef>
+Lattice.Api.IWorldQuery.Select(Lattice.Api.StructureSelector! selector) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.StructureRef>!, Lattice.Api.Reason!>
+Lattice.Api.IWorldQuery.Structure(Lattice.Api.ReferenceId id) -> Lattice.Api.Option<Lattice.Api.StructureInfo!>
+Lattice.Api.Kelvin
+Lattice.Api.Kelvin.Kelvin() -> void
+Lattice.Api.Kelvin.Kelvin(double Value) -> void
+Lattice.Api.Kelvin.Value.get -> double
+Lattice.Api.Kelvin.Value.init -> void
+Lattice.Api.Kilopascals
+Lattice.Api.Kilopascals.Kilopascals() -> void
+Lattice.Api.Kilopascals.Kilopascals(double Value) -> void
+Lattice.Api.Kilopascals.Value.get -> double
+Lattice.Api.Kilopascals.Value.init -> void
+Lattice.Api.KitKey
+Lattice.Api.KitKey.Hash.get -> int
+Lattice.Api.KitKey.Hash.init -> void
+Lattice.Api.KitKey.KitKey() -> void
+Lattice.Api.KitKey.KitKey(int Hash) -> void
+Lattice.Api.KitOption
+Lattice.Api.KitOption.Index.get -> int
+Lattice.Api.KitOption.KitOption() -> void
+Lattice.Api.Label
+Lattice.Api.Label.Label() -> void
+Lattice.Api.Label.Value.get -> string!
+Lattice.Api.LabelAnchor
+Lattice.Api.LabelAnchor.Above = 1 -> Lattice.Api.LabelAnchor
+Lattice.Api.LabelAnchor.Below = 3 -> Lattice.Api.LabelAnchor
+Lattice.Api.LabelAnchor.Centre = 2 -> Lattice.Api.LabelAnchor
+Lattice.Api.LabelLook
+Lattice.Api.LabelLook.None
+Lattice.Api.LabelLook.Shown
+Lattice.Api.LabelLook.Shown.Anchor.get -> Lattice.Api.LabelAnchor
+Lattice.Api.LabelLook.Shown.Anchor.init -> void
+Lattice.Api.LabelLook.Shown.Priority.get -> int
+Lattice.Api.LabelLook.Shown.Priority.init -> void
+Lattice.Api.LabelLook.Shown.Range.get -> Lattice.Api.Metres
+Lattice.Api.LabelLook.Shown.Range.init -> void
+Lattice.Api.LabelLook.Shown.Says.get -> Lattice.Api.LabelText!
+Lattice.Api.LabelLook.Shown.Says.init -> void
+Lattice.Api.LabelLook.Shown.Shown(Lattice.Api.LabelText! Says, Lattice.Api.TextStyleKey Style, Lattice.Api.LabelAnchor Anchor, int Priority, Lattice.Api.Metres Range) -> void
+Lattice.Api.LabelLook.Shown.Style.get -> Lattice.Api.TextStyleKey
+Lattice.Api.LabelLook.Shown.Style.init -> void
+Lattice.Api.LabelText
+Lattice.Api.LabelText.BillCount
+Lattice.Api.LabelText.FindingReason
+Lattice.Api.LabelText.FinishName
+Lattice.Api.LabelText.GhostLabel
+Lattice.Api.LabelText.Literal
+Lattice.Api.LabelText.Literal.Literal(Lattice.Api.Label Words) -> void
+Lattice.Api.LabelText.Literal.Words.get -> Lattice.Api.Label
+Lattice.Api.LabelText.Literal.Words.init -> void
+Lattice.Api.LabelText.PlanTitle
+Lattice.Api.LabelText.StepNumber
+Lattice.Api.LatticeSystem
+Lattice.Api.Lease
+Lattice.Api.Lease.Lease() -> void
+Lattice.Api.Lease.Seconds.get -> double
+Lattice.Api.LibraryIcons
+Lattice.Api.LibraryPalette
+Lattice.Api.LibraryPalettes
+Lattice.Api.LibrarySets
+Lattice.Api.LibraryText
+Lattice.Api.LineNumber
+Lattice.Api.LineNumber.LineNumber() -> void
+Lattice.Api.LineNumber.LineNumber(long Value) -> void
+Lattice.Api.LineNumber.Value.get -> long
+Lattice.Api.LineNumber.Value.init -> void
+Lattice.Api.LineStyle
+Lattice.Api.LineStyle.Dashed = 2 -> Lattice.Api.LineStyle
+Lattice.Api.LineStyle.Dotted = 3 -> Lattice.Api.LineStyle
+Lattice.Api.LineStyle.Solid = 1 -> Lattice.Api.LineStyle
+Lattice.Api.LoadReport
+Lattice.Api.LoadReport.Ahead.get -> Lattice.Api.ValueList<Lattice.Api.PlanAhead!>!
+Lattice.Api.LoadReport.Ahead.init -> void
+Lattice.Api.LoadReport.LoadReport(Lattice.Api.SaveRecord! Record, Lattice.Api.ValueList<Lattice.Api.PlanAhead!>! Ahead) -> void
+Lattice.Api.LoadReport.Record.get -> Lattice.Api.SaveRecord!
+Lattice.Api.LoadReport.Record.init -> void
+Lattice.Api.Maker
+Lattice.Api.Maker.Maker() -> void
+Lattice.Api.Maker.Value.get -> string!
+Lattice.Api.MarkLook
+Lattice.Api.MarkLook.None
+Lattice.Api.MarkLook.Shown
+Lattice.Api.MarkLook.Shown.Mark.get -> Lattice.Api.DecorationKey
+Lattice.Api.MarkLook.Shown.Mark.init -> void
+Lattice.Api.MarkLook.Shown.Shown(Lattice.Api.DecorationKey Mark) -> void
+Lattice.Api.MaterialKey
+Lattice.Api.MaterialKey.MaterialKey() -> void
+Lattice.Api.MaterialKey.Value.get -> string!
+Lattice.Api.MaterialKeys
+Lattice.Api.Metres
+Lattice.Api.Metres.Metres() -> void
+Lattice.Api.Metres.Value.get -> float
+Lattice.Api.MirrorPlane
+Lattice.Api.MirrorPlane.At.get -> int
+Lattice.Api.MirrorPlane.At.init -> void
+Lattice.Api.MirrorPlane.MirrorPlane() -> void
+Lattice.Api.MirrorPlane.MirrorPlane(Lattice.Api.Axis Normal, int At) -> void
+Lattice.Api.MirrorPlane.Normal.get -> Lattice.Api.Axis
+Lattice.Api.MirrorPlane.Normal.init -> void
+Lattice.Api.ModId
+Lattice.Api.ModId.ModId() -> void
+Lattice.Api.ModId.Value.get -> string!
+Lattice.Api.ModuleName
+Lattice.Api.ModuleName.ModuleName() -> void
+Lattice.Api.ModuleName.Value.get -> string!
+Lattice.Api.ModuleState
+Lattice.Api.ModuleState.Off
+Lattice.Api.ModuleState.Off.Off(Lattice.Api.Reason! Why) -> void
+Lattice.Api.ModuleState.Off.Why.get -> Lattice.Api.Reason!
+Lattice.Api.ModuleState.Off.Why.init -> void
+Lattice.Api.ModuleState.On
+Lattice.Api.ModuleStatus
+Lattice.Api.ModuleStatus.ModuleStatus(Lattice.Api.ModuleName Name, Lattice.Api.ModuleState! State) -> void
+Lattice.Api.ModuleStatus.Name.get -> Lattice.Api.ModuleName
+Lattice.Api.ModuleStatus.Name.init -> void
+Lattice.Api.ModuleStatus.State.get -> Lattice.Api.ModuleState!
+Lattice.Api.ModuleStatus.State.init -> void
+Lattice.Api.Moles
+Lattice.Api.Moles.Moles() -> void
+Lattice.Api.Moles.Moles(double Value) -> void
+Lattice.Api.Moles.Value.get -> double
+Lattice.Api.Moles.Value.init -> void
+Lattice.Api.Motion
+Lattice.Api.Motion.Full = 1 -> Lattice.Api.Motion
+Lattice.Api.Motion.Off = 3 -> Lattice.Api.Motion
+Lattice.Api.Motion.Reduced = 2 -> Lattice.Api.Motion
+Lattice.Api.NetworkEffect
+Lattice.Api.NetworkEffect.Joins
+Lattice.Api.NetworkEffect.Joins.A.get -> Lattice.Api.NetworkRef
+Lattice.Api.NetworkEffect.Joins.A.init -> void
+Lattice.Api.NetworkEffect.Joins.B.get -> Lattice.Api.NetworkRef
+Lattice.Api.NetworkEffect.Joins.B.init -> void
+Lattice.Api.NetworkEffect.Joins.Joins(Lattice.Api.NetworkRef A, Lattice.Api.NetworkRef B) -> void
+Lattice.Api.NetworkEffect.Load
+Lattice.Api.NetworkEffect.Load.After.get -> Lattice.Api.Watts
+Lattice.Api.NetworkEffect.Load.After.init -> void
+Lattice.Api.NetworkEffect.Load.Before.get -> Lattice.Api.Watts
+Lattice.Api.NetworkEffect.Load.Before.init -> void
+Lattice.Api.NetworkEffect.Load.Load(Lattice.Api.NetworkRef Network, Lattice.Api.Watts Before, Lattice.Api.Watts After, Lattice.Api.Option<Lattice.Api.Watts> Rating) -> void
+Lattice.Api.NetworkEffect.Load.Network.get -> Lattice.Api.NetworkRef
+Lattice.Api.NetworkEffect.Load.Network.init -> void
+Lattice.Api.NetworkEffect.Load.Rating.get -> Lattice.Api.Option<Lattice.Api.Watts>
+Lattice.Api.NetworkEffect.Load.Rating.init -> void
+Lattice.Api.NetworkEffect.Splits
+Lattice.Api.NetworkEffect.Splits.Network.get -> Lattice.Api.NetworkRef
+Lattice.Api.NetworkEffect.Splits.Network.init -> void
+Lattice.Api.NetworkEffect.Splits.Splits(Lattice.Api.NetworkRef Network) -> void
+Lattice.Api.NetworkRef
+Lattice.Api.NetworkRef.NetworkRef() -> void
+Lattice.Api.NetworkRef.NetworkRef(long Value) -> void
+Lattice.Api.NetworkRef.Value.get -> long
+Lattice.Api.NetworkRef.Value.init -> void
+Lattice.Api.Option
+Lattice.Api.Option<T>
+Lattice.Api.Option<T>.Bind<TResult>(System.Func<T, Lattice.Api.Option<TResult>>! bind) -> Lattice.Api.Option<TResult>
+Lattice.Api.Option<T>.Filter(System.Func<T, bool>! predicate) -> Lattice.Api.Option<T>
+Lattice.Api.Option<T>.IsNone.get -> bool
+Lattice.Api.Option<T>.IsSome.get -> bool
+Lattice.Api.Option<T>.Map<TResult>(System.Func<T, TResult>! map) -> Lattice.Api.Option<TResult>
+Lattice.Api.Option<T>.Match<TResult>(System.Func<T, TResult>! some, System.Func<TResult>! none) -> TResult
+Lattice.Api.Option<T>.Option() -> void
+Lattice.Api.Option<T>.Reduce(System.Func<T>! whenNone) -> T
+Lattice.Api.Option<T>.Reduce(T whenNone) -> T
+Lattice.Api.Option<T>.TryGet(out T value) -> bool
+Lattice.Api.Outcome
+Lattice.Api.Outcome.Applied
+Lattice.Api.Outcome.Applied.Applied(Lattice.Api.ChangeSet! Changes) -> void
+Lattice.Api.Outcome.Applied.Changes.get -> Lattice.Api.ChangeSet!
+Lattice.Api.Outcome.Applied.Changes.init -> void
+Lattice.Api.Outcome.Refused
+Lattice.Api.Outcome.Refused.Refused(Lattice.Api.ValueList<Lattice.Api.Refusal!>! Why) -> void
+Lattice.Api.Outcome.Refused.Why.get -> Lattice.Api.ValueList<Lattice.Api.Refusal!>!
+Lattice.Api.Outcome.Refused.Why.init -> void
+Lattice.Api.Paint
+Lattice.Api.Paint.Fixed
+Lattice.Api.Paint.Fixed.Colour.get -> Lattice.Api.Rgba
+Lattice.Api.Paint.Fixed.Colour.init -> void
+Lattice.Api.Paint.Fixed.Fixed(Lattice.Api.Rgba Colour) -> void
+Lattice.Api.Paint.GhostTint
+Lattice.Api.Paint.GhostTint.Fallback.get -> Lattice.Api.PaletteKey
+Lattice.Api.Paint.GhostTint.Fallback.init -> void
+Lattice.Api.Paint.GhostTint.GhostTint(Lattice.Api.PaletteKey Fallback) -> void
+Lattice.Api.Paint.OwnerColour
+Lattice.Api.Paint.Token
+Lattice.Api.Paint.Token.Key.get -> Lattice.Api.PaletteKey
+Lattice.Api.Paint.Token.Key.init -> void
+Lattice.Api.Paint.Token.Token(Lattice.Api.PaletteKey Key) -> void
+Lattice.Api.PaintColour
+Lattice.Api.PaintColour.Index.get -> int
+Lattice.Api.PaintColour.PaintColour() -> void
+Lattice.Api.Palette
+Lattice.Api.Palette.Colours.get -> Lattice.Api.ValueMap<Lattice.Api.PaletteKey, Lattice.Api.Rgba>!
+Lattice.Api.Palette.Colours.init -> void
+Lattice.Api.Palette.Id.get -> Lattice.Api.PaletteId
+Lattice.Api.Palette.Id.init -> void
+Lattice.Api.Palette.OwnerRamp.get -> Lattice.Api.ValueList<Lattice.Api.Rgba>!
+Lattice.Api.Palette.OwnerRamp.init -> void
+Lattice.Api.Palette.Palette(Lattice.Api.PaletteId Id, Lattice.Api.ValueMap<Lattice.Api.PaletteKey, Lattice.Api.Rgba>! Colours) -> void
+Lattice.Api.PaletteId
+Lattice.Api.PaletteId.PaletteId() -> void
+Lattice.Api.PaletteId.Value.get -> string!
+Lattice.Api.PaletteKey
+Lattice.Api.PaletteKey.PaletteKey() -> void
+Lattice.Api.PaletteKey.Value.get -> string!
+Lattice.Api.PartKind
+Lattice.Api.PartKind.Existing = 2 -> Lattice.Api.PartKind
+Lattice.Api.PartKind.Placement = 1 -> Lattice.Api.PartKind
+Lattice.Api.Pattern
+Lattice.Api.Pattern.CrossHatch = 3 -> Lattice.Api.Pattern
+Lattice.Api.Pattern.Dots = 4 -> Lattice.Api.Pattern
+Lattice.Api.Pattern.Hatch = 2 -> Lattice.Api.Pattern
+Lattice.Api.Pattern.None = 1 -> Lattice.Api.Pattern
+Lattice.Api.Period
+Lattice.Api.Period.Period() -> void
+Lattice.Api.Period.Seconds.get -> float
+Lattice.Api.Pickable
+Lattice.Api.Pickable.No = 2 -> Lattice.Api.Pickable
+Lattice.Api.Pickable.Yes = 1 -> Lattice.Api.Pickable
+Lattice.Api.PickHit
+Lattice.Api.PickHit.OnDraft
+Lattice.Api.PickHit.OnDraft.Cell.get -> Lattice.Api.Cell
+Lattice.Api.PickHit.OnDraft.Cell.init -> void
+Lattice.Api.PickHit.OnDraft.Distance.get -> float
+Lattice.Api.PickHit.OnDraft.Distance.init -> void
+Lattice.Api.PickHit.OnDraft.Drafts.get -> Lattice.Api.DraftsId
+Lattice.Api.PickHit.OnDraft.Drafts.init -> void
+Lattice.Api.PickHit.OnDraft.Face.get -> Lattice.Api.Face
+Lattice.Api.PickHit.OnDraft.Face.init -> void
+Lattice.Api.PickHit.OnDraft.Index.get -> int
+Lattice.Api.PickHit.OnDraft.Index.init -> void
+Lattice.Api.PickHit.OnDraft.OnDraft(Lattice.Api.DraftsId Drafts, int Index, Lattice.Api.Option<Lattice.Api.Ghost!> Trial, Lattice.Api.PartKind Part, Lattice.Api.Cell Cell, Lattice.Api.Face Face, Lattice.Api.WorldPoint Point, float Distance) -> void
+Lattice.Api.PickHit.OnDraft.Part.get -> Lattice.Api.PartKind
+Lattice.Api.PickHit.OnDraft.Part.init -> void
+Lattice.Api.PickHit.OnDraft.Point.get -> Lattice.Api.WorldPoint
+Lattice.Api.PickHit.OnDraft.Point.init -> void
+Lattice.Api.PickHit.OnDraft.Trial.get -> Lattice.Api.Option<Lattice.Api.Ghost!>
+Lattice.Api.PickHit.OnDraft.Trial.init -> void
+Lattice.Api.PickHit.OnGhost
+Lattice.Api.PickHit.OnGhost.Cell.get -> Lattice.Api.Cell
+Lattice.Api.PickHit.OnGhost.Cell.init -> void
+Lattice.Api.PickHit.OnGhost.Distance.get -> float
+Lattice.Api.PickHit.OnGhost.Distance.init -> void
+Lattice.Api.PickHit.OnGhost.Face.get -> Lattice.Api.Face
+Lattice.Api.PickHit.OnGhost.Face.init -> void
+Lattice.Api.PickHit.OnGhost.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.PickHit.OnGhost.Ghost.init -> void
+Lattice.Api.PickHit.OnGhost.OnGhost(Lattice.Api.GhostId Ghost, Lattice.Api.PartKind Part, Lattice.Api.Cell Cell, Lattice.Api.Face Face, Lattice.Api.WorldPoint Point, float Distance) -> void
+Lattice.Api.PickHit.OnGhost.Part.get -> Lattice.Api.PartKind
+Lattice.Api.PickHit.OnGhost.Part.init -> void
+Lattice.Api.PickHit.OnGhost.Point.get -> Lattice.Api.WorldPoint
+Lattice.Api.PickHit.OnGhost.Point.init -> void
+Lattice.Api.PickOptions
+Lattice.Api.PickOptions.BeyondClip.get -> Lattice.Api.BeyondClipPicks
+Lattice.Api.PickOptions.BeyondClip.init -> void
+Lattice.Api.PickOptions.Drafts.get -> Lattice.Api.DraftPicks
+Lattice.Api.PickOptions.Drafts.init -> void
+Lattice.Api.PickOptions.Only.get -> Lattice.Api.Option<Lattice.Api.StyleMatch!>
+Lattice.Api.PickOptions.Only.init -> void
+Lattice.Api.PickRay
+Lattice.Api.PickRay.Direction.get -> Lattice.Api.WorldVector
+Lattice.Api.PickRay.MaxMetres.get -> float
+Lattice.Api.PickRay.Origin.get -> Lattice.Api.WorldPoint
+Lattice.Api.PickRay.PickRay() -> void
+Lattice.Api.PieceFamilies
+Lattice.Api.PieceFamily
+Lattice.Api.PieceFamily.PieceFamily() -> void
+Lattice.Api.PieceFamily.Value.get -> string!
+Lattice.Api.Pixels
+Lattice.Api.Pixels.Pixels() -> void
+Lattice.Api.Pixels.Value.get -> float
+Lattice.Api.Placement
+Lattice.Api.Placement.At.get -> Lattice.Api.Cell
+Lattice.Api.Placement.At.init -> void
+Lattice.Api.Placement.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.Placement.Piece.init -> void
+Lattice.Api.Placement.Placement(Lattice.Api.PrefabKey Piece, Lattice.Api.Cell At, Lattice.Api.Turn Turn) -> void
+Lattice.Api.Placement.Turn.get -> Lattice.Api.Turn
+Lattice.Api.Placement.Turn.init -> void
+Lattice.Api.Plan
+Lattice.Api.Plan.HigherLayerData.get -> Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>!
+Lattice.Api.Plan.HigherLayerData.init -> void
+Lattice.Api.Plan.Id.get -> Lattice.Api.PlanId
+Lattice.Api.Plan.Id.init -> void
+Lattice.Api.Plan.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Plan.MadeBy.init -> void
+Lattice.Api.Plan.Name.get -> Lattice.Api.PlanName
+Lattice.Api.Plan.Name.init -> void
+Lattice.Api.Plan.Owner.get -> Lattice.Api.Actor!
+Lattice.Api.Plan.Owner.init -> void
+Lattice.Api.Plan.Plan(Lattice.Api.PlanId Id, Lattice.Api.Revision Revision, Lattice.Api.PlanName Name, Lattice.Api.Actor! Owner, Lattice.Api.Maker MadeBy, Lattice.Api.Visibility! Visibility, Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>! HigherLayerData) -> void
+Lattice.Api.Plan.Revision.get -> Lattice.Api.Revision
+Lattice.Api.Plan.Revision.init -> void
+Lattice.Api.Plan.Visibility.get -> Lattice.Api.Visibility!
+Lattice.Api.Plan.Visibility.init -> void
+Lattice.Api.PlanAhead
+Lattice.Api.PlanAhead.Changes.get -> int
+Lattice.Api.PlanAhead.Changes.init -> void
+Lattice.Api.PlanAhead.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.PlanAhead.Plan.init -> void
+Lattice.Api.PlanAhead.PlanAhead(Lattice.Api.PlanId Plan, int Changes) -> void
+Lattice.Api.PlanChange
+Lattice.Api.PlanChange.After.get -> Lattice.Api.Plan!
+Lattice.Api.PlanChange.After.init -> void
+Lattice.Api.PlanChange.Before.get -> Lattice.Api.Plan!
+Lattice.Api.PlanChange.Before.init -> void
+Lattice.Api.PlanChange.PlanChange(Lattice.Api.Plan! Before, Lattice.Api.Plan! After) -> void
+Lattice.Api.PlanDraft
+Lattice.Api.PlanDraft.HigherLayerData.get -> Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>!
+Lattice.Api.PlanDraft.HigherLayerData.init -> void
+Lattice.Api.PlanDraft.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.PlanDraft.MadeBy.init -> void
+Lattice.Api.PlanDraft.Name.get -> Lattice.Api.PlanName
+Lattice.Api.PlanDraft.Name.init -> void
+Lattice.Api.PlanDraft.PlanDraft(Lattice.Api.PlanName Name, Lattice.Api.Maker MadeBy, Lattice.Api.Visibility! Visibility, Lattice.Api.ValueMap<Lattice.Api.AttachmentKey, Lattice.Api.Attachment>! HigherLayerData) -> void
+Lattice.Api.PlanDraft.Visibility.get -> Lattice.Api.Visibility!
+Lattice.Api.PlanDraft.Visibility.init -> void
+Lattice.Api.PlanEdit
+Lattice.Api.PlanEdit.ChangeOwner
+Lattice.Api.PlanEdit.ChangeOwner.ChangeOwner(Lattice.Api.Actor! To) -> void
+Lattice.Api.PlanEdit.ChangeOwner.To.get -> Lattice.Api.Actor!
+Lattice.Api.PlanEdit.ChangeOwner.To.init -> void
+Lattice.Api.PlanEdit.ChangeVisibility
+Lattice.Api.PlanEdit.ChangeVisibility.ChangeVisibility(Lattice.Api.Visibility! To) -> void
+Lattice.Api.PlanEdit.ChangeVisibility.To.get -> Lattice.Api.Visibility!
+Lattice.Api.PlanEdit.ChangeVisibility.To.init -> void
+Lattice.Api.PlanEdit.ClearData
+Lattice.Api.PlanEdit.ClearData.ClearData(Lattice.Api.AttachmentKey Key) -> void
+Lattice.Api.PlanEdit.ClearData.Key.get -> Lattice.Api.AttachmentKey
+Lattice.Api.PlanEdit.ClearData.Key.init -> void
+Lattice.Api.PlanEdit.Rename
+Lattice.Api.PlanEdit.Rename.Rename(Lattice.Api.PlanName To) -> void
+Lattice.Api.PlanEdit.Rename.To.get -> Lattice.Api.PlanName
+Lattice.Api.PlanEdit.Rename.To.init -> void
+Lattice.Api.PlanEdit.SetData
+Lattice.Api.PlanEdit.SetData.Key.get -> Lattice.Api.AttachmentKey
+Lattice.Api.PlanEdit.SetData.Key.init -> void
+Lattice.Api.PlanEdit.SetData.SetData(Lattice.Api.AttachmentKey Key, Lattice.Api.Attachment Value) -> void
+Lattice.Api.PlanEdit.SetData.Value.get -> Lattice.Api.Attachment
+Lattice.Api.PlanEdit.SetData.Value.init -> void
+Lattice.Api.PlanFacts
+Lattice.Api.PlanFacts.At.get -> Lattice.Api.Revision
+Lattice.Api.PlanFacts.At.init -> void
+Lattice.Api.PlanFacts.BuildableNext.get -> Lattice.Api.ValueList<Lattice.Api.GhostId>!
+Lattice.Api.PlanFacts.BuildableNext.init -> void
+Lattice.Api.PlanFacts.Consequences.get -> Lattice.Api.ValueList<Lattice.Api.SafetyWarning!>!
+Lattice.Api.PlanFacts.Consequences.init -> void
+Lattice.Api.PlanFacts.Cost.get -> Lattice.Api.Bill!
+Lattice.Api.PlanFacts.Cost.init -> void
+Lattice.Api.PlanFacts.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.PlanFacts.Plan.init -> void
+Lattice.Api.PlanFacts.PlanFacts(Lattice.Api.PlanId Plan, Lattice.Api.Revision At, Lattice.Api.Validity! ValidAlone, Lattice.Api.Validity! ValidInWorld, Lattice.Api.ValueList<Lattice.Api.GhostId>! BuildableNext, Lattice.Api.Progress Progress, Lattice.Api.ValueList<Lattice.Api.SafetyWarning!>! Consequences, Lattice.Api.Bill! Cost) -> void
+Lattice.Api.PlanFacts.Progress.get -> Lattice.Api.Progress
+Lattice.Api.PlanFacts.Progress.init -> void
+Lattice.Api.PlanFacts.ValidAlone.get -> Lattice.Api.Validity!
+Lattice.Api.PlanFacts.ValidAlone.init -> void
+Lattice.Api.PlanFacts.ValidInWorld.get -> Lattice.Api.Validity!
+Lattice.Api.PlanFacts.ValidInWorld.init -> void
+Lattice.Api.PlanId
+Lattice.Api.PlanId.PlanId() -> void
+Lattice.Api.PlanId.PlanId(long Value) -> void
+Lattice.Api.PlanId.Value.get -> long
+Lattice.Api.PlanId.Value.init -> void
+Lattice.Api.PlanName
+Lattice.Api.PlanName.PlanName() -> void
+Lattice.Api.PlanName.Value.get -> string!
+Lattice.Api.PlanState
+Lattice.Api.PlanState.Complete
+Lattice.Api.PlanState.Empty
+Lattice.Api.PlanState.HasErrors
+Lattice.Api.PlanState.InProgress
+Lattice.Api.PlanState.Valid
+Lattice.Api.PlanStory
+Lattice.Api.PlanStory.Branches.get -> Lattice.Api.ValueList<Lattice.Api.Branch!>!
+Lattice.Api.PlanStory.Branches.init -> void
+Lattice.Api.PlanStory.Entries.get -> Lattice.Api.ValueList<Lattice.Api.HistoryEntry!>!
+Lattice.Api.PlanStory.Entries.init -> void
+Lattice.Api.PlanStory.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.PlanStory.Plan.init -> void
+Lattice.Api.PlanStory.PlanStory(Lattice.Api.PlanId Plan, Lattice.Api.ValueList<Lattice.Api.HistoryEntry!>! Entries, Lattice.Api.ValueList<Lattice.Api.Branch!>! Branches) -> void
+Lattice.Api.PrefabKey
+Lattice.Api.PrefabKey.Hash.get -> int
+Lattice.Api.PrefabKey.Hash.init -> void
+Lattice.Api.PrefabKey.PrefabKey() -> void
+Lattice.Api.PrefabKey.PrefabKey(int Hash) -> void
+Lattice.Api.Presence
+Lattice.Api.Presence.Drawn = 1 -> Lattice.Api.Presence
+Lattice.Api.Presence.Hidden = 2 -> Lattice.Api.Presence
+Lattice.Api.Preview
+Lattice.Api.Preview.Bill.get -> Lattice.Api.Bill!
+Lattice.Api.Preview.Bill.init -> void
+Lattice.Api.Preview.Effects.get -> Lattice.Api.AnalysisReport!
+Lattice.Api.Preview.Effects.init -> void
+Lattice.Api.Preview.Findings.get -> Lattice.Api.ValueList<Lattice.Api.Finding!>!
+Lattice.Api.Preview.Findings.init -> void
+Lattice.Api.Preview.Preview(Lattice.Api.ChangeSet! WouldChange, Lattice.Api.ValueList<Lattice.Api.Finding!>! Findings, Lattice.Api.Bill! Bill, Lattice.Api.AnalysisReport! Effects, Lattice.Api.Option<Lattice.Api.RunReport!> Run) -> void
+Lattice.Api.Preview.Run.get -> Lattice.Api.Option<Lattice.Api.RunReport!>
+Lattice.Api.Preview.Run.init -> void
+Lattice.Api.Preview.WouldChange.get -> Lattice.Api.ChangeSet!
+Lattice.Api.Preview.WouldChange.init -> void
+Lattice.Api.Progress
+Lattice.Api.Progress.Done.get -> int
+Lattice.Api.Progress.Done.init -> void
+Lattice.Api.Progress.Progress() -> void
+Lattice.Api.Progress.Progress(int Done, int Started, int Remaining) -> void
+Lattice.Api.Progress.Remaining.get -> int
+Lattice.Api.Progress.Remaining.init -> void
+Lattice.Api.Progress.Started.get -> int
+Lattice.Api.Progress.Started.init -> void
+Lattice.Api.Reason
+Lattice.Api.Reason.Code.get -> Lattice.Api.ReasonCode
+Lattice.Api.Reason.Code.init -> void
+Lattice.Api.Reason.Facts.get -> Lattice.Api.ValueMap<string!, string!>!
+Lattice.Api.Reason.Facts.init -> void
+Lattice.Api.Reason.From.get -> Lattice.Api.RuleId
+Lattice.Api.Reason.From.init -> void
+Lattice.Api.Reason.GameMessage.get -> Lattice.Api.Option<string!>
+Lattice.Api.Reason.GameMessage.init -> void
+Lattice.Api.Reason.Reason(Lattice.Api.ReasonCode Code, Lattice.Api.ValueMap<string!, string!>! Facts, Lattice.Api.Option<string!> GameMessage, Lattice.Api.RuleId From) -> void
+Lattice.Api.ReasonCode
+Lattice.Api.ReasonCode.ReasonCode() -> void
+Lattice.Api.ReasonCode.Value.get -> string!
+Lattice.Api.ReasonCodes
+Lattice.Api.ReferenceId
+Lattice.Api.ReferenceId.ReferenceId() -> void
+Lattice.Api.ReferenceId.ReferenceId(long Value) -> void
+Lattice.Api.ReferenceId.Value.get -> long
+Lattice.Api.ReferenceId.Value.init -> void
+Lattice.Api.Refusal
+Lattice.Api.Refusal.Ghosts.get -> Lattice.Api.ValueList<Lattice.Api.GhostId>!
+Lattice.Api.Refusal.Ghosts.init -> void
+Lattice.Api.Refusal.Refusal(Lattice.Api.Reason! Why, Lattice.Api.ValueList<Lattice.Api.GhostId>! Ghosts) -> void
+Lattice.Api.Refusal.Why.get -> Lattice.Api.Reason!
+Lattice.Api.Refusal.Why.init -> void
+Lattice.Api.RemovalCause
+Lattice.Api.RemovalCause.Done
+Lattice.Api.RemovalCause.Done.Done(Lattice.Api.Completion! How) -> void
+Lattice.Api.RemovalCause.Done.How.get -> Lattice.Api.Completion!
+Lattice.Api.RemovalCause.Done.How.init -> void
+Lattice.Api.RemovalCause.Removed
+Lattice.Api.RemovalCause.Replaced
+Lattice.Api.RemovalCause.Replaced.By.get -> Lattice.Api.GhostId
+Lattice.Api.RemovalCause.Replaced.By.init -> void
+Lattice.Api.RemovalCause.Replaced.Replaced(Lattice.Api.GhostId By) -> void
+Lattice.Api.RemovalCause.TargetGone
+Lattice.Api.Repeats
+Lattice.Api.Repeats.Count.get -> int
+Lattice.Api.Repeats.Repeats() -> void
+Lattice.Api.Result<T, TError>
+Lattice.Api.Result<T, TError>.Bind<TResult>(System.Func<T, Lattice.Api.Result<TResult, TError>>! bind) -> Lattice.Api.Result<TResult, TError>
+Lattice.Api.Result<T, TError>.IsError.get -> bool
+Lattice.Api.Result<T, TError>.IsOk.get -> bool
+Lattice.Api.Result<T, TError>.Map<TResult>(System.Func<T, TResult>! map) -> Lattice.Api.Result<TResult, TError>
+Lattice.Api.Result<T, TError>.MapError<TOther>(System.Func<TError, TOther>! map) -> Lattice.Api.Result<T, TOther>
+Lattice.Api.Result<T, TError>.Match<TResult>(System.Func<T, TResult>! ok, System.Func<TError, TResult>! error) -> TResult
+Lattice.Api.Result<T, TError>.Result() -> void
+Lattice.Api.Result<T, TError>.ToOption() -> Lattice.Api.Option<T>
+Lattice.Api.Result<T, TError>.TryGet(out T value) -> bool
+Lattice.Api.Result<T, TError>.TryGetError(out TError error) -> bool
+Lattice.Api.Revision
+Lattice.Api.Revision.Revision() -> void
+Lattice.Api.Revision.Revision(long Value) -> void
+Lattice.Api.Revision.Value.get -> long
+Lattice.Api.Revision.Value.init -> void
+Lattice.Api.Rgba
+Lattice.Api.Rgba.A.get -> byte
+Lattice.Api.Rgba.A.init -> void
+Lattice.Api.Rgba.B.get -> byte
+Lattice.Api.Rgba.B.init -> void
+Lattice.Api.Rgba.G.get -> byte
+Lattice.Api.Rgba.G.init -> void
+Lattice.Api.Rgba.R.get -> byte
+Lattice.Api.Rgba.R.init -> void
+Lattice.Api.Rgba.Rgba() -> void
+Lattice.Api.Rgba.Rgba(byte R, byte G, byte B, byte A) -> void
+Lattice.Api.RoomEffect
+Lattice.Api.RoomEffect.Opens
+Lattice.Api.RoomEffect.Opens.Opens(Lattice.Api.RoomRef Room) -> void
+Lattice.Api.RoomEffect.Opens.Room.get -> Lattice.Api.RoomRef
+Lattice.Api.RoomEffect.Opens.Room.init -> void
+Lattice.Api.RoomEffect.Resizes
+Lattice.Api.RoomEffect.Resizes.After.get -> int
+Lattice.Api.RoomEffect.Resizes.After.init -> void
+Lattice.Api.RoomEffect.Resizes.Before.get -> int
+Lattice.Api.RoomEffect.Resizes.Before.init -> void
+Lattice.Api.RoomEffect.Resizes.Resizes(Lattice.Api.RoomRef Room, int Before, int After) -> void
+Lattice.Api.RoomEffect.Resizes.Room.get -> Lattice.Api.RoomRef
+Lattice.Api.RoomEffect.Resizes.Room.init -> void
+Lattice.Api.RoomEffect.Seals
+Lattice.Api.RoomEffect.Seals.Cells.get -> int
+Lattice.Api.RoomEffect.Seals.Cells.init -> void
+Lattice.Api.RoomEffect.Seals.Seals(int Cells) -> void
+Lattice.Api.RoomRef
+Lattice.Api.RoomRef.RoomRef() -> void
+Lattice.Api.RoomRef.RoomRef(long Value) -> void
+Lattice.Api.RoomRef.Value.get -> long
+Lattice.Api.RoomRef.Value.init -> void
+Lattice.Api.RouteRequest
+Lattice.Api.RouteRequest.From.get -> Lattice.Api.Cell
+Lattice.Api.RouteRequest.From.init -> void
+Lattice.Api.RouteRequest.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.RouteRequest.Into.init -> void
+Lattice.Api.RouteRequest.Kit.get -> Lattice.Api.KitKey
+Lattice.Api.RouteRequest.Kit.init -> void
+Lattice.Api.RouteRequest.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.RouteRequest.MadeBy.init -> void
+Lattice.Api.RouteRequest.RouteRequest(Lattice.Api.KitKey Kit, Lattice.Api.Cell From, Lattice.Api.Cell To, Lattice.Api.RouteToggles! Toggles, Lattice.Api.Option<Lattice.Api.PlanId> Into, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.RouteRequest.SearchBound.get -> Lattice.Api.Option<int>
+Lattice.Api.RouteRequest.SearchBound.init -> void
+Lattice.Api.RouteRequest.To.get -> Lattice.Api.Cell
+Lattice.Api.RouteRequest.To.init -> void
+Lattice.Api.RouteRequest.Toggles.get -> Lattice.Api.RouteToggles!
+Lattice.Api.RouteRequest.Toggles.init -> void
+Lattice.Api.RouteToggles
+Lattice.Api.RouteToggles.FewestBends.get -> bool
+Lattice.Api.RouteToggles.FewestBends.init -> void
+Lattice.Api.RouteToggles.KeepDoorsAndWindowsClear.get -> bool
+Lattice.Api.RouteToggles.KeepDoorsAndWindowsClear.init -> void
+Lattice.Api.RouteToggles.KeepPortsFree.get -> bool
+Lattice.Api.RouteToggles.KeepPortsFree.init -> void
+Lattice.Api.RouteToggles.NoBridging.get -> bool
+Lattice.Api.RouteToggles.NoBridging.init -> void
+Lattice.Api.RouteToggles.OnFrames.get -> bool
+Lattice.Api.RouteToggles.OnFrames.init -> void
+Lattice.Api.RouteToggles.RouteToggles(bool OnFrames, bool FewestBends, bool KeepDoorsAndWindowsClear, bool KeepPortsFree, bool NoBridging) -> void
+Lattice.Api.RuleDescriptor
+Lattice.Api.RuleDescriptor.Check.get -> System.Func<Lattice.Api.RuleInput!, Lattice.Api.RuleVerdict!>!
+Lattice.Api.RuleDescriptor.Check.init -> void
+Lattice.Api.RuleDescriptor.Id.get -> Lattice.Api.RuleId
+Lattice.Api.RuleDescriptor.Id.init -> void
+Lattice.Api.RuleDescriptor.RuleDescriptor(Lattice.Api.RuleId Id, System.Func<Lattice.Api.RuleInput!, Lattice.Api.RuleVerdict!>! Check) -> void
+Lattice.Api.RuleDescriptor.Thread.get -> Lattice.Api.CallbackThread
+Lattice.Api.RuleDescriptor.Thread.init -> void
+Lattice.Api.RuleId
+Lattice.Api.RuleId.RuleId() -> void
+Lattice.Api.RuleId.Value.get -> string!
+Lattice.Api.RuleInput
+Lattice.Api.RuleInput.Ghost.get -> Lattice.Api.Ghost!
+Lattice.Api.RuleInput.Ghost.init -> void
+Lattice.Api.RuleInput.RuleInput(Lattice.Api.Ghost! Ghost, Lattice.Api.IWorldQuery! World) -> void
+Lattice.Api.RuleInput.World.get -> Lattice.Api.IWorldQuery!
+Lattice.Api.RuleInput.World.init -> void
+Lattice.Api.RuleVerdict
+Lattice.Api.RuleVerdict.Fail
+Lattice.Api.RuleVerdict.Fail.Fail(Lattice.Api.Reason! Why) -> void
+Lattice.Api.RuleVerdict.Fail.Why.get -> Lattice.Api.Reason!
+Lattice.Api.RuleVerdict.Fail.Why.init -> void
+Lattice.Api.RuleVerdict.Pass
+Lattice.Api.RuleVerdict.Warn
+Lattice.Api.RuleVerdict.Warn.Warn(Lattice.Api.Reason! Why) -> void
+Lattice.Api.RuleVerdict.Warn.Why.get -> Lattice.Api.Reason!
+Lattice.Api.RuleVerdict.Warn.Why.init -> void
+Lattice.Api.RunReport
+Lattice.Api.RunReport.Cells.get -> Lattice.Api.ValueList<Lattice.Api.Cell>!
+Lattice.Api.RunReport.Cells.init -> void
+Lattice.Api.RunReport.Cost.get -> Lattice.Api.Bill!
+Lattice.Api.RunReport.Cost.init -> void
+Lattice.Api.RunReport.CostAsSingles.get -> Lattice.Api.Bill!
+Lattice.Api.RunReport.CostAsSingles.init -> void
+Lattice.Api.RunReport.FirstFailure.get -> Lattice.Api.Option<Lattice.Api.CellFailure!>
+Lattice.Api.RunReport.FirstFailure.init -> void
+Lattice.Api.RunReport.Pieces.get -> Lattice.Api.ValueList<Lattice.Api.Placement!>!
+Lattice.Api.RunReport.Pieces.init -> void
+Lattice.Api.RunReport.RunReport(Lattice.Api.ValueList<Lattice.Api.Cell>! Cells, Lattice.Api.ValueList<Lattice.Api.Placement!>! Pieces, Lattice.Api.Option<Lattice.Api.CellFailure!> FirstFailure, Lattice.Api.Bill! Cost, Lattice.Api.Bill! CostAsSingles) -> void
+Lattice.Api.RunRequest
+Lattice.Api.RunRequest.From.get -> Lattice.Api.Cell
+Lattice.Api.RunRequest.From.init -> void
+Lattice.Api.RunRequest.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.RunRequest.Into.init -> void
+Lattice.Api.RunRequest.Kit.get -> Lattice.Api.KitKey
+Lattice.Api.RunRequest.Kit.init -> void
+Lattice.Api.RunRequest.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.RunRequest.MadeBy.init -> void
+Lattice.Api.RunRequest.RunRequest(Lattice.Api.KitKey Kit, Lattice.Api.Cell From, Lattice.Api.ValueList<Lattice.Api.Cell>! Via, Lattice.Api.Cell To, Lattice.Api.Option<Lattice.Api.PlanId> Into, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.RunRequest.To.get -> Lattice.Api.Cell
+Lattice.Api.RunRequest.To.init -> void
+Lattice.Api.RunRequest.Via.get -> Lattice.Api.ValueList<Lattice.Api.Cell>!
+Lattice.Api.RunRequest.Via.init -> void
+Lattice.Api.SafetyWarning
+Lattice.Api.SafetyWarning.Ghosts.get -> Lattice.Api.ValueList<Lattice.Api.GhostId>!
+Lattice.Api.SafetyWarning.Ghosts.init -> void
+Lattice.Api.SafetyWarning.SafetyWarning(Lattice.Api.Reason! Why, Lattice.Api.ValueList<Lattice.Api.GhostId>! Ghosts) -> void
+Lattice.Api.SafetyWarning.Why.get -> Lattice.Api.Reason!
+Lattice.Api.SafetyWarning.Why.init -> void
+Lattice.Api.SaveName
+Lattice.Api.SaveName.SaveName() -> void
+Lattice.Api.SaveName.Value.get -> string!
+Lattice.Api.SaveRecord
+Lattice.Api.SaveRecord.Found
+Lattice.Api.SaveRecord.Missing
+Lattice.Api.SeeThroughLook
+Lattice.Api.SeeThroughLook.None
+Lattice.Api.SeeThroughLook.Through
+Lattice.Api.SeeThroughLook.Through.Range.get -> Lattice.Api.Metres
+Lattice.Api.SeeThroughLook.Through.Range.init -> void
+Lattice.Api.SeeThroughLook.Through.Strength.get -> Lattice.Api.Fraction
+Lattice.Api.SeeThroughLook.Through.Strength.init -> void
+Lattice.Api.SeeThroughLook.Through.Through(Lattice.Api.Fraction Strength, Lattice.Api.Metres Range) -> void
+Lattice.Api.Selector
+Lattice.Api.Selector.All
+Lattice.Api.Selector.All.All(Lattice.Api.ValueList<Lattice.Api.Selector!>! Of) -> void
+Lattice.Api.Selector.All.Of.get -> Lattice.Api.ValueList<Lattice.Api.Selector!>!
+Lattice.Api.Selector.All.Of.init -> void
+Lattice.Api.Selector.Any
+Lattice.Api.Selector.Any.Any(Lattice.Api.ValueList<Lattice.Api.Selector!>! Of) -> void
+Lattice.Api.Selector.Any.Of.get -> Lattice.Api.ValueList<Lattice.Api.Selector!>!
+Lattice.Api.Selector.Any.Of.init -> void
+Lattice.Api.Selector.Box
+Lattice.Api.Selector.Box.Box(Lattice.Api.Cell Corner, Lattice.Api.Cell Opposite) -> void
+Lattice.Api.Selector.Box.Corner.get -> Lattice.Api.Cell
+Lattice.Api.Selector.Box.Corner.init -> void
+Lattice.Api.Selector.Box.Opposite.get -> Lattice.Api.Cell
+Lattice.Api.Selector.Box.Opposite.init -> void
+Lattice.Api.Selector.Group
+Lattice.Api.Selector.Group.Group(Lattice.Api.GroupName Name) -> void
+Lattice.Api.Selector.Group.Name.get -> Lattice.Api.GroupName
+Lattice.Api.Selector.Group.Name.init -> void
+Lattice.Api.Selector.Ids
+Lattice.Api.Selector.Ids.Ids(Lattice.Api.ValueList<Lattice.Api.GhostId>! Values) -> void
+Lattice.Api.Selector.Ids.Values.get -> Lattice.Api.ValueList<Lattice.Api.GhostId>!
+Lattice.Api.Selector.Ids.Values.init -> void
+Lattice.Api.Selector.InPlan
+Lattice.Api.Selector.InPlan.InPlan(Lattice.Api.PlanId Plan) -> void
+Lattice.Api.Selector.InPlan.Plan.get -> Lattice.Api.PlanId
+Lattice.Api.Selector.InPlan.Plan.init -> void
+Lattice.Api.Selector.MadeBy
+Lattice.Api.Selector.MadeBy.MadeBy(Lattice.Api.Maker Maker) -> void
+Lattice.Api.Selector.MadeBy.Maker.get -> Lattice.Api.Maker
+Lattice.Api.Selector.MadeBy.Maker.init -> void
+Lattice.Api.Selector.Network
+Lattice.Api.Selector.Network.Network(Lattice.Api.NetworkRef Of) -> void
+Lattice.Api.Selector.Network.Of.get -> Lattice.Api.NetworkRef
+Lattice.Api.Selector.Network.Of.init -> void
+Lattice.Api.Selector.OfPiece
+Lattice.Api.Selector.OfPiece.OfPiece(Lattice.Api.PrefabKey Piece) -> void
+Lattice.Api.Selector.OfPiece.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.Selector.OfPiece.Piece.init -> void
+Lattice.Api.Selector.Owner
+Lattice.Api.Selector.Owner.Actor.get -> Lattice.Api.Actor!
+Lattice.Api.Selector.Owner.Actor.init -> void
+Lattice.Api.Selector.Owner.Owner(Lattice.Api.Actor! Actor) -> void
+Lattice.Api.Selector.Room
+Lattice.Api.Selector.Room.Of.get -> Lattice.Api.RoomRef
+Lattice.Api.Selector.Room.Of.init -> void
+Lattice.Api.Selector.Room.Room(Lattice.Api.RoomRef Of) -> void
+Lattice.Api.Selector.RunThrough
+Lattice.Api.Selector.RunThrough.Cell.get -> Lattice.Api.Cell
+Lattice.Api.Selector.RunThrough.Cell.init -> void
+Lattice.Api.Selector.RunThrough.RunThrough(Lattice.Api.Cell Cell) -> void
+Lattice.Api.Selector.Tagged
+Lattice.Api.Selector.Tagged.Key.get -> Lattice.Api.AttachmentKey
+Lattice.Api.Selector.Tagged.Key.init -> void
+Lattice.Api.Selector.Tagged.Tagged(Lattice.Api.AttachmentKey Key, Lattice.Api.Option<Lattice.Api.Attachment> Value) -> void
+Lattice.Api.Selector.Tagged.Value.get -> Lattice.Api.Option<Lattice.Api.Attachment>
+Lattice.Api.Selector.Tagged.Value.init -> void
+Lattice.Api.Setting
+Lattice.Api.Setting.Setting() -> void
+Lattice.Api.Setting.Value.get -> double
+Lattice.Api.ShowMode
+Lattice.Api.ShowMode.None = 2 -> Lattice.Api.ShowMode
+Lattice.Api.ShowMode.Shown = 1 -> Lattice.Api.ShowMode
+Lattice.Api.SlicedWorkDescriptor
+Lattice.Api.SlicedWorkDescriptor.Id.get -> Lattice.Api.SliceId
+Lattice.Api.SlicedWorkDescriptor.Id.init -> void
+Lattice.Api.SlicedWorkDescriptor.Priority.get -> Lattice.Api.SlicePriority
+Lattice.Api.SlicedWorkDescriptor.Priority.init -> void
+Lattice.Api.SlicedWorkDescriptor.SlicedWorkDescriptor(Lattice.Api.SliceId Id, System.Func<bool>! Step) -> void
+Lattice.Api.SlicedWorkDescriptor.Step.get -> System.Func<bool>!
+Lattice.Api.SlicedWorkDescriptor.Step.init -> void
+Lattice.Api.SliceId
+Lattice.Api.SliceId.SliceId() -> void
+Lattice.Api.SliceId.Value.get -> string!
+Lattice.Api.SlicePriority
+Lattice.Api.SlicePriority.High = 3 -> Lattice.Api.SlicePriority
+Lattice.Api.SlicePriority.Low = 1 -> Lattice.Api.SlicePriority
+Lattice.Api.SlicePriority.Normal = 2 -> Lattice.Api.SlicePriority
+Lattice.Api.StateKind
+Lattice.Api.StateKind.Planned = 1 -> Lattice.Api.StateKind
+Lattice.Api.StateKind.Stale = 3 -> Lattice.Api.StateKind
+Lattice.Api.StateKind.Started = 2 -> Lattice.Api.StateKind
+Lattice.Api.StatusKind
+Lattice.Api.StatusKind.None = 4 -> Lattice.Api.StatusKind
+Lattice.Api.StatusKind.Paused = 3 -> Lattice.Api.StatusKind
+Lattice.Api.StatusKind.Waiting = 2 -> Lattice.Api.StatusKind
+Lattice.Api.StatusKind.Working = 1 -> Lattice.Api.StatusKind
+Lattice.Api.Step
+Lattice.Api.Step.Advance
+Lattice.Api.Step.Advance.Advance(Lattice.Api.StepTarget! On, Lattice.Api.ItemKey Tool, Lattice.Api.Option<Lattice.Api.ItemQuantity> Material) -> void
+Lattice.Api.Step.Advance.Material.get -> Lattice.Api.Option<Lattice.Api.ItemQuantity>
+Lattice.Api.Step.Advance.Material.init -> void
+Lattice.Api.Step.Advance.On.get -> Lattice.Api.StepTarget!
+Lattice.Api.Step.Advance.On.init -> void
+Lattice.Api.Step.Advance.Tool.get -> Lattice.Api.ItemKey
+Lattice.Api.Step.Advance.Tool.init -> void
+Lattice.Api.Step.Merge
+Lattice.Api.Step.Merge.Becomes.get -> Lattice.Api.PrefabKey
+Lattice.Api.Step.Merge.Becomes.init -> void
+Lattice.Api.Step.Merge.Extra.get -> Lattice.Api.Option<Lattice.Api.ItemQuantity>
+Lattice.Api.Step.Merge.Extra.init -> void
+Lattice.Api.Step.Merge.Into.get -> Lattice.Api.StructureRef
+Lattice.Api.Step.Merge.Into.init -> void
+Lattice.Api.Step.Merge.Merge(Lattice.Api.StructureRef Into, Lattice.Api.PrefabKey Becomes, Lattice.Api.ItemKey OffhandTool, Lattice.Api.Option<Lattice.Api.ItemQuantity> Extra) -> void
+Lattice.Api.Step.Merge.OffhandTool.get -> Lattice.Api.ItemKey
+Lattice.Api.Step.Merge.OffhandTool.init -> void
+Lattice.Api.Step.Paint
+Lattice.Api.Step.Paint.Colour.get -> Lattice.Api.PaintColour
+Lattice.Api.Step.Paint.Colour.init -> void
+Lattice.Api.Step.Paint.On.get -> Lattice.Api.StepTarget!
+Lattice.Api.Step.Paint.On.init -> void
+Lattice.Api.Step.Paint.Paint(Lattice.Api.StepTarget! On, Lattice.Api.PaintColour Colour) -> void
+Lattice.Api.Step.PlaceKit
+Lattice.Api.Step.PlaceKit.At.get -> Lattice.Api.Placement!
+Lattice.Api.Step.PlaceKit.At.init -> void
+Lattice.Api.Step.PlaceKit.Kit.get -> Lattice.Api.KitKey
+Lattice.Api.Step.PlaceKit.Kit.init -> void
+Lattice.Api.Step.PlaceKit.Option.get -> Lattice.Api.KitOption
+Lattice.Api.Step.PlaceKit.Option.init -> void
+Lattice.Api.Step.PlaceKit.PlaceKit(Lattice.Api.KitKey Kit, Lattice.Api.KitOption Option, Lattice.Api.ItemQuantity Uses, Lattice.Api.Placement! At) -> void
+Lattice.Api.Step.PlaceKit.Uses.get -> Lattice.Api.ItemQuantity
+Lattice.Api.Step.PlaceKit.Uses.init -> void
+Lattice.Api.Step.Rename
+Lattice.Api.Step.Rename.On.get -> Lattice.Api.StepTarget!
+Lattice.Api.Step.Rename.On.init -> void
+Lattice.Api.Step.Rename.Rename(Lattice.Api.StepTarget! On, Lattice.Api.ThingName To) -> void
+Lattice.Api.Step.Rename.To.get -> Lattice.Api.ThingName
+Lattice.Api.Step.Rename.To.init -> void
+Lattice.Api.Step.SetValue
+Lattice.Api.Step.SetValue.On.get -> Lattice.Api.StepTarget!
+Lattice.Api.Step.SetValue.On.init -> void
+Lattice.Api.Step.SetValue.SetValue(Lattice.Api.StepTarget! On, Lattice.Api.Setting To) -> void
+Lattice.Api.Step.SetValue.To.get -> Lattice.Api.Setting
+Lattice.Api.Step.SetValue.To.init -> void
+Lattice.Api.Step.TakeBack
+Lattice.Api.Step.TakeBack.On.get -> Lattice.Api.StructureRef
+Lattice.Api.Step.TakeBack.On.init -> void
+Lattice.Api.Step.TakeBack.Returns.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+Lattice.Api.Step.TakeBack.Returns.init -> void
+Lattice.Api.Step.TakeBack.TakeBack(Lattice.Api.StructureRef On, Lattice.Api.ItemKey Tool, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! Returns) -> void
+Lattice.Api.Step.TakeBack.Tool.get -> Lattice.Api.ItemKey
+Lattice.Api.Step.TakeBack.Tool.init -> void
+Lattice.Api.StepIndex
+Lattice.Api.StepIndex.StepIndex() -> void
+Lattice.Api.StepIndex.Value.get -> int
+Lattice.Api.StepPlan
+Lattice.Api.StepPlan.Constraints.get -> Lattice.Api.ValueList<Lattice.Api.Constraint!>!
+Lattice.Api.StepPlan.Constraints.init -> void
+Lattice.Api.StepPlan.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.StepPlan.Ghost.init -> void
+Lattice.Api.StepPlan.StepPlan(Lattice.Api.GhostId Ghost, Lattice.Api.ValueList<Lattice.Api.Step!>! Steps, Lattice.Api.ValueList<Lattice.Api.Constraint!>! Constraints) -> void
+Lattice.Api.StepPlan.Steps.get -> Lattice.Api.ValueList<Lattice.Api.Step!>!
+Lattice.Api.StepPlan.Steps.init -> void
+Lattice.Api.StepTarget
+Lattice.Api.StepTarget.PlacedBy
+Lattice.Api.StepTarget.PlacedBy.PlacedBy(int Step) -> void
+Lattice.Api.StepTarget.PlacedBy.Step.get -> int
+Lattice.Api.StepTarget.PlacedBy.Step.init -> void
+Lattice.Api.StepTarget.Standing
+Lattice.Api.StepTarget.Standing.Standing(Lattice.Api.StructureRef Structure) -> void
+Lattice.Api.StepTarget.Standing.Structure.get -> Lattice.Api.StructureRef
+Lattice.Api.StepTarget.Standing.Structure.init -> void
+Lattice.Api.StructureInfo
+Lattice.Api.StructureInfo.Colour.get -> Lattice.Api.Option<Lattice.Api.PaintColour>
+Lattice.Api.StructureInfo.Colour.init -> void
+Lattice.Api.StructureInfo.Name.get -> Lattice.Api.Option<Lattice.Api.ThingName>
+Lattice.Api.StructureInfo.Name.init -> void
+Lattice.Api.StructureInfo.Ref.get -> Lattice.Api.StructureRef
+Lattice.Api.StructureInfo.Ref.init -> void
+Lattice.Api.StructureInfo.Setting.get -> Lattice.Api.Option<Lattice.Api.Setting>
+Lattice.Api.StructureInfo.Setting.init -> void
+Lattice.Api.StructureInfo.State.get -> Lattice.Api.BuildState!
+Lattice.Api.StructureInfo.State.init -> void
+Lattice.Api.StructureInfo.StructureInfo(Lattice.Api.StructureRef Ref, Lattice.Api.Turn Turn, Lattice.Api.BuildState! State, Lattice.Api.Option<Lattice.Api.PaintColour> Colour, Lattice.Api.Option<Lattice.Api.ThingName> Name, Lattice.Api.Option<Lattice.Api.Setting> Setting) -> void
+Lattice.Api.StructureInfo.Turn.get -> Lattice.Api.Turn
+Lattice.Api.StructureInfo.Turn.init -> void
+Lattice.Api.StructureMove
+Lattice.Api.StructureMove.From.get -> Lattice.Api.StructureRef
+Lattice.Api.StructureMove.From.init -> void
+Lattice.Api.StructureMove.StructureMove(Lattice.Api.StructureRef From, Lattice.Api.Cell To, Lattice.Api.Turn Turn) -> void
+Lattice.Api.StructureMove.To.get -> Lattice.Api.Cell
+Lattice.Api.StructureMove.To.init -> void
+Lattice.Api.StructureMove.Turn.get -> Lattice.Api.Turn
+Lattice.Api.StructureMove.Turn.init -> void
+Lattice.Api.StructureRef
+Lattice.Api.StructureRef.At.get -> Lattice.Api.Cell
+Lattice.Api.StructureRef.At.init -> void
+Lattice.Api.StructureRef.Id.get -> Lattice.Api.ReferenceId
+Lattice.Api.StructureRef.Id.init -> void
+Lattice.Api.StructureRef.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.StructureRef.Piece.init -> void
+Lattice.Api.StructureRef.StructureRef() -> void
+Lattice.Api.StructureRef.StructureRef(Lattice.Api.ReferenceId Id, Lattice.Api.PrefabKey Piece, Lattice.Api.Cell At) -> void
+Lattice.Api.StructureSelector
+Lattice.Api.StructureSelector.All
+Lattice.Api.StructureSelector.All.All(Lattice.Api.ValueList<Lattice.Api.StructureSelector!>! Of) -> void
+Lattice.Api.StructureSelector.All.Of.get -> Lattice.Api.ValueList<Lattice.Api.StructureSelector!>!
+Lattice.Api.StructureSelector.All.Of.init -> void
+Lattice.Api.StructureSelector.Any
+Lattice.Api.StructureSelector.Any.Any(Lattice.Api.ValueList<Lattice.Api.StructureSelector!>! Of) -> void
+Lattice.Api.StructureSelector.Any.Of.get -> Lattice.Api.ValueList<Lattice.Api.StructureSelector!>!
+Lattice.Api.StructureSelector.Any.Of.init -> void
+Lattice.Api.StructureSelector.Box
+Lattice.Api.StructureSelector.Box.Box(Lattice.Api.Cell Corner, Lattice.Api.Cell Opposite) -> void
+Lattice.Api.StructureSelector.Box.Corner.get -> Lattice.Api.Cell
+Lattice.Api.StructureSelector.Box.Corner.init -> void
+Lattice.Api.StructureSelector.Box.Opposite.get -> Lattice.Api.Cell
+Lattice.Api.StructureSelector.Box.Opposite.init -> void
+Lattice.Api.StructureSelector.Network
+Lattice.Api.StructureSelector.Network.Network(Lattice.Api.NetworkRef Of) -> void
+Lattice.Api.StructureSelector.Network.Of.get -> Lattice.Api.NetworkRef
+Lattice.Api.StructureSelector.Network.Of.init -> void
+Lattice.Api.StructureSelector.OfPiece
+Lattice.Api.StructureSelector.OfPiece.OfPiece(Lattice.Api.PrefabKey Piece) -> void
+Lattice.Api.StructureSelector.OfPiece.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.StructureSelector.OfPiece.Piece.init -> void
+Lattice.Api.StructureSelector.Refs
+Lattice.Api.StructureSelector.Refs.Refs(Lattice.Api.ValueList<Lattice.Api.StructureRef>! Values) -> void
+Lattice.Api.StructureSelector.Refs.Values.get -> Lattice.Api.ValueList<Lattice.Api.StructureRef>!
+Lattice.Api.StructureSelector.Refs.Values.init -> void
+Lattice.Api.StructureSelector.Room
+Lattice.Api.StructureSelector.Room.Of.get -> Lattice.Api.RoomRef
+Lattice.Api.StructureSelector.Room.Of.init -> void
+Lattice.Api.StructureSelector.Room.Room(Lattice.Api.RoomRef Of) -> void
+Lattice.Api.StructureSelector.RunThrough
+Lattice.Api.StructureSelector.RunThrough.Cell.get -> Lattice.Api.Cell
+Lattice.Api.StructureSelector.RunThrough.Cell.init -> void
+Lattice.Api.StructureSelector.RunThrough.RunThrough(Lattice.Api.Cell Cell) -> void
+Lattice.Api.Style
+Lattice.Api.Style.Appear.get -> Lattice.Api.Option<Lattice.Api.Duration>
+Lattice.Api.Style.Appear.init -> void
+Lattice.Api.Style.BeyondClip.get -> Lattice.Api.Option<Lattice.Api.BeyondClipLook!>
+Lattice.Api.Style.BeyondClip.init -> void
+Lattice.Api.Style.Dim.get -> Lattice.Api.Option<Lattice.Api.Fraction>
+Lattice.Api.Style.Dim.init -> void
+Lattice.Api.Style.DistanceFade.get -> Lattice.Api.Option<Lattice.Api.FadeRange>
+Lattice.Api.Style.DistanceFade.init -> void
+Lattice.Api.Style.Ease.get -> Lattice.Api.Option<Lattice.Api.Duration>
+Lattice.Api.Style.Ease.init -> void
+Lattice.Api.Style.Edge.get -> Lattice.Api.Option<Lattice.Api.EdgeLook!>
+Lattice.Api.Style.Edge.init -> void
+Lattice.Api.Style.Effect.get -> Lattice.Api.Option<Lattice.Api.EffectLook!>
+Lattice.Api.Style.Effect.init -> void
+Lattice.Api.Style.Enter.get -> Lattice.Api.Option<Lattice.Api.EnterLook!>
+Lattice.Api.Style.Enter.init -> void
+Lattice.Api.Style.Fill.get -> Lattice.Api.Option<Lattice.Api.FillMode>
+Lattice.Api.Style.Fill.init -> void
+Lattice.Api.Style.FillOpacity.get -> Lattice.Api.Option<Lattice.Api.Fraction>
+Lattice.Api.Style.FillOpacity.init -> void
+Lattice.Api.Style.FillPaint.get -> Lattice.Api.Option<Lattice.Api.Paint!>
+Lattice.Api.Style.FillPaint.init -> void
+Lattice.Api.Style.FlowArrows.get -> Lattice.Api.Option<Lattice.Api.ShowMode>
+Lattice.Api.Style.FlowArrows.init -> void
+Lattice.Api.Style.Glow.get -> Lattice.Api.Option<Lattice.Api.GlowLook!>
+Lattice.Api.Style.Glow.init -> void
+Lattice.Api.Style.Icon.get -> Lattice.Api.Option<Lattice.Api.IconLook!>
+Lattice.Api.Style.Icon.init -> void
+Lattice.Api.Style.Label.get -> Lattice.Api.Option<Lattice.Api.LabelLook!>
+Lattice.Api.Style.Label.init -> void
+Lattice.Api.Style.Mark.get -> Lattice.Api.Option<Lattice.Api.MarkLook!>
+Lattice.Api.Style.Mark.init -> void
+Lattice.Api.Style.Material.get -> Lattice.Api.Option<Lattice.Api.MaterialKey>
+Lattice.Api.Style.Material.init -> void
+Lattice.Api.Style.NearLimit.get -> Lattice.Api.Option<Lattice.Api.Metres>
+Lattice.Api.Style.NearLimit.init -> void
+Lattice.Api.Style.OpenEnds.get -> Lattice.Api.Option<Lattice.Api.ShowMode>
+Lattice.Api.Style.OpenEnds.init -> void
+Lattice.Api.Style.Pattern.get -> Lattice.Api.Option<Lattice.Api.Pattern>
+Lattice.Api.Style.Pattern.init -> void
+Lattice.Api.Style.Pickable.get -> Lattice.Api.Option<Lattice.Api.Pickable>
+Lattice.Api.Style.Pickable.init -> void
+Lattice.Api.Style.Ports.get -> Lattice.Api.Option<Lattice.Api.ShowMode>
+Lattice.Api.Style.Ports.init -> void
+Lattice.Api.Style.Presence.get -> Lattice.Api.Option<Lattice.Api.Presence>
+Lattice.Api.Style.Presence.init -> void
+Lattice.Api.Style.SeeThrough.get -> Lattice.Api.Option<Lattice.Api.SeeThroughLook!>
+Lattice.Api.Style.SeeThrough.init -> void
+Lattice.Api.Style.Vanish.get -> Lattice.Api.Option<Lattice.Api.Duration>
+Lattice.Api.Style.Vanish.init -> void
+Lattice.Api.Style.WaitsLinks.get -> Lattice.Api.Option<Lattice.Api.ShowMode>
+Lattice.Api.Style.WaitsLinks.init -> void
+Lattice.Api.StyleBand
+Lattice.Api.StyleBand.Highlight = 6 -> Lattice.Api.StyleBand
+Lattice.Api.StyleBand.Meaning = 2 -> Lattice.Api.StyleBand
+Lattice.Api.StyleBand.Selection = 5 -> Lattice.Api.StyleBand
+Lattice.Api.StyleBand.Theme = 3 -> Lattice.Api.StyleBand
+Lattice.Api.StyleBand.View = 4 -> Lattice.Api.StyleBand
+Lattice.Api.StyleLayerDescriptor
+Lattice.Api.StyleLayerDescriptor.Band.get -> Lattice.Api.StyleBand
+Lattice.Api.StyleLayerDescriptor.Band.init -> void
+Lattice.Api.StyleLayerDescriptor.Enabled.get -> bool
+Lattice.Api.StyleLayerDescriptor.Enabled.init -> void
+Lattice.Api.StyleLayerDescriptor.Id.get -> Lattice.Api.StyleLayerId
+Lattice.Api.StyleLayerDescriptor.Id.init -> void
+Lattice.Api.StyleLayerDescriptor.Motion.get -> Lattice.Api.Option<Lattice.Api.Motion>
+Lattice.Api.StyleLayerDescriptor.Motion.init -> void
+Lattice.Api.StyleLayerDescriptor.Order.get -> int
+Lattice.Api.StyleLayerDescriptor.Order.init -> void
+Lattice.Api.StyleLayerDescriptor.Palette.get -> Lattice.Api.Option<Lattice.Api.Palette!>
+Lattice.Api.StyleLayerDescriptor.Palette.init -> void
+Lattice.Api.StyleLayerDescriptor.Rules.get -> Lattice.Api.ValueList<Lattice.Api.StyleRule!>!
+Lattice.Api.StyleLayerDescriptor.Rules.init -> void
+Lattice.Api.StyleLayerDescriptor.StyleLayerDescriptor(Lattice.Api.StyleLayerId Id, Lattice.Api.StyleBand Band, int Order, Lattice.Api.ValueList<Lattice.Api.StyleRule!>! Rules) -> void
+Lattice.Api.StyleLayerId
+Lattice.Api.StyleLayerId.StyleLayerId() -> void
+Lattice.Api.StyleLayerId.Value.get -> string!
+Lattice.Api.StyleMatch
+Lattice.Api.StyleMatch.All
+Lattice.Api.StyleMatch.All.All(Lattice.Api.ValueList<Lattice.Api.StyleMatch!>! Of) -> void
+Lattice.Api.StyleMatch.All.Of.get -> Lattice.Api.ValueList<Lattice.Api.StyleMatch!>!
+Lattice.Api.StyleMatch.All.Of.init -> void
+Lattice.Api.StyleMatch.Any
+Lattice.Api.StyleMatch.Any.Any(Lattice.Api.ValueList<Lattice.Api.StyleMatch!>! Of) -> void
+Lattice.Api.StyleMatch.Any.Of.get -> Lattice.Api.ValueList<Lattice.Api.StyleMatch!>!
+Lattice.Api.StyleMatch.Any.Of.init -> void
+Lattice.Api.StyleMatch.Draft
+Lattice.Api.StyleMatch.Everything
+Lattice.Api.StyleMatch.Family
+Lattice.Api.StyleMatch.Family.Family(Lattice.Api.PieceFamily Of) -> void
+Lattice.Api.StyleMatch.Family.Of.get -> Lattice.Api.PieceFamily
+Lattice.Api.StyleMatch.Family.Of.init -> void
+Lattice.Api.StyleMatch.Finding
+Lattice.Api.StyleMatch.Finding.Code.get -> Lattice.Api.Option<Lattice.Api.ReasonCode>
+Lattice.Api.StyleMatch.Finding.Code.init -> void
+Lattice.Api.StyleMatch.Finding.Finding(Lattice.Api.FindingKind Kind, Lattice.Api.Option<Lattice.Api.ReasonCode> Code) -> void
+Lattice.Api.StyleMatch.Finding.Kind.get -> Lattice.Api.FindingKind
+Lattice.Api.StyleMatch.Finding.Kind.init -> void
+Lattice.Api.StyleMatch.InSet
+Lattice.Api.StyleMatch.InSet.InSet(Lattice.Api.StyleSetId Set) -> void
+Lattice.Api.StyleMatch.InSet.Set.get -> Lattice.Api.StyleSetId
+Lattice.Api.StyleMatch.InSet.Set.init -> void
+Lattice.Api.StyleMatch.Intent
+Lattice.Api.StyleMatch.Intent.Intent(Lattice.Api.IntentKind Kind) -> void
+Lattice.Api.StyleMatch.Intent.Kind.get -> Lattice.Api.IntentKind
+Lattice.Api.StyleMatch.Intent.Kind.init -> void
+Lattice.Api.StyleMatch.Mine
+Lattice.Api.StyleMatch.Not
+Lattice.Api.StyleMatch.Not.Match.get -> Lattice.Api.StyleMatch!
+Lattice.Api.StyleMatch.Not.Match.init -> void
+Lattice.Api.StyleMatch.Not.Not(Lattice.Api.StyleMatch! Match) -> void
+Lattice.Api.StyleMatch.Part
+Lattice.Api.StyleMatch.Part.Kind.get -> Lattice.Api.PartKind
+Lattice.Api.StyleMatch.Part.Kind.init -> void
+Lattice.Api.StyleMatch.Part.Part(Lattice.Api.PartKind Kind) -> void
+Lattice.Api.StyleMatch.Pending
+Lattice.Api.StyleMatch.Picks
+Lattice.Api.StyleMatch.Picks.Picks(Lattice.Api.Selector! Which) -> void
+Lattice.Api.StyleMatch.Picks.Which.get -> Lattice.Api.Selector!
+Lattice.Api.StyleMatch.Picks.Which.init -> void
+Lattice.Api.StyleMatch.State
+Lattice.Api.StyleMatch.State.Kind.get -> Lattice.Api.StateKind
+Lattice.Api.StyleMatch.State.Kind.init -> void
+Lattice.Api.StyleMatch.State.State(Lattice.Api.StateKind Kind) -> void
+Lattice.Api.StyleMatch.Status
+Lattice.Api.StyleMatch.Status.By.get -> Lattice.Api.Option<Lattice.Api.ExecutorId>
+Lattice.Api.StyleMatch.Status.By.init -> void
+Lattice.Api.StyleMatch.Status.Kind.get -> Lattice.Api.StatusKind
+Lattice.Api.StyleMatch.Status.Kind.init -> void
+Lattice.Api.StyleMatch.Status.Status(Lattice.Api.StatusKind Kind, Lattice.Api.Option<Lattice.Api.ExecutorId> By) -> void
+Lattice.Api.StyleMatch.Structure
+Lattice.Api.StyleMatch.Tinted
+Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Appear = 11 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.BeyondClip = 14 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Dim = 17 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.DistanceFade = 15 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Ease = 10 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Edge = 5 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Effect = 8 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Enter = 9 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Fill = 2 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.FillOpacity = 4 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.FillPaint = 3 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.FlowArrows = 22 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Glow = 7 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Icon = 19 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Label = 18 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Mark = 24 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Material = 25 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.NearLimit = 16 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.OpenEnds = 20 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Pattern = 6 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Pickable = 26 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Ports = 21 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Presence = 1 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.SeeThrough = 13 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.Vanish = 12 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleProperty.WaitsLinks = 23 -> Lattice.Api.StyleProperty
+Lattice.Api.StyleRule
+Lattice.Api.StyleRule.Match.get -> Lattice.Api.StyleMatch!
+Lattice.Api.StyleRule.Match.init -> void
+Lattice.Api.StyleRule.Style.get -> Lattice.Api.Style!
+Lattice.Api.StyleRule.Style.init -> void
+Lattice.Api.StyleRule.StyleRule(Lattice.Api.StyleMatch! Match, Lattice.Api.Style! Style) -> void
+Lattice.Api.StyleSetId
+Lattice.Api.StyleSetId.StyleSetId() -> void
+Lattice.Api.StyleSetId.Value.get -> string!
+Lattice.Api.StyleSource
+Lattice.Api.StyleSource.Default
+Lattice.Api.StyleSource.Highlight
+Lattice.Api.StyleSource.Inspect
+Lattice.Api.StyleSource.Layer
+Lattice.Api.StyleSource.Layer.Band.get -> Lattice.Api.StyleBand
+Lattice.Api.StyleSource.Layer.Band.init -> void
+Lattice.Api.StyleSource.Layer.Id.get -> Lattice.Api.StyleLayerId
+Lattice.Api.StyleSource.Layer.Id.init -> void
+Lattice.Api.StyleSource.Layer.Layer(Lattice.Api.StyleBand Band, Lattice.Api.StyleLayerId Id, int Rule) -> void
+Lattice.Api.StyleSource.Layer.Rule.get -> int
+Lattice.Api.StyleSource.Layer.Rule.init -> void
+Lattice.Api.StyleSource.Library
+Lattice.Api.StyleSource.Library.Library(int Rule) -> void
+Lattice.Api.StyleSource.Library.Rule.get -> int
+Lattice.Api.StyleSource.Library.Rule.init -> void
+Lattice.Api.StyleStory
+Lattice.Api.StyleStory.Facets.get -> Lattice.Api.ValueList<Lattice.Api.StyleMatch!>!
+Lattice.Api.StyleStory.Facets.init -> void
+Lattice.Api.StyleStory.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.StyleStory.Ghost.init -> void
+Lattice.Api.StyleStory.Resolved.get -> Lattice.Api.Style!
+Lattice.Api.StyleStory.Resolved.init -> void
+Lattice.Api.StyleStory.Sources.get -> Lattice.Api.ValueMap<Lattice.Api.StyleProperty, Lattice.Api.StyleSource!>!
+Lattice.Api.StyleStory.Sources.init -> void
+Lattice.Api.StyleStory.StyleStory(Lattice.Api.GhostId Ghost, Lattice.Api.Style! Resolved, Lattice.Api.ValueMap<Lattice.Api.StyleProperty, Lattice.Api.StyleSource!>! Sources, Lattice.Api.ValueList<Lattice.Api.StyleMatch!>! Facets) -> void
+Lattice.Api.Submission
+Lattice.Api.Submission.Answered
+Lattice.Api.Submission.Answered.Answered(Lattice.Api.Ticket Ticket, Lattice.Api.Outcome! Outcome) -> void
+Lattice.Api.Submission.Answered.Outcome.get -> Lattice.Api.Outcome!
+Lattice.Api.Submission.Answered.Outcome.init -> void
+Lattice.Api.Submission.Answered.Ticket.get -> Lattice.Api.Ticket
+Lattice.Api.Submission.Answered.Ticket.init -> void
+Lattice.Api.Submission.Sent
+Lattice.Api.Submission.Sent.Sent(Lattice.Api.Ticket Ticket) -> void
+Lattice.Api.Submission.Sent.Ticket.get -> Lattice.Api.Ticket
+Lattice.Api.Submission.Sent.Ticket.init -> void
+Lattice.Api.SupportInput
+Lattice.Api.SupportInput.At.get -> Lattice.Api.Placement!
+Lattice.Api.SupportInput.At.init -> void
+Lattice.Api.SupportInput.SupportInput(Lattice.Api.Placement! At, Lattice.Api.IWorldQuery! World) -> void
+Lattice.Api.SupportInput.World.get -> Lattice.Api.IWorldQuery!
+Lattice.Api.SupportInput.World.init -> void
+Lattice.Api.SupportMode
+Lattice.Api.SupportMode.Adds = 1 -> Lattice.Api.SupportMode
+Lattice.Api.SupportMode.Replaces = 2 -> Lattice.Api.SupportMode
+Lattice.Api.SupportRuleDescriptor
+Lattice.Api.SupportRuleDescriptor.AppliesTo.get -> System.Func<Lattice.Api.PrefabKey, bool>!
+Lattice.Api.SupportRuleDescriptor.AppliesTo.init -> void
+Lattice.Api.SupportRuleDescriptor.Check.get -> System.Func<Lattice.Api.SupportInput!, Lattice.Api.SupportVerdict!>!
+Lattice.Api.SupportRuleDescriptor.Check.init -> void
+Lattice.Api.SupportRuleDescriptor.Id.get -> Lattice.Api.RuleId
+Lattice.Api.SupportRuleDescriptor.Id.init -> void
+Lattice.Api.SupportRuleDescriptor.Mode.get -> Lattice.Api.SupportMode
+Lattice.Api.SupportRuleDescriptor.Mode.init -> void
+Lattice.Api.SupportRuleDescriptor.SupportRuleDescriptor(Lattice.Api.RuleId Id, System.Func<Lattice.Api.PrefabKey, bool>! AppliesTo, System.Func<Lattice.Api.SupportInput!, Lattice.Api.SupportVerdict!>! Check) -> void
+Lattice.Api.SupportRuleDescriptor.Thread.get -> Lattice.Api.CallbackThread
+Lattice.Api.SupportRuleDescriptor.Thread.init -> void
+Lattice.Api.SupportVerdict
+Lattice.Api.SupportVerdict.SupportedBy
+Lattice.Api.SupportVerdict.SupportedBy.SupportedBy(Lattice.Api.ValueList<Lattice.Api.StructureRef>! Supports) -> void
+Lattice.Api.SupportVerdict.SupportedBy.Supports.get -> Lattice.Api.ValueList<Lattice.Api.StructureRef>!
+Lattice.Api.SupportVerdict.SupportedBy.Supports.init -> void
+Lattice.Api.SupportVerdict.Unsupported
+Lattice.Api.SupportVerdict.Unsupported.Unsupported(Lattice.Api.Reason! Why) -> void
+Lattice.Api.SupportVerdict.Unsupported.Why.get -> Lattice.Api.Reason!
+Lattice.Api.SupportVerdict.Unsupported.Why.init -> void
+Lattice.Api.SwapOption
+Lattice.Api.SwapOption.Face.get -> Lattice.Api.Option<Lattice.Api.FaceLoad!>
+Lattice.Api.SwapOption.Face.init -> void
+Lattice.Api.SwapOption.New.get -> Lattice.Api.Placement!
+Lattice.Api.SwapOption.New.init -> void
+Lattice.Api.SwapOption.SwapOption(Lattice.Api.Placement! New, Lattice.Api.Option<Lattice.Api.FaceLoad!> Face) -> void
+Lattice.Api.SwapTo
+Lattice.Api.SwapTo.Exactly
+Lattice.Api.SwapTo.Exactly.Exactly(Lattice.Api.PrefabKey Piece) -> void
+Lattice.Api.SwapTo.Exactly.Piece.get -> Lattice.Api.PrefabKey
+Lattice.Api.SwapTo.Exactly.Piece.init -> void
+Lattice.Api.SwapTo.SameShapeFrom
+Lattice.Api.SwapTo.SameShapeFrom.Kit.get -> Lattice.Api.KitKey
+Lattice.Api.SwapTo.SameShapeFrom.Kit.init -> void
+Lattice.Api.SwapTo.SameShapeFrom.SameShapeFrom(Lattice.Api.KitKey Kit) -> void
+Lattice.Api.TeamName
+Lattice.Api.TeamName.TeamName() -> void
+Lattice.Api.TeamName.Value.get -> string!
+Lattice.Api.Template
+Lattice.Api.Template.Ghosts.get -> Lattice.Api.ValueList<Lattice.Api.GhostDraft!>!
+Lattice.Api.Template.Ghosts.init -> void
+Lattice.Api.Template.Name.get -> Lattice.Api.TemplateName
+Lattice.Api.Template.Name.init -> void
+Lattice.Api.Template.Template(Lattice.Api.TemplateName Name, Lattice.Api.ValueList<Lattice.Api.GhostDraft!>! Ghosts) -> void
+Lattice.Api.TemplateName
+Lattice.Api.TemplateName.TemplateName() -> void
+Lattice.Api.TemplateName.Value.get -> string!
+Lattice.Api.TextStyleKey
+Lattice.Api.TextStyleKey.TextStyleKey() -> void
+Lattice.Api.TextStyleKey.Value.get -> string!
+Lattice.Api.ThingName
+Lattice.Api.ThingName.ThingName() -> void
+Lattice.Api.ThingName.Value.get -> string!
+Lattice.Api.Ticket
+Lattice.Api.Ticket.Command.get -> Lattice.Api.CommandId
+Lattice.Api.Ticket.Command.init -> void
+Lattice.Api.Ticket.Ticket() -> void
+Lattice.Api.Ticket.Ticket(Lattice.Api.CommandId Command) -> void
+Lattice.Api.Tint
+Lattice.Api.Tint.A.get -> byte
+Lattice.Api.Tint.A.init -> void
+Lattice.Api.Tint.B.get -> byte
+Lattice.Api.Tint.B.init -> void
+Lattice.Api.Tint.G.get -> byte
+Lattice.Api.Tint.G.init -> void
+Lattice.Api.Tint.R.get -> byte
+Lattice.Api.Tint.R.init -> void
+Lattice.Api.Tint.Tint() -> void
+Lattice.Api.Tint.Tint(byte R, byte G, byte B, byte A) -> void
+Lattice.Api.Transformation
+Lattice.Api.Transformation.Mirror
+Lattice.Api.Transformation.Mirror.Mirror(Lattice.Api.MirrorPlane Plane) -> void
+Lattice.Api.Transformation.Mirror.Plane.get -> Lattice.Api.MirrorPlane
+Lattice.Api.Transformation.Mirror.Plane.init -> void
+Lattice.Api.Transformation.Move
+Lattice.Api.Transformation.Move.By.get -> Lattice.Api.CellOffset
+Lattice.Api.Transformation.Move.By.init -> void
+Lattice.Api.Transformation.Move.Move(Lattice.Api.CellOffset By) -> void
+Lattice.Api.Transformation.Rotate
+Lattice.Api.Transformation.Rotate.Pivot.get -> Lattice.Api.Cell
+Lattice.Api.Transformation.Rotate.Pivot.init -> void
+Lattice.Api.Transformation.Rotate.Rotate(Lattice.Api.Cell Pivot, Lattice.Api.Turn Turn) -> void
+Lattice.Api.Transformation.Rotate.Turn.get -> Lattice.Api.Turn
+Lattice.Api.Transformation.Rotate.Turn.init -> void
+Lattice.Api.TransformMode
+Lattice.Api.TransformMode.Copy
+Lattice.Api.TransformMode.Copy.Copy(Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.TransformMode.Copy.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.TransformMode.Copy.MadeBy.init -> void
+Lattice.Api.TransformMode.Move
+Lattice.Api.Turn
+Lattice.Api.Turn.Index.get -> byte
+Lattice.Api.Turn.Turn() -> void
+Lattice.Api.Unit
+Lattice.Api.Unit.Unit() -> void
+Lattice.Api.ValidationReport
+Lattice.Api.ValidationReport.At.get -> Lattice.Api.Revision
+Lattice.Api.ValidationReport.At.init -> void
+Lattice.Api.ValidationReport.Findings.get -> Lattice.Api.ValueList<Lattice.Api.Finding!>!
+Lattice.Api.ValidationReport.Findings.init -> void
+Lattice.Api.ValidationReport.ValidationReport(Lattice.Api.Revision At, Lattice.Api.ValueList<Lattice.Api.Finding!>! Findings) -> void
+Lattice.Api.Validity
+Lattice.Api.Validity.Invalid
+Lattice.Api.Validity.Invalid.Failing.get -> Lattice.Api.ValueList<Lattice.Api.Finding!>!
+Lattice.Api.Validity.Invalid.Failing.init -> void
+Lattice.Api.Validity.Invalid.Invalid(Lattice.Api.ValueList<Lattice.Api.Finding!>! Failing) -> void
+Lattice.Api.Validity.Valid
+Lattice.Api.ValueList
+Lattice.Api.ValueList<T>
+Lattice.Api.ValueList<T>.Count.get -> int
+Lattice.Api.ValueList<T>.Enumerator
+Lattice.Api.ValueList<T>.Enumerator.Current.get -> T
+Lattice.Api.ValueList<T>.Enumerator.Enumerator() -> void
+Lattice.Api.ValueList<T>.Enumerator.MoveNext() -> bool
+Lattice.Api.ValueList<T>.Equals(Lattice.Api.ValueList<T>? other) -> bool
+Lattice.Api.ValueList<T>.GetEnumerator() -> Lattice.Api.ValueList<T>.Enumerator
+Lattice.Api.ValueList<T>.this[int index].get -> T
+Lattice.Api.ValueMap
+Lattice.Api.ValueMap<TKey, TValue>
+Lattice.Api.ValueMap<TKey, TValue>.ContainsKey(TKey key) -> bool
+Lattice.Api.ValueMap<TKey, TValue>.Count.get -> int
+Lattice.Api.ValueMap<TKey, TValue>.Enumerator
+Lattice.Api.ValueMap<TKey, TValue>.Enumerator.Current.get -> System.Collections.Generic.KeyValuePair<TKey, TValue>
+Lattice.Api.ValueMap<TKey, TValue>.Enumerator.Enumerator() -> void
+Lattice.Api.ValueMap<TKey, TValue>.Enumerator.MoveNext() -> bool
+Lattice.Api.ValueMap<TKey, TValue>.Equals(Lattice.Api.ValueMap<TKey, TValue>? other) -> bool
+Lattice.Api.ValueMap<TKey, TValue>.GetEnumerator() -> Lattice.Api.ValueMap<TKey, TValue>.Enumerator
+Lattice.Api.ValueMap<TKey, TValue>.Keys.get -> System.Collections.Generic.IEnumerable<TKey>!
+Lattice.Api.ValueMap<TKey, TValue>.this[TKey key].get -> TValue
+Lattice.Api.ValueMap<TKey, TValue>.TryGetValue(TKey key, out TValue value) -> bool
+Lattice.Api.ValueMap<TKey, TValue>.Values.get -> System.Collections.Generic.IEnumerable<TValue>!
+Lattice.Api.ValueMap<TKey, TValue>.With(TKey key, TValue value) -> Lattice.Api.ValueMap<TKey, TValue>!
+Lattice.Api.ValueMap<TKey, TValue>.Without(TKey key) -> Lattice.Api.ValueMap<TKey, TValue>!
+Lattice.Api.ValueSet
+Lattice.Api.ValueSet<T>
+Lattice.Api.ValueSet<T>.Contains(T item) -> bool
+Lattice.Api.ValueSet<T>.Count.get -> int
+Lattice.Api.ValueSet<T>.Enumerator
+Lattice.Api.ValueSet<T>.Enumerator.Current.get -> T
+Lattice.Api.ValueSet<T>.Enumerator.Enumerator() -> void
+Lattice.Api.ValueSet<T>.Enumerator.MoveNext() -> bool
+Lattice.Api.ValueSet<T>.Equals(Lattice.Api.ValueSet<T>? other) -> bool
+Lattice.Api.ValueSet<T>.GetEnumerator() -> Lattice.Api.ValueSet<T>.Enumerator
+Lattice.Api.Visibility
+Lattice.Api.Visibility.Everyone
+Lattice.Api.Visibility.OwnerOnly
+Lattice.Api.Visibility.Team
+Lattice.Api.Visibility.Team.Name.get -> Lattice.Api.TeamName
+Lattice.Api.Visibility.Team.Name.init -> void
+Lattice.Api.Visibility.Team.Team(Lattice.Api.TeamName Name) -> void
+Lattice.Api.Watts
+Lattice.Api.Watts.Value.get -> double
+Lattice.Api.Watts.Value.init -> void
+Lattice.Api.Watts.Watts() -> void
+Lattice.Api.Watts.Watts(double Value) -> void
+Lattice.Api.WorldPoint
+Lattice.Api.WorldPoint.WorldPoint() -> void
+Lattice.Api.WorldPoint.WorldPoint(float X, float Y, float Z) -> void
+Lattice.Api.WorldPoint.X.get -> float
+Lattice.Api.WorldPoint.X.init -> void
+Lattice.Api.WorldPoint.Y.get -> float
+Lattice.Api.WorldPoint.Y.init -> void
+Lattice.Api.WorldPoint.Z.get -> float
+Lattice.Api.WorldPoint.Z.init -> void
+Lattice.Api.WorldVector
+Lattice.Api.WorldVector.WorldVector() -> void
+Lattice.Api.WorldVector.WorldVector(float X, float Y, float Z) -> void
+Lattice.Api.WorldVector.X.get -> float
+Lattice.Api.WorldVector.X.init -> void
+Lattice.Api.WorldVector.Y.get -> float
+Lattice.Api.WorldVector.Y.init -> void
+Lattice.Api.WorldVector.Z.get -> float
+Lattice.Api.WorldVector.Z.init -> void
+override Lattice.Api.AgentId.ToString() -> string!
+override Lattice.Api.Attachment.ToString() -> string!
+override Lattice.Api.AttachmentKey.ToString() -> string!
+override Lattice.Api.ClaimId.ToString() -> string!
+override Lattice.Api.DecorationKey.ToString() -> string!
+override Lattice.Api.DisplayName.ToString() -> string!
+override Lattice.Api.DraftsId.ToString() -> string!
+override Lattice.Api.ExecutorId.ToString() -> string!
+override Lattice.Api.GasKind.ToString() -> string!
+override Lattice.Api.GroupName.ToString() -> string!
+override Lattice.Api.IconKey.ToString() -> string!
+override Lattice.Api.Intent.Build.Kind.get -> Lattice.Api.IntentKind
+override Lattice.Api.Intent.FinishOnly.Kind.get -> Lattice.Api.IntentKind
+override Lattice.Api.Intent.Remove.Kind.get -> Lattice.Api.IntentKind
+override Lattice.Api.Intent.Swap.Kind.get -> Lattice.Api.IntentKind
+override Lattice.Api.Label.ToString() -> string!
+override Lattice.Api.Maker.ToString() -> string!
+override Lattice.Api.MaterialKey.ToString() -> string!
+override Lattice.Api.ModId.ToString() -> string!
+override Lattice.Api.ModuleName.ToString() -> string!
+override Lattice.Api.Option<T>.ToString() -> string!
+override Lattice.Api.PaletteId.ToString() -> string!
+override Lattice.Api.PaletteKey.ToString() -> string!
+override Lattice.Api.PieceFamily.ToString() -> string!
+override Lattice.Api.PlanName.ToString() -> string!
+override Lattice.Api.ReasonCode.ToString() -> string!
+override Lattice.Api.Result<T, TError>.ToString() -> string!
+override Lattice.Api.RuleId.ToString() -> string!
+override Lattice.Api.SaveName.ToString() -> string!
+override Lattice.Api.SliceId.ToString() -> string!
+override Lattice.Api.StyleLayerId.ToString() -> string!
+override Lattice.Api.StyleSetId.ToString() -> string!
+override Lattice.Api.TeamName.ToString() -> string!
+override Lattice.Api.TemplateName.ToString() -> string!
+override Lattice.Api.TextStyleKey.ToString() -> string!
+override Lattice.Api.ThingName.ToString() -> string!
+override Lattice.Api.Unit.ToString() -> string!
+override Lattice.Api.ValueList<T>.Equals(object? obj) -> bool
+override Lattice.Api.ValueList<T>.GetHashCode() -> int
+override Lattice.Api.ValueList<T>.ToString() -> string!
+override Lattice.Api.ValueMap<TKey, TValue>.Equals(object? obj) -> bool
+override Lattice.Api.ValueMap<TKey, TValue>.GetHashCode() -> int
+override Lattice.Api.ValueMap<TKey, TValue>.ToString() -> string!
+override Lattice.Api.ValueSet<T>.Equals(object? obj) -> bool
+override Lattice.Api.ValueSet<T>.GetHashCode() -> int
+override Lattice.Api.ValueSet<T>.ToString() -> string!
+static Lattice.Api.AgentId.Create(string! value) -> Lattice.Api.Result<Lattice.Api.AgentId, Lattice.Api.Reason!>
+static Lattice.Api.ApiVersion.Current.get -> Lattice.Api.ApiVersion
+static Lattice.Api.Attachment.Create(string! value) -> Lattice.Api.Result<Lattice.Api.Attachment, Lattice.Api.Reason!>
+static Lattice.Api.AttachmentKey.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.AttachmentKey, Lattice.Api.Reason!>
+static Lattice.Api.ClaimId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.ClaimId, Lattice.Api.Reason!>
+static Lattice.Api.ClipShape.Box.Create(Lattice.Api.WorldPoint corner, Lattice.Api.WorldPoint opposite) -> Lattice.Api.Result<Lattice.Api.ClipShape.Box!, Lattice.Api.Reason!>
+static Lattice.Api.ClipShape.Plane.Create(Lattice.Api.WorldPoint point, Lattice.Api.WorldVector normal) -> Lattice.Api.Result<Lattice.Api.ClipShape.Plane!, Lattice.Api.Reason!>
+static Lattice.Api.CommandId.New() -> Lattice.Api.CommandId
+static Lattice.Api.DecorationKey.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.DecorationKey, Lattice.Api.Reason!>
+static Lattice.Api.DisplayName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.DisplayName, Lattice.Api.Reason!>
+static Lattice.Api.DraftsId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.DraftsId, Lattice.Api.Reason!>
+static Lattice.Api.Duration.Create(float seconds) -> Lattice.Api.Result<Lattice.Api.Duration, Lattice.Api.Reason!>
+static Lattice.Api.Duration.Zero.get -> Lattice.Api.Duration
+static Lattice.Api.ExecutorId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.ExecutorId, Lattice.Api.Reason!>
+static Lattice.Api.FadeRange.Create(Lattice.Api.Metres start, Lattice.Api.Metres end) -> Lattice.Api.Result<Lattice.Api.FadeRange, Lattice.Api.Reason!>
+static Lattice.Api.Finish.Create(Lattice.Api.Option<Lattice.Api.PaintColour> colour, Lattice.Api.Option<Lattice.Api.ThingName> name, Lattice.Api.Option<Lattice.Api.Setting> setting) -> Lattice.Api.Result<Lattice.Api.Finish!, Lattice.Api.Reason!>
+static Lattice.Api.Fraction.Create(float value) -> Lattice.Api.Result<Lattice.Api.Fraction, Lattice.Api.Reason!>
+static Lattice.Api.Fraction.One.get -> Lattice.Api.Fraction
+static Lattice.Api.Fraction.Zero.get -> Lattice.Api.Fraction
+static Lattice.Api.GasKind.Create(string! value) -> Lattice.Api.Result<Lattice.Api.GasKind, Lattice.Api.Reason!>
+static Lattice.Api.GroupName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.GroupName, Lattice.Api.Reason!>
+static Lattice.Api.IconKey.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.IconKey, Lattice.Api.Reason!>
+static Lattice.Api.ItemQuantity.Create(Lattice.Api.ItemKey item, int count) -> Lattice.Api.Result<Lattice.Api.ItemQuantity, Lattice.Api.Reason!>
+static Lattice.Api.KitOption.Create(int index) -> Lattice.Api.Result<Lattice.Api.KitOption, Lattice.Api.Reason!>
+static Lattice.Api.Label.Create(string! value) -> Lattice.Api.Result<Lattice.Api.Label, Lattice.Api.Reason!>
+static Lattice.Api.LatticeSystem.Current.get -> Lattice.Api.Option<Lattice.Api.IGhostSystem!>
+static Lattice.Api.LatticeSystem.Started -> System.Action<Lattice.Api.IGhostSystem!>?
+static Lattice.Api.Lease.Create(double seconds) -> Lattice.Api.Result<Lattice.Api.Lease, Lattice.Api.Reason!>
+static Lattice.Api.Maker.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.Maker, Lattice.Api.Reason!>
+static Lattice.Api.MaterialKey.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.MaterialKey, Lattice.Api.Reason!>
+static Lattice.Api.Metres.Create(float value) -> Lattice.Api.Result<Lattice.Api.Metres, Lattice.Api.Reason!>
+static Lattice.Api.ModId.Create(string! value) -> Lattice.Api.Result<Lattice.Api.ModId, Lattice.Api.Reason!>
+static Lattice.Api.ModuleName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.ModuleName, Lattice.Api.Reason!>
+static Lattice.Api.Option.None<T>() -> Lattice.Api.Option<T>
+static Lattice.Api.Option.Some<T>(T value) -> Lattice.Api.Option<T>
+static Lattice.Api.Option<T>.None.get -> Lattice.Api.Option<T>
+static Lattice.Api.Option<T>.Some(T value) -> Lattice.Api.Option<T>
+static Lattice.Api.PaintColour.Create(int index) -> Lattice.Api.Result<Lattice.Api.PaintColour, Lattice.Api.Reason!>
+static Lattice.Api.PaletteId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.PaletteId, Lattice.Api.Reason!>
+static Lattice.Api.PaletteKey.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.PaletteKey, Lattice.Api.Reason!>
+static Lattice.Api.Period.Create(float seconds) -> Lattice.Api.Result<Lattice.Api.Period, Lattice.Api.Reason!>
+static Lattice.Api.PickOptions.Default.get -> Lattice.Api.PickOptions!
+static Lattice.Api.PickRay.Create(Lattice.Api.WorldPoint origin, Lattice.Api.WorldVector direction, float maxMetres) -> Lattice.Api.Result<Lattice.Api.PickRay, Lattice.Api.Reason!>
+static Lattice.Api.PieceFamily.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.PieceFamily, Lattice.Api.Reason!>
+static Lattice.Api.Pixels.Create(float value) -> Lattice.Api.Result<Lattice.Api.Pixels, Lattice.Api.Reason!>
+static Lattice.Api.PlanName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.PlanName, Lattice.Api.Reason!>
+static Lattice.Api.Reason.Of(Lattice.Api.ReasonCode code, Lattice.Api.RuleId from) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.Of(Lattice.Api.ReasonCode code, Lattice.Api.RuleId from, Lattice.Api.ValueMap<string!, string!>! facts) -> Lattice.Api.Reason!
+static Lattice.Api.ReasonCode.Create(Lattice.Api.ModId owner, string! code) -> Lattice.Api.Result<Lattice.Api.ReasonCode, Lattice.Api.Reason!>
+static Lattice.Api.Repeats.Create(int count) -> Lattice.Api.Result<Lattice.Api.Repeats, Lattice.Api.Reason!>
+static Lattice.Api.Result<T, TError>.Error(TError error) -> Lattice.Api.Result<T, TError>
+static Lattice.Api.Result<T, TError>.Ok(T value) -> Lattice.Api.Result<T, TError>
+static Lattice.Api.RuleId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.RuleId, Lattice.Api.Reason!>
+static Lattice.Api.SaveName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.SaveName, Lattice.Api.Reason!>
+static Lattice.Api.Setting.Create(double value) -> Lattice.Api.Result<Lattice.Api.Setting, Lattice.Api.Reason!>
+static Lattice.Api.SliceId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.SliceId, Lattice.Api.Reason!>
+static Lattice.Api.StepIndex.Create(int value) -> Lattice.Api.Result<Lattice.Api.StepIndex, Lattice.Api.Reason!>
+static Lattice.Api.Style.Empty.get -> Lattice.Api.Style!
+static Lattice.Api.StyleLayerId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.StyleLayerId, Lattice.Api.Reason!>
+static Lattice.Api.StyleSetId.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.StyleSetId, Lattice.Api.Reason!>
+static Lattice.Api.TeamName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.TeamName, Lattice.Api.Reason!>
+static Lattice.Api.TemplateName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.TemplateName, Lattice.Api.Reason!>
+static Lattice.Api.TextStyleKey.Create(Lattice.Api.ModId owner, string! name) -> Lattice.Api.Result<Lattice.Api.TextStyleKey, Lattice.Api.Reason!>
+static Lattice.Api.ThingName.Create(string! value) -> Lattice.Api.Result<Lattice.Api.ThingName, Lattice.Api.Reason!>
+static Lattice.Api.Turn.Create(int index) -> Lattice.Api.Result<Lattice.Api.Turn, Lattice.Api.Reason!>
+static Lattice.Api.Turn.None.get -> Lattice.Api.Turn
+static Lattice.Api.Unit.Value.get -> Lattice.Api.Unit
+static Lattice.Api.ValueList.From<T>(System.Collections.Generic.IEnumerable<T>! items) -> Lattice.Api.ValueList<T>!
+static Lattice.Api.ValueList.Of<T>(T item) -> Lattice.Api.ValueList<T>!
+static Lattice.Api.ValueList<T>.Empty.get -> Lattice.Api.ValueList<T>!
+static Lattice.Api.ValueList<T>.From(System.Collections.Generic.IEnumerable<T>! items) -> Lattice.Api.ValueList<T>!
+static Lattice.Api.ValueList<T>.Of(T item) -> Lattice.Api.ValueList<T>!
+static Lattice.Api.ValueMap.From<TKey, TValue>(System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>! entries) -> Lattice.Api.ValueMap<TKey, TValue>!
+static Lattice.Api.ValueMap.Of<TKey, TValue>(TKey key, TValue value) -> Lattice.Api.ValueMap<TKey, TValue>!
+static Lattice.Api.ValueMap<TKey, TValue>.Empty.get -> Lattice.Api.ValueMap<TKey, TValue>!
+static Lattice.Api.ValueMap<TKey, TValue>.From(System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>! entries) -> Lattice.Api.ValueMap<TKey, TValue>!
+static Lattice.Api.ValueMap<TKey, TValue>.Of(TKey key, TValue value) -> Lattice.Api.ValueMap<TKey, TValue>!
+static Lattice.Api.ValueSet.From<T>(System.Collections.Generic.IEnumerable<T>! items) -> Lattice.Api.ValueSet<T>!
+static Lattice.Api.ValueSet.Of<T>(T item) -> Lattice.Api.ValueSet<T>!
+static Lattice.Api.ValueSet<T>.Empty.get -> Lattice.Api.ValueSet<T>!
+static Lattice.Api.ValueSet<T>.From(System.Collections.Generic.IEnumerable<T>! items) -> Lattice.Api.ValueSet<T>!
+static Lattice.Api.ValueSet<T>.Of(T item) -> Lattice.Api.ValueSet<T>!
+static readonly Lattice.Api.LibraryIcons.Fails -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Finish -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Paused -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Remove -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Stale -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Swap -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Waiting -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryIcons.Warns -> Lattice.Api.IconKey
+static readonly Lattice.Api.LibraryPalette.Draft -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Fail -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Next -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Planned -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Remove -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Select -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Stale -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Waits -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalette.Warn -> Lattice.Api.PaletteKey
+static readonly Lattice.Api.LibraryPalettes.ColourSafe -> Lattice.Api.PaletteId
+static readonly Lattice.Api.LibraryPalettes.Default -> Lattice.Api.PaletteId
+static readonly Lattice.Api.LibraryPalettes.HighContrast -> Lattice.Api.PaletteId
+static readonly Lattice.Api.LibrarySets.Hovered -> Lattice.Api.StyleSetId
+static readonly Lattice.Api.LibrarySets.Selected -> Lattice.Api.StyleSetId
+static readonly Lattice.Api.LibraryText.Default -> Lattice.Api.TextStyleKey
+static readonly Lattice.Api.MaterialKeys.Edge -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.Faded -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.Ghost -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.Glow -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.Label -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.SeeThrough -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.Solid -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.MaterialKeys.Wire -> Lattice.Api.MaterialKey
+static readonly Lattice.Api.PieceFamilies.Cable -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.PieceFamilies.Chute -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.PieceFamilies.Device -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.PieceFamilies.Frame -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.PieceFamilies.Other -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.PieceFamilies.Pipe -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.PieceFamilies.Wall -> Lattice.Api.PieceFamily
+static readonly Lattice.Api.ReasonCodes.AlreadyRegistered -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.BatchTooDeep -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.CannotShare -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.ChangedSince -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.Claimed -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.ContentsWouldMove -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.ControlsUnreachable -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.CutsPower -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.Cycle -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.DefaultValue -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.Different -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.EndsCollide -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.FaceOverRating -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.GameRefused -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.GasIndoors -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.HostOnly -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.HotGas -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.InvalidValue -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.LeaseExpired -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.ModuleMissing -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NeedsSupport -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NoMirrorImage -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NoPiece -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NoRemovableChain -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NoRoute -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NotAllowed -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NotFound -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NoTool -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.OnWindow -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.OutOfRange -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.OxidiserOutside -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.PaintIndoors -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.RoomAirChanged -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.RoomCellsChanged -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.RoomGone -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.RuleSwitchedOff -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.RuleTimedOut -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.RunThroughDoor -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.SearchLimit -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.SelectorTooDeep -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.SwapOnAirRoom -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.TargetGone -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.TerrainInTheWay -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.TextTooLong -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.TooLarge -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.TooManyGhosts -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.UnknownKind -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.UnknownPiece -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.WouldBridge -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.WouldOverloadWhenOn -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.WouldSplit -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.RuleId.Contract -> Lattice.Api.RuleId
+Lattice.Api.Selector.Everything
+Lattice.Api.Turn.Axes.get -> Lattice.Api.TurnAxes
+static Lattice.Api.Turn.Of(Lattice.Api.SignedAxis x, Lattice.Api.SignedAxis y) -> Lattice.Api.Result<Lattice.Api.Turn, Lattice.Api.Reason!>
+Lattice.Api.AxisSign
+Lattice.Api.AxisSign.Plus = 1 -> Lattice.Api.AxisSign
+Lattice.Api.AxisSign.Minus = 2 -> Lattice.Api.AxisSign
+Lattice.Api.SignedAxis
+Lattice.Api.SignedAxis.SignedAxis() -> void
+Lattice.Api.SignedAxis.SignedAxis(Lattice.Api.Axis Axis, Lattice.Api.AxisSign Sign) -> void
+Lattice.Api.SignedAxis.Axis.get -> Lattice.Api.Axis
+Lattice.Api.SignedAxis.Axis.init -> void
+Lattice.Api.SignedAxis.Sign.get -> Lattice.Api.AxisSign
+Lattice.Api.SignedAxis.Sign.init -> void
+static Lattice.Api.SignedAxis.XPlus.get -> Lattice.Api.SignedAxis
+static Lattice.Api.SignedAxis.XMinus.get -> Lattice.Api.SignedAxis
+static Lattice.Api.SignedAxis.YPlus.get -> Lattice.Api.SignedAxis
+static Lattice.Api.SignedAxis.YMinus.get -> Lattice.Api.SignedAxis
+static Lattice.Api.SignedAxis.ZPlus.get -> Lattice.Api.SignedAxis
+static Lattice.Api.SignedAxis.ZMinus.get -> Lattice.Api.SignedAxis
+Lattice.Api.TurnAxes
+Lattice.Api.TurnAxes.TurnAxes() -> void
+Lattice.Api.TurnAxes.TurnAxes(Lattice.Api.SignedAxis X, Lattice.Api.SignedAxis Y, Lattice.Api.SignedAxis Z) -> void
+Lattice.Api.TurnAxes.X.get -> Lattice.Api.SignedAxis
+Lattice.Api.TurnAxes.X.init -> void
+Lattice.Api.TurnAxes.Y.get -> Lattice.Api.SignedAxis
+Lattice.Api.TurnAxes.Y.init -> void
+Lattice.Api.TurnAxes.Z.get -> Lattice.Api.SignedAxis
+Lattice.Api.TurnAxes.Z.init -> void
+Lattice.Api.LibraryLayers
+static Lattice.Api.LibraryLayers.BillCounts.get -> Lattice.Api.StyleLayerDescriptor!
+static Lattice.Api.LibraryLayers.Blueprint.get -> Lattice.Api.StyleLayerDescriptor!
+static Lattice.Api.LibraryLayers.PlanNames.get -> Lattice.Api.StyleLayerDescriptor!
+static Lattice.Api.LibraryLayers.Reasons.get -> Lattice.Api.StyleLayerDescriptor!
+static Lattice.Api.LibraryLayers.StepNumbers.get -> Lattice.Api.StyleLayerDescriptor!
+Lattice.Api.Palette.Base.get -> Lattice.Api.Option<Lattice.Api.PaletteId>
+Lattice.Api.Palette.Base.init -> void
+Lattice.Api.Paint.FinishColour
+Lattice.Api.Paint.FinishColour.FinishColour(Lattice.Api.PaletteKey Fallback) -> void
+Lattice.Api.Paint.FinishColour.Fallback.get -> Lattice.Api.PaletteKey
+Lattice.Api.Paint.FinishColour.Fallback.init -> void
+Lattice.Api.StyleMatch.Finishes
+Lattice.Api.IGhostSystem.Catalogue.get -> Lattice.Api.IPieceCatalogue!
+Lattice.Api.IPieceCatalogue
+Lattice.Api.IPieceCatalogue.FamilyOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.PieceFamily, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.Kit(Lattice.Api.KitKey kit) -> Lattice.Api.Result<Lattice.Api.KitEntry!, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.KitOf(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.KitPlace, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.Kits.get -> Lattice.Api.ValueList<Lattice.Api.KitEntry!>!
+Lattice.Api.IPieceCatalogue.Piece(Lattice.Api.PrefabKey piece) -> Lattice.Api.Result<Lattice.Api.PieceEntry!, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.PieceOf(Lattice.Api.KitKey kit, Lattice.Api.KitOption option) -> Lattice.Api.Result<Lattice.Api.PrefabKey, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.Pieces.get -> Lattice.Api.ValueList<Lattice.Api.PieceEntry!>!
+Lattice.Api.KitEntry
+Lattice.Api.KitEntry.Key.get -> Lattice.Api.KitKey
+Lattice.Api.KitEntry.Key.init -> void
+Lattice.Api.KitEntry.KitEntry(Lattice.Api.KitKey Key, string! PrefabName, string! Name, Lattice.Api.ValueList<Lattice.Api.PrefabKey>! Options) -> void
+Lattice.Api.KitEntry.Name.get -> string!
+Lattice.Api.KitEntry.Name.init -> void
+Lattice.Api.KitEntry.Options.get -> Lattice.Api.ValueList<Lattice.Api.PrefabKey>!
+Lattice.Api.KitEntry.Options.init -> void
+Lattice.Api.KitEntry.PrefabName.get -> string!
+Lattice.Api.KitEntry.PrefabName.init -> void
+Lattice.Api.KitPlace
+Lattice.Api.KitPlace.Kit.get -> Lattice.Api.KitKey
+Lattice.Api.KitPlace.Kit.init -> void
+Lattice.Api.KitPlace.KitPlace() -> void
+Lattice.Api.KitPlace.KitPlace(Lattice.Api.KitKey Kit, Lattice.Api.KitOption Option) -> void
+Lattice.Api.KitPlace.Option.get -> Lattice.Api.KitOption
+Lattice.Api.KitPlace.Option.init -> void
+Lattice.Api.PieceEntry
+Lattice.Api.PieceEntry.Grid.get -> Lattice.Api.PieceGrid
+Lattice.Api.PieceEntry.Grid.init -> void
+Lattice.Api.PieceEntry.Key.get -> Lattice.Api.PrefabKey
+Lattice.Api.PieceEntry.Key.init -> void
+Lattice.Api.PieceEntry.Kits.get -> Lattice.Api.ValueList<Lattice.Api.KitPlace>!
+Lattice.Api.PieceEntry.Kits.init -> void
+Lattice.Api.PieceEntry.Name.get -> string!
+Lattice.Api.PieceEntry.Name.init -> void
+Lattice.Api.PieceEntry.PieceEntry(Lattice.Api.PrefabKey Key, string! PrefabName, string! Name, Lattice.Api.PieceGrid Grid, Lattice.Api.ValueList<Lattice.Api.KitPlace>! Kits) -> void
+Lattice.Api.PieceEntry.PrefabName.get -> string!
+Lattice.Api.PieceEntry.PrefabName.init -> void
+Lattice.Api.PieceGrid
+Lattice.Api.PieceGrid.Large = 2 -> Lattice.Api.PieceGrid
+Lattice.Api.PieceGrid.Small = 1 -> Lattice.Api.PieceGrid
+Lattice.Api.IGhostStyles.TryPick(Lattice.Api.PickRay ray, Lattice.Api.PickOptions! options, out Lattice.Api.PickResult hit) -> bool
+Lattice.Api.PickKind
+Lattice.Api.PickKind.Draft = 2 -> Lattice.Api.PickKind
+Lattice.Api.PickKind.Ghost = 1 -> Lattice.Api.PickKind
+Lattice.Api.PickResult
+Lattice.Api.PickResult.Cell.get -> Lattice.Api.Cell
+Lattice.Api.PickResult.Cell.init -> void
+Lattice.Api.PickResult.Distance.get -> float
+Lattice.Api.PickResult.Distance.init -> void
+Lattice.Api.PickResult.Drafts.get -> Lattice.Api.DraftsId
+Lattice.Api.PickResult.Drafts.init -> void
+Lattice.Api.PickResult.Face.get -> Lattice.Api.Face
+Lattice.Api.PickResult.Face.init -> void
+Lattice.Api.PickResult.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.PickResult.Ghost.init -> void
+Lattice.Api.PickResult.Index.get -> int
+Lattice.Api.PickResult.Index.init -> void
+Lattice.Api.PickResult.Kind.get -> Lattice.Api.PickKind
+Lattice.Api.PickResult.Kind.init -> void
+Lattice.Api.PickResult.Part.get -> Lattice.Api.PartKind
+Lattice.Api.PickResult.Part.init -> void
+Lattice.Api.PickResult.PickResult() -> void
+Lattice.Api.PickResult.PickResult(Lattice.Api.PickKind Kind, Lattice.Api.GhostId Ghost, Lattice.Api.DraftsId Drafts, int Index, Lattice.Api.PartKind Part, Lattice.Api.Cell Cell, Lattice.Api.Face Face, Lattice.Api.WorldPoint Point, float Distance) -> void
+Lattice.Api.PickResult.Point.get -> Lattice.Api.WorldPoint
+Lattice.Api.PickResult.Point.init -> void
+static Lattice.Api.PickResult.Of(Lattice.Api.PickHit! hit) -> Lattice.Api.PickResult
+Lattice.Api.GroupCount
+Lattice.Api.GroupCount.Count.get -> int
+Lattice.Api.GroupCount.Count.init -> void
+Lattice.Api.GroupCount.GroupCount(Lattice.Api.GroupName Name, int Count) -> void
+Lattice.Api.GroupCount.Name.get -> Lattice.Api.GroupName
+Lattice.Api.GroupCount.Name.init -> void
+Lattice.Api.IGhostBoard.Groups.get -> Lattice.Api.ValueList<Lattice.Api.GroupCount!>!

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <StationeersDir Condition="'$(StationeersDir)' == ''">$(STATIONEERS_DIR)</StationeersDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">$(StationeersDir)\rocketstation_Data\Managed</GameManagedDir>
+    <!-- The game's assemblies are built against its own framework; version conflicts with netstandard are expected. -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Compile Include="..\Lattice.Consumer.Tests\ConsumerFlows.cs" Link="EntryPoint\ConsumerFlows.cs" />
+    <Compile Include="..\Lattice.Consumer.Tests\StyleFlows.cs" Link="Styles\StyleFlows.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Api.Unity\Lattice.Api.Unity.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Core\Lattice.Core.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Render\Lattice.Render.csproj" />
+    <ProjectReference Include="..\Lattice.TestKit\Lattice.TestKit.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Testing\Lattice.Testing.csproj" />
+    <!-- Built first so the surface tests can read its metadata; never loaded. -->
+    <ProjectReference Include="..\..\src\Lattice.Game\Lattice.Game.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copied next to the tests so reflection over Lattice.Api.Unity can load the Unity types its signatures name. -->
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManagedDir)\UnityEngine.CoreModule.dll" Private="true" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(GameManagedDir)\Unity.TextMeshPro.dll" Private="true" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The public contract: interfaces and data, no game types. References nothing. -->
+  <ItemGroup>
+    <!--
+      Core, Game and the Unity half of the contract see the IsExternalInit shim and the known-key factories; the test
+      kit and the consumer test host (netstandard2.1 too) see them for the shim.
+    -->
+    <InternalsVisibleTo Include="Lattice.Core" />
+    <InternalsVisibleTo Include="Lattice.TestKit" />
+    <InternalsVisibleTo Include="Lattice.Testing" />
+    <InternalsVisibleTo Include="Lattice.Game" />
+    <InternalsVisibleTo Include="Lattice.Render" />
+    <InternalsVisibleTo Include="Lattice.Api.Unity" />
+  </ItemGroup>
+</Project>
