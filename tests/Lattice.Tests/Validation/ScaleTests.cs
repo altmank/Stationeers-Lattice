@@ -9,10 +9,6 @@ using static Lattice.Tests.Validation.ValidationBench;
 
 namespace Lattice.Tests.Validation;
 
-/// <summary>Timing tests run alone, so other tests do not share their CPU.</summary>
-[CollectionDefinition(nameof(Timing), DisableParallelization = true)]
-public sealed class Timing;
-
 /// <summary>
 /// Very large plans: validation's main-thread work stays in the frame budget every frame.
 /// One unmeasured run first (JIT tiering and heap growth are one-off per process); then three measured runs, every

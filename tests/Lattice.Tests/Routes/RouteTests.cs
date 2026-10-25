@@ -16,6 +16,7 @@ using static Lattice.Tests.Runs.RunBench;
 
 namespace Lattice.Tests.Routes;
 
+[Collection(nameof(Timing))]
 public sealed class RouteTests(ITestOutputHelper output)
 {
     private static readonly Cell Start = At(2, 2, 2);
@@ -341,6 +342,7 @@ public sealed class RouteTests(ITestOutputHelper output)
     {
         var goal = At(10, 2, 2);
         var bench = WalledIn(goal, RouteLimits.Default with { Margin = 2 });
+        Perf.Collect();
 
         var watch = Stopwatch.StartNew();
         var why = bench.Refusal(bench.Route(bench.Runs.Cable, Start, goal));
@@ -408,6 +410,7 @@ public sealed class RouteTests(ITestOutputHelper output)
             var job = TestKitIds.Must(bench.Planner.Start(bench.Route(bench.Runs.Cable, Start, goal), bench.Runs.Boards.View, bench.Runs.Query));
             var steps = new List<TimeSpan>();
             var watch = new Stopwatch();
+            Perf.Collect();
             var outcome = StepOutcome.More;
             while (outcome == StepOutcome.More)
             {

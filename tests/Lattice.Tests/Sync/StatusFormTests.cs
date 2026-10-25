@@ -9,6 +9,8 @@ using Xunit.Abstractions;
 
 namespace Lattice.Tests.Sync;
 
+/// <summary>The claims-status wire form; its wall-clock cost test runs with the timing tests.</summary>
+[Collection(nameof(Timing))]
 public sealed class StatusFormTests(ITestOutputHelper output)
 {
     private static readonly ExecutorInfo Builder = ExecutorsBench.Info("builder");
@@ -145,6 +147,7 @@ public sealed class StatusFormTests(ITestOutputHelper output)
         const double frameSeconds = 5.0 / frames;
         var times = new List<double>(frames);
         var watch = new Stopwatch();
+        Perf.Collect();
         for (var frame = 0; frame < frames; frame++)
         {
             watch.Restart();

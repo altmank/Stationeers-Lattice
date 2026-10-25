@@ -24,6 +24,7 @@ namespace Lattice.Tests.Render;
 /// frame with Render's sort at most 1.0 ms, and 0 B per frame. Wall-clock: run with
 /// <c>./build.ps1 -Perf</c>.
 /// </summary>
+[Collection(nameof(Timing))]
 [Trait(Perf.Trait, Perf.Value)]
 public sealed class RenderPerfTests
 {
@@ -99,6 +100,7 @@ public sealed class RenderPerfTests
         rig.Gpu.Recording = false;
         for (var i = 0; i < 50; i++)
             Frame();
+        Perf.Collect();
         var submit = new Stopwatch();
         var world = new Stopwatch();
         var worst = 0.0;

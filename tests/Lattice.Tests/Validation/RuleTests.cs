@@ -9,6 +9,8 @@ using static Lattice.Tests.Validation.ValidationBench;
 namespace Lattice.Tests.Validation;
 
 /// <summary>Mods' validation rules: Lattice's time limit and switch-off, worker and main-thread rules.</summary>
+/// <summary>Worker rules; the deadline test is timed on the real clock and runs with the timing tests.</summary>
+[Collection(nameof(Timing))]
 public sealed class RuleTests
 {
     [Fact]

@@ -12,6 +12,7 @@ namespace Lattice.Tests.Styles;
 /// all, a hover change at most 0.05 ms, a steady styles frame at most 1.0 ms, 0 B on an idle frame, and a hover pick
 /// inside a dense 32 m chunk at most 0.05 ms. Wall-clock: run with <c>./build.ps1 -Perf</c> on an idle machine.
 /// </summary>
+[Collection(nameof(Timing))]
 [Trait(Perf.Trait, Perf.Value)]
 public sealed class StylePerfTests
 {
@@ -67,6 +68,7 @@ public sealed class StylePerfTests
         for (var round = 0; round < 3; round++)
         {
             bench.Add(LayerOf("theme-" + (char)('a' + round), StyleBand.Theme, 0, Rule(new StyleMatch.Tinted(), Edge(LineStyle.Solid, LibraryPalette.Next))));
+            Perf.Collect();
             var watch = Stopwatch.StartNew();
             bench.Settle(1_000_000);
             best = Math.Min(best, watch.Elapsed.TotalMilliseconds);
@@ -84,6 +86,7 @@ public sealed class StylePerfTests
             hover.Put(placed[i % placed.Count].Id);
 
         const int Puts = 20_000;
+        Perf.Collect();
         var watch = Stopwatch.StartNew();
         for (var i = 0; i < Puts; i++)
             hover.Put(placed[(i * 7919) % placed.Count].Id);
@@ -107,6 +110,7 @@ public sealed class StylePerfTests
             bench.Frame();
 
         const int Frames = 500;
+        Perf.Collect();
         var worst = 0.0;
         var total = Stopwatch.StartNew();
         for (var i = 0; i < Frames; i++)
@@ -147,6 +151,7 @@ public sealed class StylePerfTests
             bench.Styles.Pick(rays[i % rays.Length], PickOptions.Default);
 
         const int Picks = 20_000;
+        Perf.Collect();
         var watch = Stopwatch.StartNew();
         for (var i = 0; i < Picks; i++)
             bench.Styles.Pick(rays[i % rays.Length], PickOptions.Default);

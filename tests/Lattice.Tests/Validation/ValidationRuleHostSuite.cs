@@ -75,6 +75,7 @@ public sealed class ValidationRuleHostSuite : ValidationRuleHost
 /// Worker rules on rule threads with a deadline, timed on the real clock: every rule must answer
 /// within the limit in wall time, so the suite runs with the perf tests.
 /// </summary>
+[Collection(nameof(Timing))]
 [Trait(Perf.Trait, Perf.Value)]
 public sealed class ValidationRuleThreadsSuite : ValidationRuleHost, IDisposable
 {
