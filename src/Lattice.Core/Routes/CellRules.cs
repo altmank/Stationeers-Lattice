@@ -45,9 +45,12 @@ internal enum Refusal
 /// <item>Ports free: no cell a device's port (an end with a role) faces while nothing joins that port, but for the ports
 /// the request names as its ends.</item>
 /// <item>No unsafe joins: no cell where the route would join a network that is neither end's: a piece of the kit
-/// there, or a neighbour's end pointing in that joins the kit (as the piece chooser joins it).</item>
+/// there, or a neighbour's end pointing in that joins the kit (as the piece chooser joins it). A branch's ends are the
+/// whole request's: the main route's and every branch's, so branches never count as a bridge.</item>
 /// </list>
-/// Each cell is judged once per search; the collision test once per cell and axis.
+/// Each cell is judged once per search; the collision test once per cell and axis. For
+/// <see cref="RouteToggles.HugFramesAndWalls"/>, a cell is in open air (<see cref="InOpenAir"/>) when no large cell that
+/// holds it has a frame in its centre or a piece (a wall, a window, a floor) on one of its faces.
 /// </summary>
 internal sealed class CellRules : IRouteCells
 {
@@ -70,13 +73,15 @@ internal sealed class CellRules : IRouteCells
     private readonly Dictionary<(Cell, Axis), bool> _collides = [];
     private readonly Dictionary<Cell, Refusal> _cells = [];
     private readonly Dictionary<Cell, bool> _framed = [];
+    private readonly Dictionary<Cell, bool> _walled = [];
     private readonly HashSet<NetworkKey> _own = [];
     private readonly Dictionary<ReferenceId, PlacedShape?> _placed = [];
     private readonly IReadOnlyList<PortTarget> _named;
 
     public CellRules(
         KitShapes kit, IGrid grid, Shapes shapes, IWorldQuery planned, RouteToggles toggles, Cell from, Cell to,
-        OpeningKeepOuts openings, ISupportFacts support, RouteNetworks networks, IReadOnlyList<PortTarget>? named = null)
+        OpeningKeepOuts openings, ISupportFacts support, RouteNetworks networks, IReadOnlyList<PortTarget>? named = null,
+        IReadOnlyList<Cell>? sameRun = null)
     {
         _named = named ?? System.Array.Empty<PortTarget>();
         _kit = kit;
@@ -93,6 +98,9 @@ internal sealed class CellRules : IRouteCells
         {
             Joined(from, _own);
             Joined(to, _own);
+            if (sameRun is not null)
+                foreach (var end in sameRun)
+                    Joined(end, _own);
         }
     }
 
@@ -132,6 +140,43 @@ internal sealed class CellRules : IRouteCells
                 if (ShapeOf(info) is { } theirs && !_kit.Places(theirs.Piece) && Shapes.Conflict(mine, theirs).IsSome)
                     collides = true;
         return _collides[(cell, axis)] = collides;
+    }
+
+    /// <summary>Whether no large cell whose closed box holds the cell has a frame in its centre or a piece on a face.</summary>
+    public bool InOpenAir(Cell cell)
+    {
+        foreach (var x in Centres(cell.X))
+            foreach (var y in Centres(cell.Y))
+                foreach (var z in Centres(cell.Z))
+                {
+                    var large = new Cell(x, y, z);
+                    if (Framed(large) || Walled(large))
+                        return false;
+                }
+
+        return true;
+    }
+
+    private bool Walled(Cell large)
+    {
+        if (_walled.TryGetValue(large, out var known))
+            return known;
+        var walled = false;
+        for (var toward = Direction.XPlus; toward <= Direction.ZMinus && !walled; toward++)
+        {
+            var face = Faces.Between(large, toward, _grid);
+            walled = HoldsFace(face.Near) || HoldsFace(face.Far);
+        }
+
+        return _walled[large] = walled;
+    }
+
+    private bool HoldsFace(SpotKey face)
+    {
+        foreach (var info in _world.At(face.Cell))
+            if (info.State is not BuildState.Broken && ShapeOf(info) is { } shape && Holds(shape, face))
+                return true;
+        return false;
     }
 
     private bool NearEnd(Cell cell) => Steps(cell, _from) <= OffFrameReach || Steps(cell, _to) <= OffFrameReach;

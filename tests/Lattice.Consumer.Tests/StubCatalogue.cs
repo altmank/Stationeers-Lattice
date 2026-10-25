@@ -72,5 +72,8 @@ internal sealed class StubCatalogue : IPieceCatalogue
             Face.PlusX,
             placement.At.Neighbour(Face.PlusX, PieceGrid.Small)))));
 
+    /// <summary>No piece of this stub lies on a face.</summary>
+    public Result<Option<Axis>, Reason> FacingOf(Placement placement) => Piece(placement.Piece).Map(static _ => Option<Axis>.None);
+
     private static Reason Unknown() => Reason.Of(ReasonCodes.UnknownPiece, RuleId.Contract);
 }

@@ -67,7 +67,7 @@ per ghost. A mod with logic of its own computes a set and pushes it ([sets](#set
 | `Finding(kind, code?)` | `Unchecked`, `Passes`, `WaitsFor`, `WillFail`, `Warns`, optionally one reason code. Drawing never starts a check: a pending answer reads as `Unchecked`. |
 | `Status(kind, by?)` | An executor's `Working`, `Waiting`, `Paused`, or `None`. |
 | `Family(family)` | The piece's family or one above it, modded pieces included: `Family(wall)` holds for windows too ([families](catalogue.md#families)). |
-| `Facing(axis)` | A piece on a face of a large cell whose face, after its turn, is square to the axis: `Facing(Y)` for floors and ceilings, `Facing(X)` and `Facing(Z)` for upright faces. Never a piece in a cell's centre or on the small grid. Contract 0.7. |
+| `Facing(axis)` | A piece on a face of a large cell whose face, after its turn, is square to the axis: `Facing(Y)` for floors and ceilings, `Facing(X)` and `Facing(Z)` for upright faces. Never a piece in a cell's centre or on the small grid. `IPieceCatalogue.FacingOf` answers the same axis for a placement ([facing](catalogue.md#facing)). Contract 0.7. |
 | `InSet(set)` | Members of a ghost set or structure set. |
 | `Mine`, `Tinted`, `Finishes` | Placed by the local viewer; has a tint; asks for a finish. |
 | `Draft`, `Pending`, `Structure` | Shown by a drafts handle; a draft sent to the host and not yet answered; a structure overlay. |

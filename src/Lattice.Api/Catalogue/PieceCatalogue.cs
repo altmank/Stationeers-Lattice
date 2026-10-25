@@ -68,6 +68,17 @@ public interface IPieceCatalogue
     /// the returned list and its ports. Added in contract 0.8.
     /// </summary>
     Result<ValueList<Port>, Reason> PortsAt(Placement placement);
+
+    /// <summary>
+    /// The axis a face piece's face is square to under the placement: the axis <see cref="StyleMatch.Facing"/> matches,
+    /// worked out from the piece's own face points and turn, so a modded face piece answers as the game places it.
+    /// <see cref="Axis.Y"/> for a floor or a wall laid flat. None for a piece that takes a cell centre or small-grid
+    /// slots (a frame, a cable, a device). Lay a line of face pieces along an axis square to it, a rectangle over the two
+    /// axes square to it, and layers along it. Refused <see cref="ReasonCodes.UnknownPiece"/> for an unknown piece. Main
+    /// thread; constant cost; allocates nothing once a piece, turn and place within its large cell have been asked.
+    /// Added in contract 0.9.
+    /// </summary>
+    Result<Option<Axis>, Reason> FacingOf(Placement placement);
 }
 
 /// <summary>One structure prefab. Added in contract 0.3.</summary>

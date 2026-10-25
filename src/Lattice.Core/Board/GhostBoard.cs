@@ -198,7 +198,7 @@ internal sealed partial class GhostBoard
         Command.Reopen reopen => PrepareReopen(reopen, actor, pending),
         Command.MarkRemoval or Command.PlanSwap or Command.PlanFinish
             or Command.PlanRun or Command.PlanRoute or Command.Transform or Command.PlaceTemplate or Command.Repair
-            or Command.TakeDown => Fail(ModuleMissing(command)),
+            or Command.TakeDown or Command.PlanSplit => Fail(ModuleMissing(command)),
         _ => Fail(Unknown.Kind(command)),
     };
 

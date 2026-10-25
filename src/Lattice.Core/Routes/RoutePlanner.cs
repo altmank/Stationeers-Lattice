@@ -26,27 +26,42 @@ internal sealed record RoutePlan(RunPlan Run, RunRequest AsRun, int Bends, int E
 
 /// <summary>
 /// One route being planned, stepped in slices: first the search (<see cref="RouteSearch"/>, a bounded number of
-/// states a step), then, in its last step, the run planner over the cells found. Its outcome is the route, or why
-/// there is none: the search's <see cref="ReasonCodes.NoRoute"/> or <see cref="ReasonCodes.SearchLimit"/> with the
-/// nearest cell reached. Main thread, as the board and the placement check are.
+/// states a step), then, in the step it ends, the run planner over the cells found; then each branch in order, searched
+/// to the nearest cell of the run so far and laid against the earlier runs' pieces. Its outcome is the route, every run
+/// joined into one plan (<see cref="RunPlan.Joined"/>), or why there is none: a search's
+/// <see cref="ReasonCodes.NoRoute"/> or <see cref="ReasonCodes.SearchLimit"/> with the nearest cell reached (fact
+/// <c>branch</c> naming a branch's index). Main thread, as the board and the placement check are.
 /// </summary>
 internal sealed class RouteJob : ISlicedWork
 {
     private readonly RouteRequest _request;
-    private readonly RouteSearch _search;
-    private readonly Func<RunRequest, Result<RunPlan, Reason>> _lay;
+    private readonly Func<int, IReadOnlyCollection<Cell>, RouteSearch> _branch;
+    private readonly Func<RunRequest, IReadOnlyList<Intent>, Result<RunPlan, Reason>> _lay;
+    private readonly Func<IReadOnlyList<RunPlan>, RunPlan> _join;
+    private readonly List<RunPlan> _runs = [];
+    private readonly List<Intent> _laid = [];
+    private readonly List<Cell> _cells = [];
+    private RouteSearch _search;
+    private RunRequest? _main;
+    private int _branchAt = -1;
+    private int _bends;
+    private int _expanded;
 
-    internal RouteJob(RouteRequest request, RouteSearch search, Func<RunRequest, Result<RunPlan, Reason>> lay)
+    internal RouteJob(
+        RouteRequest request, RouteSearch search, Func<int, IReadOnlyCollection<Cell>, RouteSearch> branch,
+        Func<RunRequest, IReadOnlyList<Intent>, Result<RunPlan, Reason>> lay, Func<IReadOnlyList<RunPlan>, RunPlan> join)
     {
         _request = request;
         _search = search;
+        _branch = branch;
         _lay = lay;
+        _join = join;
     }
 
     /// <summary>The route once the job is done; none while it runs.</summary>
     public Option<Result<RoutePlan, Reason>> Outcome { get; private set; }
 
-    /// <summary>The search, for its counts.</summary>
+    /// <summary>The search under way: the main route's, then each branch's.</summary>
     public RouteSearch Search => _search;
 
     public StepOutcome Step()
@@ -56,8 +71,32 @@ internal sealed class RouteJob : ISlicedWork
         if (_search.Step() == StepOutcome.More)
             return StepOutcome.More;
 
-        Outcome = Option.Some(_search.Outcome.TryGet(out var found) ? Finish(found) : Refused(Reason.Of(ReasonCodes.UnknownKind, RouteCodes.Routes)));
-        return StepOutcome.Done;
+        if (!_search.Outcome.TryGet(out var found))
+            return Finish(Refused(Reason.Of(ReasonCodes.UnknownKind, RouteCodes.Routes)));
+        if (found is RouteOutcome.NotFound none)
+            return Finish(Refused(Named(none.Why)));
+        if (found is not RouteOutcome.Found route)
+            return Finish(Refused(Reason.Of(ReasonCodes.UnknownKind, RouteCodes.Routes)));
+
+        var run = RunOf(route);
+        var laid = _lay(run, _laid);
+        if (!laid.TryGet(out var plan))
+            return Finish(Refused(Named(laid.ErrorOf())));
+        if (_branchAt < 0)
+            (_main, _bends) = (run, route.Bends);
+        _expanded += route.Expanded;
+        _runs.Add(plan);
+        _laid.Clear();
+        _laid.AddRange(_runs.Count == 1 ? plan.Changes : _join(_runs).Changes);
+        _cells.AddRange(plan.Cells);
+
+        if (++_branchAt < _request.Branches.Count)
+        {
+            _search = _branch(_branchAt, _cells);
+            return StepOutcome.More;
+        }
+
+        return Finish(Result<RoutePlan, Reason>.Ok(new RoutePlan(_join(_runs), _main!, _bends, _expanded)));
     }
 
     /// <summary>Runs the job to its end in one call.</summary>
@@ -70,22 +109,32 @@ internal sealed class RouteJob : ISlicedWork
         return Outcome.TryGet(out var outcome) ? outcome : Refused(Reason.Of(ReasonCodes.UnknownKind, RouteCodes.Routes));
     }
 
-    private Result<RoutePlan, Reason> Finish(RouteOutcome outcome) => outcome switch
+    private StepOutcome Finish(Result<RoutePlan, Reason> outcome)
     {
-        RouteOutcome.Found found => Lay(found),
-        RouteOutcome.NotFound none => Refused(none.Why),
-        _ => Refused(Reason.Of(ReasonCodes.UnknownKind, RouteCodes.Routes)),
-    };
-
-    private Result<RoutePlan, Reason> Lay(RouteOutcome.Found found)
-    {
-        var run = new RunRequest(_request.Kit, _request.From, Bends(found.Cells), _request.To, _request.Into, _request.MadeBy)
-        {
-            FromPort = _request.FromPort,
-            ToPort = _request.ToPort,
-        };
-        return _lay(run).Map(plan => new RoutePlan(plan, run, found.Bends, found.Expanded));
+        Outcome = Option.Some(outcome);
+        return StepOutcome.Done;
     }
+
+    // The run the found cells lay: the main route between the request's ends, a branch from its start to the run cell it reached.
+    private RunRequest RunOf(RouteOutcome.Found found)
+    {
+        if (_branchAt < 0)
+            return new RunRequest(_request.Kit, _request.From, Bends(found.Cells), _request.To, _request.Into, _request.MadeBy)
+            {
+                FromPort = _request.FromPort,
+                ToPort = _request.ToPort,
+                Lay = _request.Lay,
+            };
+        var branch = _request.Branches[_branchAt];
+        return new RunRequest(_request.Kit, branch.From, Bends(found.Cells), found.Cells[found.Cells.Count - 1], _request.Into, _request.MadeBy)
+        {
+            FromPort = branch.Port,
+            Lay = _request.Lay,
+        };
+    }
+
+    private Reason Named(Reason why) =>
+        _branchAt < 0 ? why : why with { Facts = why.Facts.With("branch", _branchAt.ToString(System.Globalization.CultureInfo.InvariantCulture)) };
 
     /// <summary>The cells where the route turns, in order: the run's waypoints.</summary>
     private static ValueList<Cell> Bends(ValueList<Cell> cells)
@@ -105,10 +154,12 @@ internal sealed class RouteJob : ISlicedWork
 }
 
 /// <summary>
-/// Finds a run between two ends under the request's toggles and lays it with the run planner. The search reads the
-/// planned world (every ghost the board shows done) and catalogue facts only, never the game; the run planner then
-/// lays and checks the pieces as for a drawn run. Refused at once for an unknown kit, a kit with no straight, or an
-/// end off the kit's grid or a request bound below 1; a route that cannot be found is refused with the search's reason.
+/// Finds a run between two ends under the request's toggles and lays it with the run planner, then each branch of the
+/// request to the nearest cell of the run so far. The search reads the planned world (every ghost the board shows
+/// done) and catalogue facts only, never the game; the run planner then lays and checks the pieces as for a drawn run.
+/// Refused at once for an unknown kit, a kit with no straight, an end or branch start off the kit's grid, a request
+/// bound below 1, more than <see cref="RouteLimits.MaxBranches"/> branches, or a port end (a branch's too) that does
+/// not resolve; a route that cannot be found is refused with the search's reason.
 /// The request's <see cref="RouteRequest.SearchBound"/>, when given, takes the place of <see cref="RouteLimits.Expansions"/>.
 /// Cost: the search is bounded by its box and expansions (<see cref="RouteLimits"/>) and runs in steps of
 /// <see cref="RouteLimits.PerStep"/> states; laying is the run planner's cost over the cells found.
@@ -128,11 +179,22 @@ internal sealed class RoutePlanner(
         var known = _chooser.Kit(request.Kit);
         if (!known.TryGet(out var kit))
             return Result<RouteJob, Reason>.Error(known.TryGetError(out var why) ? why : Reason.Of(ReasonCodes.NoPiece, RouteCodes.Routes));
-        foreach (var end in new[] { request.From, request.To })
-            if (grid.Snap(grid.CentreOf(end, kit.Grid), kit.Grid) != end)
-                return Result<RouteJob, Reason>.Error(Reason.Of(ReasonCodes.InvalidValue, RouteCodes.Routes, ValueMap
-                    .Of("cell", $"{end.X},{end.Y},{end.Z}")
-                    .With("problem", "off-grid")));
+        if (request.Branches.Count > RouteLimits.MaxBranches)
+            return Result<RouteJob, Reason>.Error(Reason.Of(ReasonCodes.TooLarge, RouteCodes.Routes, ValueMap
+                .Of("branches", request.Branches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                .With("most", RouteLimits.MaxBranches.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+        var ends = new List<Cell>(2 + request.Branches.Count) { request.From, request.To };
+        foreach (var branch in request.Branches)
+            ends.Add(branch.From);
+        for (var i = 0; i < ends.Count; i++)
+        {
+            var end = ends[i];
+            if (grid.Snap(grid.CentreOf(end, kit.Grid), kit.Grid) == end)
+                continue;
+            var facts = ValueMap.Of("cell", $"{end.X},{end.Y},{end.Z}").With("problem", "off-grid");
+            return Result<RouteJob, Reason>.Error(Reason.Of(ReasonCodes.InvalidValue, RouteCodes.Routes,
+                i < 2 ? facts : facts.With("branch", (i - 2).ToString(System.Globalization.CultureInfo.InvariantCulture))));
+        }
         if (request.SearchBound.TryGet(out var bound) && bound < 1)
             return Result<RouteJob, Reason>.Error(Reason.Of(ReasonCodes.InvalidValue, RouteCodes.Routes, ValueMap
                 .Of("problem", "search-bound")
@@ -141,18 +203,61 @@ internal sealed class RoutePlanner(
         var resolved = _ports.Resolve(request.FromPort, request.From, request.ToPort, request.To, kit, board);
         if (!resolved.TryGet(out var named))
             return Result<RouteJob, Reason>.Error(resolved.ErrorOf());
+        var allNamed = new List<PortTarget>(named);
+        for (var i = 0; i < request.Branches.Count; i++)
+        {
+            var branch = request.Branches[i];
+            var port = _ports.Resolve(branch.Port, branch.From, Option<PortEnd>.None, branch.From, kit, board);
+            if (!port.TryGet(out var targets))
+                return Result<RouteJob, Reason>.Error(port.ErrorOf() with
+                {
+                    Facts = port.ErrorOf().Facts.With("branch", i.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                });
+            allNamed.AddRange(targets);
+        }
 
         var planned = new PlannedWorld(board, world);
         var reach = kit.Step * limits.Margin;
         var min = new Cell(Math.Min(request.From.X, request.To.X) - reach, Math.Min(request.From.Y, request.To.Y) - reach, Math.Min(request.From.Z, request.To.Z) - reach);
         var max = new Cell(Math.Max(request.From.X, request.To.X) + reach, Math.Max(request.From.Y, request.To.Y) + reach, Math.Max(request.From.Z, request.To.Z) + reach);
+        var openingsNear = new OpeningKeepOuts(planned, _shapes, openings, bands);
         var cells = new CellRules(
-            kit, grid, _shapes, planned, request.Toggles, request.From, request.To,
-            new OpeningKeepOuts(planned, _shapes, openings, bands), support,
-            new RouteNetworks(planned, _shapes, grid, kit.Grid, min, max), named);
+            kit, grid, _shapes, planned, request.Toggles, request.From, request.To, openingsNear, support,
+            new RouteNetworks(planned, _shapes, grid, kit.Grid, min, max), request.Branches.Count == 0 ? named : allNamed, ends);
         var bounded = request.SearchBound.IsSome ? limits with { Expansions = request.SearchBound } : limits;
-        var search = new RouteSearch(grid, kit.Grid, request.From, request.To, cells, request.Toggles.FewestBends, bounded);
-        return Result<RouteJob, Reason>.Ok(new RouteJob(request, search, run => _runs.Plan(run, board, world)));
+        var search = new RouteSearch(grid, kit.Grid, request.From, request.To, cells, request.Toggles.FewestBends, bounded, Options(request, cells, null));
+
+        RouteSearch Branch(int index, IReadOnlyCollection<Cell> run)
+        {
+            var from = request.Branches[index].From;
+            var nearest = Nearest(from, run);
+            var low = new Cell(Math.Min(from.X, nearest.X) - reach, Math.Min(from.Y, nearest.Y) - reach, Math.Min(from.Z, nearest.Z) - reach);
+            var high = new Cell(Math.Max(from.X, nearest.X) + reach, Math.Max(from.Y, nearest.Y) + reach, Math.Max(from.Z, nearest.Z) + reach);
+            var rules = new CellRules(
+                kit, grid, _shapes, planned, request.Toggles, from, from, openingsNear, support,
+                new RouteNetworks(planned, _shapes, grid, kit.Grid, low, high), allNamed, ends);
+            return new RouteSearch(grid, kit.Grid, from, nearest, rules, request.Toggles.FewestBends, bounded, Options(request, rules, run));
+        }
+
+        return Result<RouteJob, Reason>.Ok(new RouteJob(
+            request, search, Branch, (run, laid) => _runs.Plan(run, board, world, laid), runs => RunPlan.Joined(runs, _shapes)));
+    }
+
+    private static SearchOptions Options(RouteRequest request, CellRules cells, IReadOnlyCollection<Cell>? goals) =>
+        new(request.Toggles.First, request.Toggles.HugFramesAndWalls ? cells.InOpenAir : null, goals);
+
+    // The run cell nearest the branch's start along the axes; the first such in run order.
+    private static Cell Nearest(Cell from, IReadOnlyCollection<Cell> run)
+    {
+        var (best, distance) = (from, long.MaxValue);
+        foreach (var cell in run)
+        {
+            var d = (long)Math.Abs(cell.X - from.X) + Math.Abs(cell.Y - from.Y) + Math.Abs(cell.Z - from.Z);
+            if (d < distance)
+                (best, distance) = (cell, d);
+        }
+
+        return best;
     }
 
     /// <summary>The route planned in one call: for tests and for callers that bound the work themselves.</summary>

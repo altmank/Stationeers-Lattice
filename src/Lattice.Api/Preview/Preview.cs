@@ -32,6 +32,12 @@ public sealed record RunReport(
     /// <see cref="FirstFailure"/> names that cell). Empty for a request with no port ends. Added in contract 0.8.
     /// </summary>
     public ValueList<PortJoin> PortEnds { get; init; } = ValueList<PortJoin>.Empty;
+
+    /// <summary>
+    /// The kit the run was laid with, when <see cref="LayOptions.MatchGrade"/> chose another than the request's.
+    /// Added in contract 0.9.
+    /// </summary>
+    public Option<KitKey> LaidWith { get; init; }
 }
 
 /// <summary>A port end of a run, the port it resolved to, and the piece that joins it. Added in contract 0.8.</summary>

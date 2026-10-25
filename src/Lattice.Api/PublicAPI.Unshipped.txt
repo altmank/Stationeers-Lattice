@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 8 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 9 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2584,3 +2584,49 @@ Lattice.Api.PortEnd.OnGhost.Ghost.init -> void
 Lattice.Api.PortEnd.OnGhost.OnGhost(Lattice.Api.GhostId Ghost, Lattice.Api.PortIndex Port) -> void
 Lattice.Api.PortEnd.OnGhost.Port.get -> Lattice.Api.PortIndex
 Lattice.Api.PortEnd.OnGhost.Port.init -> void
+Lattice.Api.FirstLeg
+Lattice.Api.FirstLeg.Vertical = 1 -> Lattice.Api.FirstLeg
+Lattice.Api.FirstLeg.Level = 2 -> Lattice.Api.FirstLeg
+Lattice.Api.RouteToggles.First.get -> Lattice.Api.Option<Lattice.Api.FirstLeg>
+Lattice.Api.RouteToggles.First.init -> void
+Lattice.Api.RouteToggles.HugFramesAndWalls.get -> bool
+Lattice.Api.RouteToggles.HugFramesAndWalls.init -> void
+Lattice.Api.LayOptions
+Lattice.Api.LayOptions.LayOptions(bool SinglePiecesOnly, bool MatchGrade) -> void
+Lattice.Api.LayOptions.MatchGrade.get -> bool
+Lattice.Api.LayOptions.MatchGrade.init -> void
+Lattice.Api.LayOptions.SinglePiecesOnly.get -> bool
+Lattice.Api.LayOptions.SinglePiecesOnly.init -> void
+static Lattice.Api.LayOptions.Default.get -> Lattice.Api.LayOptions!
+Lattice.Api.RunRequest.Lay.get -> Lattice.Api.LayOptions!
+Lattice.Api.RunRequest.Lay.init -> void
+Lattice.Api.RouteRequest.Lay.get -> Lattice.Api.LayOptions!
+Lattice.Api.RouteRequest.Lay.init -> void
+Lattice.Api.RouteRequest.Branches.get -> Lattice.Api.ValueList<Lattice.Api.RouteBranch!>!
+Lattice.Api.RouteRequest.Branches.init -> void
+Lattice.Api.RouteBranch
+Lattice.Api.RouteBranch.From.get -> Lattice.Api.Cell
+Lattice.Api.RouteBranch.From.init -> void
+Lattice.Api.RouteBranch.Port.get -> Lattice.Api.Option<Lattice.Api.PortEnd!>
+Lattice.Api.RouteBranch.Port.init -> void
+Lattice.Api.RouteBranch.RouteBranch(Lattice.Api.Cell From, Lattice.Api.Option<Lattice.Api.PortEnd!> Port) -> void
+Lattice.Api.RunReport.LaidWith.get -> Lattice.Api.Option<Lattice.Api.KitKey>
+Lattice.Api.RunReport.LaidWith.init -> void
+Lattice.Api.Command.PlanSplit
+Lattice.Api.Command.PlanSplit.Into.get -> Lattice.Api.Option<Lattice.Api.PlanId>
+Lattice.Api.Command.PlanSplit.Into.init -> void
+Lattice.Api.Command.PlanSplit.MadeBy.get -> Lattice.Api.Maker
+Lattice.Api.Command.PlanSplit.MadeBy.init -> void
+Lattice.Api.Command.PlanSplit.PlanSplit(Lattice.Api.SplitTargets! Which, Lattice.Api.Option<Lattice.Api.PlanId> Into, Lattice.Api.Maker MadeBy) -> void
+Lattice.Api.Command.PlanSplit.Which.get -> Lattice.Api.SplitTargets!
+Lattice.Api.Command.PlanSplit.Which.init -> void
+Lattice.Api.SplitTargets
+Lattice.Api.SplitTargets.Ghosts
+Lattice.Api.SplitTargets.Ghosts.Ghosts(Lattice.Api.Selector! Which) -> void
+Lattice.Api.SplitTargets.Ghosts.Which.get -> Lattice.Api.Selector!
+Lattice.Api.SplitTargets.Ghosts.Which.init -> void
+Lattice.Api.SplitTargets.Structures
+Lattice.Api.SplitTargets.Structures.Structures(Lattice.Api.StructureSelector! Which) -> void
+Lattice.Api.SplitTargets.Structures.Which.get -> Lattice.Api.StructureSelector!
+Lattice.Api.SplitTargets.Structures.Which.init -> void
+Lattice.Api.IPieceCatalogue.FacingOf(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.Option<Lattice.Api.Axis>, Lattice.Api.Reason!>

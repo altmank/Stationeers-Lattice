@@ -52,9 +52,11 @@ internal sealed class RouteBench
           cell 0 0 0 centre
         """;
 
-    public RouteBench(RouteLimits? limits = null)
+    /// <param name="limits">The search's limits; the defaults when none.</param>
+    /// <param name="extraPieces">More pieces in the catalogue file format, without its header.</param>
+    public RouteBench(RouteLimits? limits = null, string? extraPieces = null)
     {
-        Runs = new RunBench(RouteText);
+        Runs = new RunBench(extraPieces is null ? RouteText : RouteText + System.Environment.NewLine + System.Environment.NewLine + extraPieces);
         Openings.Set(Catalogue.Named("ModHatch").Key, OpeningKind.Door);
         Openings.Set(Catalogue.Named("StructureCompositeWindowIron").Key, OpeningKind.Window);
         Frames.Add(Catalogue.Named("StructureFrame").Key);

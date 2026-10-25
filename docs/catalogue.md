@@ -25,6 +25,7 @@ added it: check `lattice.Version` before you read it.
 | `FamiliesOf(piece)` | The piece's family and every family above it, narrowest first: `[window, wall]` for a window (contract 0.7) | `unknown-piece` |
 | `ParentOf(family)` | The family a family lies under: `wall` for `window`, none for the rest (contract 0.7) | never refused |
 | `PortsAt(placement)` | The piece's ports placed at a cell and turn, in the game's order ([ports](#ports), contract 0.8) | `unknown-piece` |
+| `FacingOf(placement)` | The axis a face piece's face is square to under the placement; none for a piece off the faces ([facing](#facing), contract 0.9) | `unknown-piece` |
 
 Every lookup but `PortsAt` is constant cost and allocates nothing (after a piece's family is first read). `PortsAt`
 is linear in the piece's ports and allocates the list it returns.
@@ -108,6 +109,22 @@ Whether a port is already joined is a world fact, not a catalogue one: read `lat
 
 A catalogue data file written before 0.8 does not hold the game's indexes: it numbers ports in their order among a
 piece's ends, which differs from the game's for a piece whose list has an end with no network. Export it again.
+
+## Facing
+
+`FacingOf(placement)` answers the axis a face piece's face is square to at that cell and turn: `X` or `Z` for an
+upright wall or window, `Y` for a floor or a wall laid flat. It is the axis `StyleMatch.Facing` matches, worked out
+from the piece's own face points, so a modded face piece answers as the game places it. A piece that takes a cell
+centre or small-grid slots (a frame, a cable, a device) answers none. Contract 0.9 added it.
+
+A tool that lays face pieces in a drag uses it to keep the drag in the face's plane: a line along an axis square to
+the answer, a rectangle over the two axes square to it, and layers one large cell apart along it.
+
+```csharp
+// The axes a wall's line or rectangle may run along: the two square to its face.
+if (lattice.Catalogue.FacingOf(held).TryGet(out var facing) && facing.TryGet(out var normal))
+    Span(normal == Axis.X ? (Axis.Y, Axis.Z) : normal == Axis.Y ? (Axis.X, Axis.Z) : (Axis.X, Axis.Y));
+```
 
 ## Modded pieces
 

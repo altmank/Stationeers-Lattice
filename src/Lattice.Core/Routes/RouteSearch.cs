@@ -29,14 +29,28 @@ internal abstract record RouteOutcome
     public sealed record NotFound(Reason Why, Cell Nearest, int Expanded) : RouteOutcome;
 }
 
+/// <summary>What a route search weighs besides cells and bends, and where it may end.</summary>
+/// <param name="First">Which leg first among routes of equal cells and bends; none keeps the order states were reached.</param>
+/// <param name="InOpenAir">Cells that cost one more cell each (beside no frame and no wall); none costs nothing more.</param>
+/// <param name="Goals">The cells the route may end at, the nearest one reached first; none ends at the far end only.</param>
+internal sealed record SearchOptions(Option<FirstLeg> First, Func<Cell, bool>? InOpenAir, IReadOnlyCollection<Cell>? Goals)
+{
+    public static SearchOptions None { get; } = new(Option<FirstLeg>.None, null, null);
+}
+
 /// <summary>
 /// The cheapest route between two cells of a kit's grid, one cell step at a time along the six axis directions (A*
 /// over cell and heading). A route's cost is two counts compared in order: cells then bends by default, so the
 /// shortest route wins and fewer bends break ties (fewer bends also means longer straights); bends then cells under
-/// <c>FewestBends</c>. The heuristic (cells left; bends at least needed) never overestimates either count, and
+/// <c>FewestBends</c>. A cell in open air (<see cref="SearchOptions.InOpenAir"/>) counts as two cells. A first leg
+/// (<see cref="SearchOptions.First"/>) is a third count, compared last: the steps of the other kind of leg taken
+/// after the route first left the chosen kind, so among equal routes the one that keeps to the chosen kind first wins.
+/// The heuristic (cells left; bends at least needed; nothing for the third count) never overestimates any count, and
 /// states are reopened when reached cheaper, so the route found is the cheapest. Equal costs are taken in the order
-/// they were reached, so one request always gives one route. Every cell entered but the far end must be inside the
-/// search box and pass <see cref="IRouteCells"/>; the first cell is where the route stands.
+/// they were reached, so one request always gives one route. Every cell entered but an end must be inside the search
+/// box and pass <see cref="IRouteCells"/>; the first cell is where the route stands. With
+/// <see cref="SearchOptions.Goals"/>, the route ends at the first goal cell it reaches (the far end is the nearest goal,
+/// for the box and the facts), so it never passes through one.
 /// Resumable: each <see cref="Step"/> takes up to <see cref="RouteLimits.PerStep"/> states, so the search runs inside
 /// a frame's slice; <see cref="Find"/> runs it to the end. Allocates its tables once per search.
 /// </summary>
@@ -55,14 +69,21 @@ internal sealed class RouteSearch : ISlicedWork
     private readonly int _perStep;
     private readonly int _margin;
 
-    private readonly Dictionary<(Cell Cell, int Heading), int> _index = [];
+    private readonly Option<FirstLeg> _first;
+    private readonly Func<Cell, bool>? _inOpenAir;
+    private readonly HashSet<Cell>? _goals;
+    private readonly Dictionary<(Cell Cell, int Heading, bool Left), int> _index = [];
     private readonly List<State> _states = [];
     private readonly Heap _open = new();
     private int _expanded;
     private int _nearest;
 
-    public RouteSearch(IGrid grid, GridSize size, Cell from, Cell to, IRouteCells cells, bool fewestBends, RouteLimits limits)
+    public RouteSearch(IGrid grid, GridSize size, Cell from, Cell to, IRouteCells cells, bool fewestBends, RouteLimits limits, SearchOptions? options = null)
     {
+        options ??= SearchOptions.None;
+        _first = options.First;
+        _inOpenAir = options.InOpenAir;
+        _goals = options.Goals is null ? null : new HashSet<Cell>(options.Goals);
         _grid = grid;
         _size = size;
         _step = grid.Neighbour(default, Direction.XPlus, size).X;
@@ -77,6 +98,8 @@ internal sealed class RouteSearch : ISlicedWork
         _bound = limits.ExpansionsFor(Distance(from));
         _perStep = Math.Max(1, limits.PerStep);
         Reach(new State(from, Heading: 0, Cells: 1, Bends: 0, From: -1));
+        if (_goals is not null && _goals.Contains(from))
+            Outcome = Option.Some<RouteOutcome>(new RouteOutcome.Found(ValueList.Of(from), 0, 0));
     }
 
     /// <summary>The outcome once the search has ended; none while it runs.</summary>
@@ -115,7 +138,7 @@ internal sealed class RouteSearch : ISlicedWork
         if (state.Closed)
             return;
         _states[at] = state with { Closed = true };
-        if (state.Cell == _to)
+        if (IsEnd(state.Cell))
         {
             var cells = Trace(at);
             Outcome = Option.Some<RouteOutcome>(new RouteOutcome.Found(cells, BendsOf(cells), _expanded));
@@ -135,16 +158,24 @@ internal sealed class RouteSearch : ISlicedWork
             if (state.Heading != 0 && heading == (int)((Direction)state.Heading).Opposite())
                 continue;
             var next = _grid.Neighbour(state.Cell, direction, _size);
-            if (next != _to && (!Inside(next) || !_cells.Enters(next, direction)))
+            var end = IsEnd(next);
+            if (!end && (!Inside(next) || !_cells.Enters(next, direction)))
                 continue;
             var bends = state.Bends + (state.Heading != 0 && state.Heading != heading ? 1 : 0);
-            Reach(new State(next, heading, state.Cells + 1, bends, at));
+            var open = state.Open + (!end && _inOpenAir is not null && _inOpenAir(next) ? 1 : 0);
+            var chosen = !_first.TryGet(out var first) || (direction.AxisOf() == Axis.Y) == (first == FirstLeg.Vertical);
+            Reach(new State(next, heading, state.Cells + 1, bends, at)
+            {
+                Open = open,
+                Late = state.Late + (state.Left && chosen ? 1 : 0),
+                Left = state.Left || (_first.IsSome && !chosen),
+            });
         }
     }
 
     private void Reach(State state)
     {
-        var key = (state.Cell, state.Heading);
+        var key = (state.Cell, state.Heading, state.Left);
         if (_index.TryGetValue(key, out var known))
         {
             var old = _states[known];
@@ -165,18 +196,34 @@ internal sealed class RouteSearch : ISlicedWork
 
     private void Push(int index, State state)
     {
-        var left = Distance(state.Cell);
-        var bendsLeft = BendsLeft(state.Cell, state.Heading);
-        var cells = state.Cells + left;
+        var (left, bendsLeft) = Left(state.Cell, state.Heading);
+        var cells = state.Cost + left;
         var bends = state.Bends + bendsLeft;
-        _open.Push(_fewestBends ? bends : cells, _fewestBends ? cells : bends, index);
+        _open.Push(_fewestBends ? bends : cells, _fewestBends ? cells : bends, state.Late, index);
     }
 
     private int Compare(State a, State b)
     {
-        var (a1, a2) = _fewestBends ? (a.Bends, a.Cells) : (a.Cells, a.Bends);
-        var (b1, b2) = _fewestBends ? (b.Bends, b.Cells) : (b.Cells, b.Bends);
-        return a1 != b1 ? a1.CompareTo(b1) : a2.CompareTo(b2);
+        var (a1, a2) = _fewestBends ? (a.Bends, a.Cost) : (a.Cost, a.Bends);
+        var (b1, b2) = _fewestBends ? (b.Bends, b.Cost) : (b.Cost, b.Bends);
+        return a1 != b1 ? a1.CompareTo(b1) : a2 != b2 ? a2.CompareTo(b2) : a.Late.CompareTo(b.Late);
+    }
+
+    private bool IsEnd(Cell cell) => _goals is null ? cell == _to : _goals.Contains(cell);
+
+    /// <summary>Cells and bends at least still needed: to the far end, or to the goal that needs the fewest.</summary>
+    private (int Cells, int Bends) Left(Cell cell, int heading)
+    {
+        if (_goals is null)
+            return (Distance(cell, _to), BendsLeft(cell, heading, _to));
+        var (cells, bends) = (int.MaxValue, int.MaxValue);
+        foreach (var goal in _goals)
+        {
+            cells = Math.Min(cells, Distance(cell, goal));
+            bends = Math.Min(bends, BendsLeft(cell, heading, goal));
+        }
+
+        return (cells, bends);
     }
 
     private bool Closer(State state, State best)
@@ -185,16 +232,18 @@ internal sealed class RouteSearch : ISlicedWork
         return mine != theirs ? mine < theirs : Compare(state, best) < 0;
     }
 
-    /// <summary>Cells from the cell to the far end along the axes.</summary>
-    private int Distance(Cell cell) => (Math.Abs(_to.X - cell.X) + Math.Abs(_to.Y - cell.Y) + Math.Abs(_to.Z - cell.Z)) / _step;
+    /// <summary>Cells from the cell to the nearest end along the axes.</summary>
+    private int Distance(Cell cell) => Left(cell, 0).Cells;
+
+    private int Distance(Cell cell, Cell to) => (Math.Abs(to.X - cell.X) + Math.Abs(to.Y - cell.Y) + Math.Abs(to.Z - cell.Z)) / _step;
 
     /// <summary>
     /// The fewest bends still needed: one fewer than the axes left to cover, plus one when the route heads along none
     /// of them the right way (it must turn before it can close in).
     /// </summary>
-    private int BendsLeft(Cell cell, int heading)
+    private static int BendsLeft(Cell cell, int heading, Cell to)
     {
-        var (dx, dy, dz) = (_to.X - cell.X, _to.Y - cell.Y, _to.Z - cell.Z);
+        var (dx, dy, dz) = (to.X - cell.X, to.Y - cell.Y, to.Z - cell.Z);
         var axes = (dx != 0 ? 1 : 0) + (dy != 0 ? 1 : 0) + (dz != 0 ? 1 : 0);
         if (axes == 0)
             return 0;
@@ -247,21 +296,33 @@ internal sealed class RouteSearch : ISlicedWork
 
     private static string Written(Cell cell) => $"{cell.X},{cell.Y},{cell.Z}";
 
-    /// <summary>A reached state: its cell, the way it was entered (0 at the first cell), its counts so far, the state before it.</summary>
+    /// <summary>
+    /// A reached state: its cell, the way it was entered (0 at the first cell), its counts so far, the state before it;
+    /// the open-air cells among them, the steps taken on the later kind of leg, and whether it has left the first kind.
+    /// </summary>
     private readonly record struct State(Cell Cell, int Heading, int Cells, int Bends, int From)
     {
         public bool Closed { get; init; }
+
+        public int Open { get; init; }
+
+        public int Late { get; init; }
+
+        public bool Left { get; init; }
+
+        /// <summary>The cells as the search weighs them: each open-air cell counts twice.</summary>
+        public int Cost => Cells + Open;
     }
 
-    /// <summary>A binary min-heap on two counts, then the order pushed.</summary>
+    /// <summary>A binary min-heap on three counts, then the order pushed.</summary>
     private sealed class Heap
     {
-        private readonly List<(int First, int Second, long Order, int Index)> _items = new(256);
+        private readonly List<(int First, int Second, int Third, long Order, int Index)> _items = new(256);
         private long _pushed;
 
-        public void Push(int first, int second, int index)
+        public void Push(int first, int second, int third, int index)
         {
-            _items.Add((first, second, _pushed++, index));
+            _items.Add((first, second, third, _pushed++, index));
             var at = _items.Count - 1;
             while (at > 0)
             {
@@ -305,7 +366,10 @@ internal sealed class RouteSearch : ISlicedWork
         private bool Less(int a, int b)
         {
             var (x, y) = (_items[a], _items[b]);
-            return x.First != y.First ? x.First < y.First : x.Second != y.Second ? x.Second < y.Second : x.Order < y.Order;
+            return x.First != y.First ? x.First < y.First
+                : x.Second != y.Second ? x.Second < y.Second
+                : x.Third != y.Third ? x.Third < y.Third
+                : x.Order < y.Order;
         }
     }
 }

@@ -73,8 +73,8 @@ public sealed class CatalogueDataFileTests
         var (catalogue, text) = Written();
         var read = Ok(CatalogueFile.Read(new StringReader(text), "written.lcat"));
 
-        var fromGame = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
-        var fromFile = new PieceCatalogue(read.Listing, new CatalogueAdditions(read), PiecePorts.Over(read));
+        var fromGame = new PieceCatalogue(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue), Lattice.Core.Styles.Facings.Over(catalogue));
+        var fromFile = new PieceCatalogue(read.Listing, new CatalogueAdditions(read), PiecePorts.Over(read), Lattice.Core.Styles.Facings.Over(read));
 
         Assert.Equal(fromGame.Kits, fromFile.Kits);
         Assert.Equal(catalogue.Listing.Kits.Select(k => k.Kind), read.Listing.Kits.Select(k => k.Kind));

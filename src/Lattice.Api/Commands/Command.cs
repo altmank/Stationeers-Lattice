@@ -146,6 +146,32 @@ public abstract record Command
     /// </summary>
     /// <param name="Plan">The finished plan.</param>
     public sealed record Reopen(PlanId Plan) : Command;
+
+    /// <summary>
+    /// Plans the long straights among the targets as single pieces. A ghost long straight is replaced at once by
+    /// single-piece ghosts, which keep its plan, groups, label, tint and attachments. A built one is planned as a run
+    /// joining it plans it: a removal ghost for it and a build ghost for each of its cells. Pieces that are not long
+    /// straights are left alone. Refused <see cref="ReasonCodes.InvalidValue"/> (<c>problem=nothing-to-split</c>) when
+    /// no target is one. Expanded by the runs module. Added in contract 0.9.
+    /// </summary>
+    /// <param name="Which">The ghosts or structures to split.</param>
+    /// <param name="Into">The plan for a built piece's ghosts, or the default plan.</param>
+    /// <param name="MadeBy">What makes the new ghosts.</param>
+    public sealed record PlanSplit(SplitTargets Which, Option<PlanId> Into, Maker MadeBy) : Command;
+}
+
+/// <summary>What a split acts on. Union: a later minor may add cases. Added in contract 0.9.</summary>
+public abstract record SplitTargets
+{
+    private SplitTargets() { }
+
+    /// <summary>Ghosts: the build ghosts among them whose piece is a long straight.</summary>
+    /// <param name="Which">The ghosts.</param>
+    public sealed record Ghosts(Selector Which) : SplitTargets;
+
+    /// <summary>Built structures: the long straights among them that no ghost removes or swaps.</summary>
+    /// <param name="Which">The structures.</param>
+    public sealed record Structures(StructureSelector Which) : SplitTargets;
 }
 
 /// <summary>A new ghost to place. The board gives it an id, revision, placer, time and state.</summary>
@@ -270,6 +296,21 @@ public sealed record RunRequest(KitKey Kit, Cell From, ValueList<Cell> Via, Cell
 
     /// <summary>The port the run ends at, as <see cref="FromPort"/> with <see cref="To"/>. Added in contract 0.8.</summary>
     public Option<PortEnd> ToPort { get; init; }
+
+    /// <summary>How the run's pieces are chosen. Added in contract 0.9.</summary>
+    public LayOptions Lay { get; init; } = LayOptions.Default;
+}
+
+/// <summary>How a run's or route's pieces are chosen. Added in contract 0.9.</summary>
+/// <param name="SinglePiecesOnly">Never a long straight: every cell its own piece.</param>
+/// <param name="MatchGrade">
+/// Lay with the kit of the run the new run joins, when that kit lays the same network kinds (a heavy cable off a heavy
+/// main): the first end that joins a run decides, the from end before the to end.
+/// </param>
+public sealed record LayOptions(bool SinglePiecesOnly, bool MatchGrade)
+{
+    /// <summary>Long straights where they fit, and the request's own kit: what a 0.8 request does.</summary>
+    public static LayOptions Default { get; } = new(false, false);
 }
 
 /// <summary>A run found between two ends under the given toggles.</summary>
@@ -297,6 +338,33 @@ public sealed record RouteRequest(KitKey Kit, Cell From, Cell To, RouteToggles T
 
     /// <summary>The port the route ends at, as <see cref="FromPort"/> with <see cref="To"/>. Added in contract 0.8.</summary>
     public Option<PortEnd> ToPort { get; init; }
+
+    /// <summary>How the route's pieces are chosen. Added in contract 0.9.</summary>
+    public LayOptions Lay { get; init; } = LayOptions.Default;
+
+    /// <summary>
+    /// Extra starts, each routed in order to the nearest cell of the run so far (the main route and the branches
+    /// before it), where it joins with a T. A branch stops at the first run cell it reaches, so no loop is made. At
+    /// most <c>MaxBranches</c> (16); more is refused <see cref="ReasonCodes.TooLarge"/> (fact <c>branches</c>). A branch
+    /// with no route refuses the command as a main route that fails does, with fact <c>branch</c> (its index).
+    /// Added in contract 0.9.
+    /// </summary>
+    public ValueList<RouteBranch> Branches { get; init; } = ValueList<RouteBranch>.Empty;
+}
+
+/// <summary>One extra start of a route; <paramref name="Port"/> as <see cref="RouteRequest.FromPort"/>. Added in contract 0.9.</summary>
+/// <param name="From">The cell the branch starts at.</param>
+/// <param name="Port">The port it starts at, if any: <paramref name="From"/> must be that port's <see cref="Port.Joins"/>.</param>
+public sealed record RouteBranch(Cell From, Option<PortEnd> Port);
+
+/// <summary>Which leg a route takes first when routes of equal cost differ only in order. Added in contract 0.9.</summary>
+public enum FirstLeg
+{
+    /// <summary>Up or down first (the game's Y), then across.</summary>
+    Vertical = 1,
+
+    /// <summary>Across first, then up or down.</summary>
+    Level = 2,
 }
 
 /// <summary>What a route search must respect. Each toggle is independent.</summary>
@@ -310,4 +378,17 @@ public sealed record RouteToggles(
     bool FewestBends,
     bool KeepDoorsAndWindowsClear,
     bool KeepPortsFree,
-    bool NoBridging);
+    bool NoBridging)
+{
+    /// <summary>
+    /// Which leg first among equal-cost routes; none keeps the search's own order. Never makes a route longer or adds a
+    /// bend. Added in contract 0.9.
+    /// </summary>
+    public Option<FirstLeg> First { get; init; }
+
+    /// <summary>
+    /// Cells beside no frame and no wall cost one more cell, so the route follows structure; a soft preference, unlike
+    /// <see cref="OnFrames"/>. Added in contract 0.9.
+    /// </summary>
+    public bool HugFramesAndWalls { get; init; }
+}

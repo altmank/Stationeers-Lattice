@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0
+
+- **Route choices.** A route can go up or down first, or across first, and can keep to frames and walls instead of
+  open air. A route can carry branches that join it with tees. Runs and routes can lay single pieces only, or match
+  the grade of what they join.
+- **Split a long straight on purpose.** A new command replans a long straight as single pieces, for when one piece
+  must be swapped or removed on its own.
+- **A face piece's plane.** The catalogue answers which way a placed wall, window or floor faces, so a planner can lay
+  a line or a rectangle of them in that plane.
+- Contract 0.9, which only adds: a mod written for 0.8 sees the same answers.
+
 ## 0.8.1
 
 - **A refused move, turn or mirror names exactly the ghosts in the way.** A mirror whose selection holds pieces with

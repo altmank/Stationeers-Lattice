@@ -124,11 +124,27 @@ internal sealed class ClientChecks(CommandLimits limits, ICatalogue catalogue, A
             Api.Command.PlanSwap swap => Structures(swap.Which, 1) ?? SwapTo(swap.To),
             Api.Command.PlanFinish finish => Structures(finish.Which, 1),
             Api.Command.PlanRun run => Cells(run.Request.From, run.Request.To, run.Request.Via) ?? Kit(run.Request.Kit),
-            Api.Command.PlanRoute route => Cells(route.Request.From, route.Request.To, ValueList<Cell>.Empty) ?? Kit(route.Request.Kit),
+            Api.Command.PlanRoute route => Cells(route.Request.From, route.Request.To, Starts(route.Request.Branches)) ?? Kit(route.Request.Kit),
+            Api.Command.PlanSplit split => split.Which switch
+            {
+                SplitTargets.Ghosts ghosts => Selector(ghosts.Which, 1),
+                SplitTargets.Structures structures => Structures(structures.Which, 1),
+                _ => null,
+            },
             Api.Command.Transform transform => Selector(transform.Which, 1) ?? (transform.How is Transformation.Rotate rotate ? Cell(rotate.Pivot) : null),
             Api.Command.PlaceTemplate template => Cell(template.Origin) ?? Data(template.As.HigherLayerData) ?? Drafts(template.Template.Ghosts, cells: false),
             _ => null,
         };
+
+        private static ValueList<Cell> Starts(ValueList<RouteBranch> branches)
+        {
+            if (branches.Count == 0)
+                return ValueList<Cell>.Empty;
+            var starts = new Cell[branches.Count];
+            for (var i = 0; i < starts.Length; i++)
+                starts[i] = branches[i].From;
+            return ValueList.From(starts);
+        }
 
         private Reason? Steps(Command.Batch batch, int depth)
         {

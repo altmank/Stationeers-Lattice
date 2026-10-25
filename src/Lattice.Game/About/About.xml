@@ -45,6 +45,10 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.9.0
+- Routes can go up or across first, keep to frames and walls, carry branches with tees, and lay single pieces or match the grade.
+- Planners can split a long straight into single pieces, and lay walls, windows and floors in their own plane.
+
 v0.8.1
 - A refused move, turn or mirror names exactly the ghosts in the way, so planners can retry without them.
 

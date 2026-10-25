@@ -85,7 +85,7 @@ public sealed class GhostPortRunTests
         toward.AxisOf() == Axis.Y ? Direction.XPlus : Direction.YPlus;
 
     private static PieceCatalogue View(Lattice.TestKit.Catalogue.FakeCatalogue catalogue) =>
-        new(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
+        new(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue), Lattice.Core.Styles.Facings.Over(catalogue));
 
     /// <summary>The pump's entry from the catalogue the game wrote, as a file of its own.</summary>
     private static string PumpText()

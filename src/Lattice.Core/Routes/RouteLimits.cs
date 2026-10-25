@@ -16,6 +16,9 @@ internal sealed record RouteLimits(int Margin, Option<int> Expansions, int PerSt
 
     public const int ExpansionsPerCell = 256;
 
+    /// <summary>The most branches one route request may have (<see cref="RouteRequest.Branches"/>).</summary>
+    public const int MaxBranches = 16;
+
     /// <summary>32 cells (16 m on the small grid) past the ends, expansions scaled with the request, 32 states a step.</summary>
     public static RouteLimits Default => new(Margin: 32, Expansions: Option<int>.None, PerStep: 32);
 

@@ -108,8 +108,9 @@ These are worked out by a module into primitive commands. With the module off th
 | `MarkRemoval(structures, into, madeBy)` | `selectors` | A remove ghost per structure. |
 | `PlanFinish(structures, finish, into, madeBy)` | `selectors` | A finish ghost per structure. |
 | `PlanSwap(structures, to, into, madeBy)` | `swaps` | "Swap all": a swap ghost per structure. `SwapTo.Exactly(piece)`, or `SwapTo.SameShapeFrom(kit)` for the piece of the same shape that kit places (every cable shape to its heavy cable shape). |
-| `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8): the end piece joins that port. |
-| `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging. `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. |
+| `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8): the end piece joins that port. `Lay` chooses the pieces (contract 0.9, [below](#choosing-the-pieces)). |
+| `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging; and from contract 0.9 which leg first and hugging frames and walls ([below](#route-choices)). `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. `Branches` and `Lay` from contract 0.9. |
+| `PlanSplit(which, into, madeBy)` | `runs` | Long straights planned as single pieces (contract 0.9, [below](#splitting-long-straights)). |
 | `Transform`, `PlaceTemplate` | `transforms`, `templates` | See [transforms and templates](transforms-and-templates.md). |
 | `Repair`, `TakeDown`, `Reopen` | `finished-plans` | See [finished plans](#finished-plans) below. |
 
@@ -133,6 +134,53 @@ run's end open, and removing it leaves the run.
 
 To list what one built structure can become in place, ask `lattice.Swaps.OptionsFor(structure)`. Each `SwapOption`
 is a placement in the structure's cell, and for a face piece with a rating, the load across that face now.
+
+### Route choices
+
+Contract 0.9 adds two route toggles. Both are `init` members of `RouteToggles`, off by default, so a request built as
+in 0.8 searches as it did.
+
+| Toggle | Does |
+|---|---|
+| `First` | `FirstLeg.Vertical` takes the up or down leg first, `FirstLeg.Level` the across leg first, among routes of equal length and bends. It only breaks ties: it never makes a route longer or adds a bend, under `FewestBends` too. None keeps the search's own order. |
+| `HugFramesAndWalls` | A cell no large cell with a frame or a face piece (wall, window, floor) holds costs one more cell, so the route follows structure. A soft preference: the route gets at most one cell longer for each open cell it avoids. `OnFrames` still refuses open cells. |
+
+`RouteRequest.Branches` lists extra starts (`RouteBranch(from, port)`), at most 16. Each is routed, in order, to the
+nearest cell of the run so far (the main route and the branches before it) and joins there with a T. A branch stops at
+the first run cell it reaches, so no loop is made. The main route and every branch are laid as one change set.
+
+| Refused | When |
+|---|---|
+| `no-route`, `search-limit` | A branch has no route: fact `branch` is its index, with the nearest cell, as for a main route. Nothing is laid. |
+| `too-large`, fact `branches` | More than 16 branches. |
+| As for `FromPort` | A branch's `Port` is checked as a route's `FromPort` is, with fact `branch`. |
+
+With `KeepPortsFree`, a branch's own port cell stays open to it. With `NoBridging`, the branches count as the same run:
+the networks at every branch's start are the route's own, never a bridge.
+
+### Choosing the pieces
+
+`LayOptions(SinglePiecesOnly, MatchGrade)` (contract 0.9) is `Lay` on both `RunRequest` and `RouteRequest`, so a run
+bar's piece toggles mean the same for a drawn run and a found one. `LayOptions.Default` is what a 0.8 request does.
+
+- **`SinglePiecesOnly`:** never a long straight; every cell gets its own piece.
+- **`MatchGrade`:** the run is laid with the kit of the run it joins (a heavy cable off a heavy main), when that kit
+  lays the same network kinds on the same grid, read from the catalogue's ends. A gas pipe never becomes a liquid pipe,
+  and a modded grade works like the game's. The from end decides first: a piece of that kit in the from cell, or a
+  neighbour's end pointing into it. Then the to end. The `RunReport` names the kit in `LaidWith` when it is not the
+  request's.
+
+### Splitting long straights
+
+`PlanSplit(which, into, madeBy)` (contract 0.9) plans the long straights among its targets as single pieces, with the
+same splitting rule a run uses when it joins one.
+
+- `SplitTargets.Ghosts(selector)`: a ghost long straight is replaced at once by single-piece ghosts, which keep its
+  plan, visibility, groups, label, tint, data and finish. One `Revert` brings the long ghost back.
+- `SplitTargets.Structures(selector)`: a built long straight gets a removal ghost and a build ghost for each of its
+  cells, in `into`, as a run joining it plans it. One a ghost already removes or swaps is left alone.
+- Pieces that are not long straights are left alone. When no target is one, the command is refused `invalid-value`
+  with `problem=nothing-to-split`.
 
 ## The life of a ghost
 

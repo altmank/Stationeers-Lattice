@@ -88,6 +88,20 @@ internal sealed class KitShapes
         return _byShape[shape.Bits] is { } piece ? Option.Some(piece) : Option<PieceTurn>.None;
     }
 
+    /// <summary>
+    /// Whether another kit lays the same network kinds on the same grid (a heavy cable and a normal one), read from the
+    /// kits' run pieces' ends, never from names.
+    /// </summary>
+    public bool LaysTheSameNetworks(KitShapes other)
+    {
+        if (other.Grid != Grid || other._kinds.Count != _kinds.Count)
+            return false;
+        foreach (var kind in _kinds)
+            if (!other._kinds.Contains(kind))
+                return false;
+        return true;
+    }
+
     /// <summary>Whether this kit places the piece.</summary>
     public bool Places(PieceFacts piece)
     {

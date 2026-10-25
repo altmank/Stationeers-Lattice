@@ -186,7 +186,7 @@ internal static class CommandForm
                     foreach (var via in request.Via)
                         fields.Add("via", WrittenValues.Cell(via));
                     fields.Add("to", WrittenValues.Cell(request.To)).Add("made", request.MadeBy.Value);
-                    return Node("plan-run", Into(PortFields(fields, request.FromPort, request.ToPort), request.Into));
+                    return Node("plan-run", Into(LayFields(PortFields(fields, request.FromPort, request.ToPort), request.Lay), request.Into));
                 }
                 case Api.Command.PlanRoute route:
                 {
@@ -199,7 +199,16 @@ internal static class CommandForm
                         .Add("no-bridge", Flag(toggles.NoBridging));
                     if (request.SearchBound.TryGet(out var bound))
                         fields.Add("bound", bound);
-                    return Node("plan-route", Into(PortFields(fields, request.FromPort, request.ToPort), request.Into));
+                    if (toggles.First.TryGet(out var first))
+                        fields.Add("first", first == FirstLeg.Vertical ? "vertical" : "level");
+                    if (toggles.HugFramesAndWalls)
+                        fields.Add("hug", Flag(true));
+                    PortFields(fields, request.FromPort, request.ToPort);
+                    foreach (var branch in request.Branches)
+                        fields.Add("branch", branch.Port.TryGet(out var port)
+                            ? WrittenValues.Cell(branch.From) + "@" + PortText(port)
+                            : WrittenValues.Cell(branch.From));
+                    return Node("plan-route", Into(LayFields(fields, request.Lay), request.Into));
                 }
                 case Api.Command.Transform transform:
                 {
@@ -246,6 +255,16 @@ internal static class CommandForm
                     return Node("take-down", new FieldList().Add("plan", takeDown.Plan.Value).Add("made", takeDown.MadeBy.Value));
                 case Api.Command.Reopen reopen:
                     return Node("reopen", new FieldList().Add("plan", reopen.Plan.Value));
+                case Api.Command.PlanSplit split:
+                {
+                    var fields = Into(new FieldList(), split.Into).Add("made", split.MadeBy.Value);
+                    return split.Which switch
+                    {
+                        SplitTargets.Ghosts ghosts => WithSelector("plan-split", ghosts.Which, fields.Add("of", "ghosts")),
+                        SplitTargets.Structures structures => WithStructures("plan-split", structures.Which, fields.Add("of", "structures")),
+                        _ => Refuse(split.Which),
+                    };
+                }
                 default:
                     return Refuse(command);
             }
@@ -283,6 +302,16 @@ internal static class CommandForm
                 fields.Add("from-port", PortText(start));
             if (to.TryGet(out var end))
                 fields.Add("to-port", PortText(end));
+            return fields;
+        }
+
+        /// <summary>How a run's or route's pieces are chosen: a flag for each choice that is on; nothing for the default.</summary>
+        private static FieldList LayFields(FieldList fields, LayOptions lay)
+        {
+            if (lay.SinglePiecesOnly)
+                fields.Add("singles", Flag(true));
+            if (lay.MatchGrade)
+                fields.Add("grade", Flag(true));
             return fields;
         }
 
@@ -519,6 +548,7 @@ internal static class CommandForm
             "repair" => Need(read, "plan", PlanOf).Bind(p => Made(read).Map(made => (object)new Command.Repair(p, made))),
             "take-down" => Need(read, "plan", PlanOf).Bind(p => Made(read).Map(made => (object)new Command.TakeDown(p, made))),
             "reopen" => Need(read, "plan", PlanOf).Map(static p => (object)new Command.Reopen(p)),
+            "plan-split" => Split(read),
             "s.everything" => Result<object, string>.Ok(new Selector.Everything()),
             "s.ids" => Ids(read),
             "s.box" => Need(read, "corner", WrittenValues.Cell).Bind(c => Need(read, "opposite", WrittenValues.Cell).Map(o => (object)new Selector.Box(c, o))),
@@ -601,14 +631,58 @@ internal static class CommandForm
                 !Common.Get(read.Need("made").Bind(MakerOf), out var made, ref problem) ||
                 !Common.Get(Into(read), out var into, ref problem) ||
                 !Common.Get(Optional(read, "from-port", PortEndOf), out var fromPort, ref problem) ||
-                !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem))
+                !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem) ||
+                !Common.Get(Lay(read), out var lay, ref problem))
                 return Result<object, string>.Error(problem);
             return Result<object, string>.Ok(new Command.PlanRun(new RunRequest(kit, from, ValueList.From(via), to, into, made)
             {
                 FromPort = fromPort,
                 ToPort = toPort,
+                Lay = lay,
             }));
         }
+
+        private static Result<LayOptions, string> Lay(FieldReader read)
+        {
+            var problem = "";
+            if (!Common.Get(Optional(read, "singles", FlagOf), out var singles, ref problem) ||
+                !Common.Get(Optional(read, "grade", FlagOf), out var grade, ref problem))
+                return Result<LayOptions, string>.Error(problem);
+            var lay = new LayOptions(singles.Reduce(false), grade.Reduce(false));
+            return Result<LayOptions, string>.Ok(lay == LayOptions.Default ? LayOptions.Default : lay);
+        }
+
+        private Result<object, string> Split(FieldReader read)
+        {
+            var problem = "";
+            if (!Common.Get(read.Need("of"), out var of, ref problem) ||
+                !Common.Get(Into(read), out var into, ref problem) ||
+                !Common.Get(read.Need("made").Bind(MakerOf), out var made, ref problem))
+                return Result<object, string>.Error(problem);
+            return of switch
+            {
+                "ghosts" => Use<Selector>(read, "which").Map(which => (object)new Command.PlanSplit(new SplitTargets.Ghosts(which), into, made)),
+                "structures" => Use<StructureSelector>(read, "which").Map(which => (object)new Command.PlanSplit(new SplitTargets.Structures(which), into, made)),
+                _ => Result<object, string>.Error($"bad split targets '{of}'"),
+            };
+        }
+
+        /// <summary>A route branch as the writer writes it: its start cell, then <c>@</c> and its port end when it has one.</summary>
+        private static Result<RouteBranch, string> BranchOf(string text)
+        {
+            var at = text.IndexOf('@');
+            if (at < 0)
+                return WrittenValues.Cell(text).Map(static cell => new RouteBranch(cell, Option<PortEnd>.None));
+            return WrittenValues.Cell(text.Substring(0, at))
+                .Bind(cell => PortEndOf(text.Substring(at + 1)).Map(port => new RouteBranch(cell, Option.Some(port))));
+        }
+
+        private static Result<FirstLeg, string> FirstOf(string text) => text switch
+        {
+            "vertical" => Result<FirstLeg, string>.Ok(FirstLeg.Vertical),
+            "level" => Result<FirstLeg, string>.Ok(FirstLeg.Level),
+            _ => Result<FirstLeg, string>.Error($"bad first leg '{text}'"),
+        };
 
         private Result<object, string> Route(FieldReader read)
         {
@@ -625,14 +699,27 @@ internal static class CommandForm
                 !Common.Get(Optional(read, "bound", WrittenValues.Int), out var bound, ref problem) ||
                 !Common.Get(Into(read), out var into, ref problem) ||
                 !Common.Get(Optional(read, "from-port", PortEndOf), out var fromPort, ref problem) ||
-                !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem))
+                !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem) ||
+                !Common.Get(Optional(read, "first", FirstOf), out var first, ref problem) ||
+                !Common.Get(Optional(read, "hug", FlagOf), out var hug, ref problem) ||
+                !Common.Get(Lay(read), out var lay, ref problem))
                 return Result<object, string>.Error(problem);
+            var branches = new List<RouteBranch>();
+            foreach (var text in read.TakeAll("branch"))
+            {
+                if (!BranchOf(text).TryGet(out var branch))
+                    return Result<object, string>.Error($"bad branch '{text}'");
+                branches.Add(branch);
+            }
+
             return Result<object, string>.Ok(new Command.PlanRoute(
-                new RouteRequest(kit, from, to, new RouteToggles(frames, bends, doors, ports, noBridge), into, made)
+                new RouteRequest(kit, from, to, new RouteToggles(frames, bends, doors, ports, noBridge) { First = first, HugFramesAndWalls = hug.Reduce(false) }, into, made)
                 {
                     SearchBound = bound,
                     FromPort = fromPort,
                     ToPort = toPort,
+                    Lay = lay,
+                    Branches = branches.Count == 0 ? ValueList<RouteBranch>.Empty : ValueList.From(branches),
                 }));
         }
 

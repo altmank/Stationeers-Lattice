@@ -292,7 +292,7 @@ internal sealed class LatticeWorld : IGhostSystem
         var attachments = new AttachmentLimits();
         var additions = new CatalogueAdditions(catalogue);
         Families = additions;
-        Catalogue = new PieceCatalogue(catalogue.Listing, additions, new PiecePorts(catalogue, shapes));
+        Catalogue = new PieceCatalogue(catalogue.Listing, additions, new PiecePorts(catalogue, shapes), new Lattice.Core.Styles.Facings(shapes));
         var placements = new Placements(catalogue, grid, additions);
         var book = new RunReportBook(Ghosts);
         var supportFacts = new CatalogueSupportFacts(catalogue);
@@ -349,6 +349,7 @@ internal sealed class LatticeWorld : IGhostSystem
         {
             _starting = LatticeModules.Runs;
             Must(expanders.Register(new RunExpander(new RunPlanner(catalogue, grid, game.Placement), book).Descriptor));
+            Must(expanders.Register(new SplitExpander(catalogue, grid).Descriptor));
         }
 
         if (on.IsOn(LatticeModules.Routes) && game is not null)

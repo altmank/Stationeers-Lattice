@@ -22,6 +22,9 @@ internal sealed record RunPlan(
     /// <summary>Each port end of the request, the from end first, and the piece that joins it.</summary>
     public ValueList<PortJoin> PortEnds { get; init; } = ValueList<PortJoin>.Empty;
 
+    /// <summary>The kit the run was laid with when matching the grade chose another than the request's.</summary>
+    public Option<KitKey> LaidWith { get; init; }
+
     /// <summary>The command that places the run's ghosts into the request's plan, made by its maker, seen by everyone.</summary>
     public Command ToCommand(RunRequest request)
     {
@@ -33,9 +36,76 @@ internal sealed record RunPlan(
         return new Command.Place(ValueList.From(drafts));
     }
 
+    /// <summary>
+    /// Runs laid one after another as one plan: each run's changes and pieces in order, an earlier run's new piece left
+    /// out where a later one takes a spot of it (as placing the later run would replace it), the cells of all of them
+    /// once each, the first failure of the first run that has one, every port end, and the first run's kit.
+    /// </summary>
+    public static RunPlan Joined(IReadOnlyList<RunPlan> runs, Shapes shapes)
+    {
+        if (runs.Count == 1)
+            return runs[0];
+        var changes = new List<Intent>();
+        var pieces = new List<Placement>();
+        var singles = new List<Placement>();
+        var cells = new List<Cell>();
+        var seen = new HashSet<Cell>();
+        var ports = new List<PortJoin>();
+        var failure = Option<CellFailure>.None;
+        foreach (var run in runs)
+        {
+            var spots = new HashSet<SpotKey>();
+            foreach (var change in run.Changes)
+                if (PieceOf(change) is { } placement)
+                    AddSpots(spots, placement, shapes);
+            changes.RemoveAll(change => PieceOf(change) is { } placement && Overlaps(spots, placement, shapes));
+            pieces.RemoveAll(piece => Overlaps(spots, piece, shapes));
+            singles.RemoveAll(piece => Overlaps(spots, piece, shapes));
+            changes.AddRange(run.Changes);
+            pieces.AddRange(run.Pieces);
+            singles.AddRange(run.Singles);
+            foreach (var cell in run.Cells)
+                if (seen.Add(cell))
+                    cells.Add(cell);
+            ports.AddRange(run.PortEnds);
+            if (failure.IsNone)
+                failure = run.FirstFailure;
+        }
+
+        return new RunPlan(ValueList.From(cells), ValueList.From(changes), ValueList.From(pieces), ValueList.From(singles), failure)
+        {
+            PortEnds = ValueList.From(ports),
+            LaidWith = runs[0].LaidWith,
+        };
+    }
+
+    private static Placement? PieceOf(Intent change) => change switch
+    {
+        Intent.Build build => build.Target,
+        Intent.Swap swap => swap.New,
+        _ => null,
+    };
+
+    private static void AddSpots(HashSet<SpotKey> spots, Placement placement, Shapes shapes)
+    {
+        if (shapes.Of(placement).TryGet(out var shape))
+            foreach (var spot in shape.Spots)
+                spots.Add(spot);
+    }
+
+    private static bool Overlaps(HashSet<SpotKey> spots, Placement placement, Shapes shapes)
+    {
+        if (!shapes.Of(placement).TryGet(out var shape))
+            return false;
+        foreach (var spot in shape.Spots)
+            if (spots.Contains(spot))
+                return true;
+        return false;
+    }
+
     /// <summary>The run's report, its costs from the given bill (the bills module's).</summary>
     public RunReport Report(Func<ValueList<Placement>, Bill> bill) =>
-        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds };
+        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds, LaidWith = LaidWith };
 }
 
 /// <summary>
@@ -44,9 +114,12 @@ internal sealed record RunPlan(
 /// <list type="bullet">
 /// <item>Each cell gets the kit's piece for the ways the run leaves it plus the neighbours' ends that point in (the piece chooser).</item>
 /// <item>A cell already holding the kit's piece merges: same ways, left as is; a one-cell piece is swapped (real) or replaced (ghost) by the merged shape; a piece over several cells is split where the run joins it (the split planner): a real one gets a removal ghost and build ghosts for its cells, a ghost is replaced by them.</item>
-/// <item>Free straight stretches take the kit's longest straights first, as the game's cable gun lays them.</item>
+/// <item>Free straight stretches take the kit's longest straights first, as the game's cable gun lays them; with <see cref="LayOptions.SinglePiecesOnly"/>, single pieces.</item>
 /// <item>Every new piece in a free or ghost-held cell goes through the game's placement check; a long straight it refuses is tried shorter, down to single pieces, so a failure names one cell and the game's reason. Pieces over a real piece being replaced are not checked: the game's cursor would see the old piece. A failing cell still gets its ghost: validation reports it, and a planned removal may clear the cell first.</item>
 /// <item>A cell the kit has no piece for gets none and fails with <see cref="ReasonCodes.NoPiece"/>.</item>
+/// <item>With <see cref="LayOptions.MatchGrade"/>, the run is laid with the kit of a run piece it joins at its from end,
+/// else at its to end (a piece in the end cell, or a neighbour's end pointing into it), when that kit lays the same
+/// network kinds on the same grid (<see cref="KitShapes.LaysTheSameNetworks"/>).</item>
 /// </list>
 /// </summary>
 internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementCheck placementCheck)
@@ -59,19 +132,59 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
     /// The run, or why it cannot be planned at all (unknown kit, a kit with no straight, a point off the grid, a leg off
     /// one axis, a port end that does not resolve: <see cref="PortEnds"/>).
     /// </summary>
-    public Result<RunPlan, Reason> Plan(RunRequest request, IGhostBoard board, IWorldQuery world)
+    public Result<RunPlan, Reason> Plan(RunRequest request, IGhostBoard board, IWorldQuery world) => Plan(request, board, world, null);
+
+    /// <summary>The run laid after <paramref name="laid"/>, the changes of earlier runs of the same request: it meets their pieces as pieces already planned.</summary>
+    public Result<RunPlan, Reason> Plan(RunRequest request, IGhostBoard board, IWorldQuery world, IReadOnlyList<Intent>? laid)
     {
-        if (!_chooser.Kit(request.Kit).TryGet(out var kit))
+        if (!_chooser.Kit(request.Kit).TryGet(out var asked))
             return Result<RunPlan, Reason>.Error(_chooser.Kit(request.Kit).TryGetError(out var why) ? why : Reason.Of(ReasonCodes.NoPiece, RunCodes.Runs));
+        var around = new Neighbourhood(_shapes, grid, board, world, laid);
+        var kit = request.Lay.MatchGrade ? Grade(asked, request, around) : asked;
         var resolved = _ports.Resolve(request.FromPort, request.From, request.ToPort, request.To, kit, board);
         if (!resolved.TryGet(out var ports))
             return Result<RunPlan, Reason>.Error(resolved.ErrorOf());
         var walked = RunPath.Walk(request, kit, grid, ports);
         if (!walked.TryGet(out var path))
             return Result<RunPlan, Reason>.Error(walked.TryGetError(out var bad) ? bad : Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs));
-        var around = new Neighbourhood(_shapes, grid, board, world);
-        var plan = new Laying(kit, path, around, grid, placementCheck).Lay();
+        var plan = new Laying(kit, path, around, grid, placementCheck, request.Lay.SinglePiecesOnly).Lay();
+        if (kit != asked)
+            plan = plan with { LaidWith = Option.Some(kit.Kit) };
         return Result<RunPlan, Reason>.Ok(ports.Count == 0 ? plan : plan with { PortEnds = Joined(plan, ports, around, kit) });
+    }
+
+    /// <summary>The kit of the run the request joins at its from end, else its to end, when it lays the asked kit's networks; else the asked kit.</summary>
+    private KitShapes Grade(KitShapes asked, RunRequest request, Neighbourhood around)
+    {
+        foreach (var end in new[] { request.From, request.To })
+        {
+            foreach (var occupant in around.At(end))
+                if (Same(asked, occupant.Shape.Piece) is { } kit)
+                    return kit;
+            for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
+            {
+                var next = grid.Neighbour(end, direction, asked.Grid);
+                foreach (var occupant in around.At(next))
+                {
+                    var ends = occupant.Shape.Ends;
+                    for (var i = 0; i < ends.Count; i++)
+                        if (ends[i].Cell == next && ends[i].Facing == direction.Opposite()
+                            && asked.Joins(occupant.Shape.Piece.Ends[i]) && Same(asked, occupant.Shape.Piece) is { } kit)
+                            return kit;
+                }
+            }
+        }
+
+        return asked;
+    }
+
+    // A kit other than the asked one that places the piece and lays the asked kit's networks.
+    private KitShapes? Same(KitShapes asked, PieceFacts piece)
+    {
+        foreach (var place in piece.Kits)
+            if (place.Kit != asked.Kit && _chooser.Kit(place.Kit).TryGet(out var other) && other.Places(piece) && asked.LaysTheSameNetworks(other))
+                return other;
+        return null;
     }
 
     /// <summary>For each port end, the piece that leaves its cell back into the port: one the run lays, else the kit's piece already there.</summary>
@@ -103,7 +216,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         return false;
     }
 
-    private sealed class Laying(KitShapes kit, RunPath path, Neighbourhood around, IGrid grid, IPlacementCheck check)
+    private sealed class Laying(KitShapes kit, RunPath path, Neighbourhood around, IGrid grid, IPlacementCheck check, bool singlesOnly)
     {
         private readonly List<Intent> _changes = [];
         private readonly List<Placement> _pieces = [];
@@ -211,7 +324,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
             _done.Add(cell);
             var heading = visits[start].Heading;
             var straight = Directions.Along(heading.AxisOf());
-            if (!Lies(Ways(cell), straight) || kit.Longs.Count == 0)
+            if (!Lies(Ways(cell), straight) || kit.Longs.Count == 0 || singlesOnly)
             {
                 if (Pick(cell, path.WaysAt(cell)) is { } single)
                     BuildChecked(single);

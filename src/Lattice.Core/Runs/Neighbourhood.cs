@@ -31,12 +31,16 @@ internal sealed record Occupant(PlacedShape Shape, Holder Holder, ValueList<Cell
 
 /// <summary>
 /// The planned world around a run, as one actor sees it: the real structures, less the ones a remove or swap ghost
-/// targets and the ones a build ghost displaces from their slot, plus the new pieces of build and swap ghosts. Reads
+/// targets and the ones a build ghost displaces from their slot, plus the new pieces of build and swap ghosts. With
+/// <paramref name="laid"/> (the changes of earlier runs of the same request, not on the board yet), their new pieces
+/// stand too, in place of any board ghost in the same spot, and the structures they remove or swap are taken. Reads
 /// are cached per cell for the life of the instance (one plan).
 /// </summary>
-internal sealed class Neighbourhood(Shapes shapes, IGrid grid, IGhostBoard board, IWorldQuery world)
+internal sealed class Neighbourhood(Shapes shapes, IGrid grid, IGhostBoard board, IWorldQuery world, IReadOnlyList<Intent>? laid = null)
 {
     private readonly Dictionary<Cell, List<Occupant>> _at = [];
+    private Dictionary<Cell, List<Occupant>>? _laid;
+    private HashSet<ReferenceId>? _laidTakes;
 
     /// <summary>The planned pieces that fill a cell.</summary>
     public IReadOnlyList<Occupant> At(Cell cell)
@@ -45,8 +49,10 @@ internal sealed class Neighbourhood(Shapes shapes, IGrid grid, IGhostBoard board
             return known;
 
         var here = new List<Occupant>(2);
+        if (Laid().TryGetValue(cell, out var earlier))
+            here.AddRange(earlier);
         foreach (var ghost in board.At(cell))
-            if (NewPiece(ghost.Intent) is { } placement && shapes.Of(placement).TryGet(out var shape))
+            if (NewPiece(ghost.Intent) is { } placement && shapes.Of(placement).TryGet(out var shape) && !Displaced(shape, cell, here))
                 here.Add(new Occupant(shape, new Holder.Planned(ghost.Id, Swapped(ghost.Intent)), PieceCells.Of(shape, grid)));
 
         foreach (var structure in world.At(cell))
@@ -100,8 +106,40 @@ internal sealed class Neighbourhood(Shapes shapes, IGrid grid, IGhostBoard board
     private static Option<StructureRef> Swapped(Intent intent) =>
         intent is Intent.Swap swap ? Option.Some(swap.Old) : Option<StructureRef>.None;
 
+    // The earlier runs' new pieces by the cells they fill, each held as a ghost not placed yet (ids below zero).
+    private Dictionary<Cell, List<Occupant>> Laid()
+    {
+        if (_laid is not null)
+            return _laid;
+        _laid = [];
+        _laidTakes = [];
+        if (laid is null)
+            return _laid;
+        for (var i = 0; i < laid.Count; i++)
+        {
+            if (laid[i] is Intent.Remove remove)
+                _laidTakes.Add(remove.Target.Id);
+            if (Swapped(laid[i]).TryGet(out var old))
+                _laidTakes.Add(old.Id);
+            if (NewPiece(laid[i]) is not { } placement || !shapes.Of(placement).TryGet(out var shape))
+                continue;
+            var occupant = new Occupant(shape, new Holder.Planned(new GhostId(-(i + 1)), Swapped(laid[i])), PieceCells.Of(shape, grid));
+            foreach (var at in occupant.Cells)
+            {
+                if (!_laid.TryGetValue(at, out var list))
+                    _laid[at] = list = new List<Occupant>(1);
+                list.Add(occupant);
+            }
+        }
+
+        return _laid;
+    }
+
     private bool Taken(StructureRef structure)
     {
+        Laid();
+        if (_laidTakes!.Contains(structure.Id))
+            return true;
         foreach (var ghost in board.On(structure))
             if (ghost.Intent is Intent.Remove or Intent.Swap)
                 return true;

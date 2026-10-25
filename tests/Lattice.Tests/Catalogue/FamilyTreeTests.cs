@@ -199,7 +199,7 @@ public sealed class FamilyTreeTests
         Assert.Equal(PieceFamilies.Window, hand.Named("StructureCompositeWindowIron").Family);
     }
 
-    private static PieceCatalogue View(CatalogueAdditions additions) => new(Catalogue.Listing, additions, PiecePorts.Over(Catalogue));
+    private static PieceCatalogue View(CatalogueAdditions additions) => new(Catalogue.Listing, additions, PiecePorts.Over(Catalogue), Lattice.Core.Styles.Facings.Over(Catalogue));
 
-    private static PieceCatalogue View(FakeCatalogue catalogue, CatalogueAdditions additions) => new(catalogue.Listing, additions, PiecePorts.Over(catalogue));
+    private static PieceCatalogue View(FakeCatalogue catalogue, CatalogueAdditions additions) => new(catalogue.Listing, additions, PiecePorts.Over(catalogue), Lattice.Core.Styles.Facings.Over(catalogue));
 }

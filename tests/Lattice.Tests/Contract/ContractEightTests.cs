@@ -8,13 +8,6 @@ namespace Lattice.Tests.Contract;
 /// <summary>Contract 0.8: a placed piece's ports, and run ends at a ghost's port, each documented as added in 0.8.</summary>
 public sealed class ContractEightTests
 {
-    [Fact]
-    public void The_contract_is_zero_eight()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(8, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("M:Lattice.Api.IPieceCatalogue.PortsAt(Lattice.Api.Placement)")]
     [InlineData("T:Lattice.Api.Port")]

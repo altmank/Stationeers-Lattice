@@ -64,7 +64,7 @@ public sealed class PortsTests
         CatalogueFile.Read(new StringReader(text), "ports.lcat").Match(static c => c, static e => throw new InvalidOperationException(e.ToString()));
 
     private static PieceCatalogue View(FakeCatalogue catalogue) =>
-        new(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue));
+        new(catalogue.Listing, new CatalogueAdditions(catalogue), PiecePorts.Over(catalogue), Lattice.Core.Styles.Facings.Over(catalogue));
 
     private static readonly FakeCatalogue Catalogue = Read();
 

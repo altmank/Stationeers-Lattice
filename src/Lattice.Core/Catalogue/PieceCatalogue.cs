@@ -16,14 +16,16 @@ internal sealed class PieceCatalogue : IPieceCatalogue
 {
     private readonly IPieceFamilies _families;
     private readonly PiecePorts _ports;
+    private readonly Lattice.Core.Styles.Facings _facings;
     private readonly Dictionary<PrefabKey, PieceEntry> _pieces;
     private readonly Dictionary<KitKey, KitEntry> _kits;
     private readonly Dictionary<PrefabKey, Result<KitPlace, Reason>> _kitOf;
 
-    public PieceCatalogue(CatalogueListing listing, IPieceFamilies families, PiecePorts ports)
+    public PieceCatalogue(CatalogueListing listing, IPieceFamilies families, PiecePorts ports, Lattice.Core.Styles.Facings facings)
     {
         _families = families;
         _ports = ports;
+        _facings = facings;
         var sourceKits = new List<ListedKit>(listing.Kits.Count);
         _kits = new Dictionary<KitKey, KitEntry>(listing.Kits.Count);
         foreach (var kit in listing.Kits)
@@ -117,6 +119,14 @@ internal sealed class PieceCatalogue : IPieceCatalogue
 
     /// <inheritdoc />
     public Option<PieceFamily> ParentOf(PieceFamily family) => FamilyTree.ParentOf(family);
+
+    /// <inheritdoc />
+    public Result<Option<Axis>, Reason> FacingOf(Placement placement)
+    {
+        if (!_pieces.ContainsKey(placement.Piece))
+            return Result<Option<Axis>, Reason>.Error(Unknown(placement.Piece));
+        return Result<Option<Axis>, Reason>.Ok(_facings.Of(placement) is { } axis ? Option.Some(axis) : Option<Axis>.None);
+    }
 
     /// <inheritdoc />
     public Result<ValueList<Port>, Reason> PortsAt(Placement placement) =>

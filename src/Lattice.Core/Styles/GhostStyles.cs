@@ -178,7 +178,7 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     private readonly StyleSets _sets;
     private readonly Relations _relations;
     private readonly Facets _facets;
-    private readonly Dictionary<(PrefabKey Piece, Turn Turn, int X, int Y, int Z), Axis?> _faceAxes = new();
+    private readonly Facings _facings;
     private readonly Clips _clips = new();
     private readonly PickIndex _pick;
     private readonly PickFilter _pickFilter;
@@ -221,6 +221,7 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     public GhostStyles(StyleParts parts)
     {
         _parts = parts;
+        _facings = new Facings(parts.Shapes);
         _board = parts.Board;
         _viewer = parts.Viewer;
         _palette = new PaletteInForce(parts.Library?.Default, parts.Library is { } held ? held.PaletteOf : null, parts.Paints);
@@ -920,21 +921,8 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     private Option<StructureInfo> Built(StructureRef structure) =>
         _parts.World is { } world ? world.Structure(structure.Id) : Option<StructureInfo>.None;
 
-    /// <summary>
-    /// The axis a piece's face is square to, at a cell and turn; null for a piece off the faces. Kept per piece, turn and
-    /// place within its large cell (the spots move with whole cells), so asking again allocates nothing.
-    /// </summary>
-    private Axis? FaceAxisOf(PrefabKey piece, Cell at, Turn turn)
-    {
-        var key = (piece, turn, Within(at.X), Within(at.Y), Within(at.Z));
-        if (_faceAxes.TryGetValue(key, out var known))
-            return known;
-        var axis = _parts.Shapes.Of(new Placement(piece, at, turn)).TryGet(out var shape) ? FaceAxes.Of(shape.Spots) : null;
-        _faceAxes[key] = axis;
-        return axis;
-    }
-
-    private static int Within(int key) => ((key % 20) + 20) % 20;
+    /// <summary>The axis a piece's face is square to, at a cell and turn; null for a piece off the faces. Allocates nothing once asked.</summary>
+    private Axis? FaceAxisOf(PrefabKey piece, Cell at, Turn turn) => _facings.Of(piece, at, turn);
 
     private static Option<Placement> Placed(Intent intent) => intent switch
     {
