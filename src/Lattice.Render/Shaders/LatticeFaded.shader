@@ -16,6 +16,7 @@ Shader "Lattice/Faded"
     Properties
     {
         _Color ("Colour", Color) = (1, 1, 1, 0.3)
+        _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
         _MainTex ("Texture", 2D) = "white" {}
         _MainTexArray ("Texture array", 2DArray) = "" {}
         [Toggle(LATTICE_DITHER)] _Dither ("Dithered", Float) = 0

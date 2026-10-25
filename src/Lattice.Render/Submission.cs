@@ -5,6 +5,7 @@ using Lattice.Core.Slices;
 using Lattice.Core.Styles;
 using Lattice.Render.Claims;
 using Lattice.Render.Gpu;
+using Lattice.Render.Marks;
 using Lattice.Render.Materials;
 using UnityEngine;
 
@@ -119,6 +120,14 @@ internal sealed class DrawGroup
 
         for (var i = 0; i < Layers; i++)
             Layer[i] = new LayerDraw(gpu.NewBlock());
+        ShowsPorts = key.Style.Ports.TryGet(out var ports) && ports == ShowMode.Shown;
+        ShowsOpenEnds = key.Style.OpenEnds.TryGet(out var open) && open == ShowMode.Shown;
+        ShowsFlow = key.Style.FlowArrows.TryGet(out var flow) && flow == ShowMode.Shown;
+        ShowsWaits = key.Style.WaitsLinks.TryGet(out var waits) && waits == ShowMode.Shown;
+        PortLayer = new LayerDraw(gpu.NewBlock());
+        OpenLayer = new LayerDraw(gpu.NewBlock());
+        FlowLayer = new LayerDraw(gpu.NewBlock());
+        WaitsLayer = new LayerDraw(gpu.NewBlock());
     }
 
     public GroupKey Key { get; }
@@ -151,9 +160,65 @@ internal sealed class DrawGroup
     public List<Matrix4x4[]>[] Pages;
     public List<Matrix4x4[]>[] NextPages;
 
+    /// <summary>Its look shows every port of its pieces (<see cref="Style.Ports"/>).</summary>
+    public bool ShowsPorts { get; }
+
+    /// <summary>Its look shows the ports nothing joins (<see cref="Style.OpenEnds"/>).</summary>
+    public bool ShowsOpenEnds { get; }
+
+    /// <summary>Its look shows which way things flow through its pieces' ports (<see cref="Style.FlowArrows"/>).</summary>
+    public bool ShowsFlow { get; }
+
+    /// <summary>Its look links each ghost to the ghosts it waits for (<see cref="Style.WaitsLinks"/>).</summary>
+    public bool ShowsWaits { get; }
+
+    /// <summary>Rebuilds write marks for its visible instances.</summary>
+    public bool Marks => ShowsPorts || ShowsOpenEnds || ShowsFlow || ShowsWaits;
+
+    /// <summary>Drawn marks, in pages of 1023, and the ones a rebuild in progress writes; a complete rebuild swaps them.</summary>
+    public MarkPages Ports = new();
+    public MarkPages OpenEnds = new();
+    public MarkPages NextPorts = new();
+    public MarkPages NextOpenEnds = new();
+    public MarkPages Flow = new();
+    public MarkPages NextFlow = new();
+    public MarkPages Waits = new();
+    public MarkPages NextWaits = new();
+
+    /// <summary>The end facts' stamp its drawn marks were worked out at; -1 before.</summary>
+    public long MarksAt = -1;
+
+    public readonly LayerDraw PortLayer;
+    public readonly LayerDraw OpenLayer;
+    public readonly LayerDraw FlowLayer;
+    public readonly LayerDraw WaitsLayer;
+
     public bool Existing => Key.Existing;
 
     public bool MeshClaimed => Key.MeshClaimed;
+}
+
+/// <summary>Mark matrices in pages of 1023 taken from the page pool: what one instanced call per page draws.</summary>
+internal sealed class MarkPages
+{
+    public readonly List<Matrix4x4[]> Pages = new(1);
+
+    public int Count;
+
+    public void Add(Matrix4x4 mark, PagePool pool)
+    {
+        var page = Count / Batch.PageSize;
+        if (page == Pages.Count)
+            Pages.Add(pool.Rent());
+        Pages[page][Count % Batch.PageSize] = mark;
+        Count++;
+    }
+
+    public void Clear(PagePool pool)
+    {
+        pool.Return(Pages);
+        Count = 0;
+    }
 }
 
 /// <summary>Matrix pages for reuse: a rebuild takes its pages here and gives back the ones it replaced.</summary>
@@ -191,6 +256,9 @@ internal sealed class DrawState(RenderPorts ports)
     public int UnknownPieces => _unknown.Count;
 
     public IGpu Gpu => ports.Gpu;
+
+    /// <summary>Ports and joins for the groups that draw marks; none when the seat has no world to ask.</summary>
+    public IMarkFacts? Facts => ports.Facts;
 
     /// <summary>Rises when a piece's parts change (a piece look registered or disposed), so the next sort re-places its batches.</summary>
     public long PieceStamp { get; private set; }
@@ -316,6 +384,14 @@ internal sealed class DrawState(RenderPorts ports)
             Pool.Return(group.NextPages[p]);
         }
 
+        group.Ports.Clear(Pool);
+        group.OpenEnds.Clear(Pool);
+        group.NextPorts.Clear(Pool);
+        group.NextOpenEnds.Clear(Pool);
+        group.Flow.Clear(Pool);
+        group.NextFlow.Clear(Pool);
+        group.Waits.Clear(Pool);
+        group.NextWaits.Clear(Pool);
         if (_byKey.TryGetValue(group.Key, out var held) && ReferenceEquals(held, group))
             _byKey.Remove(group.Key);
         Groups.Remove(group);
@@ -376,12 +452,20 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
     private Vector3 _min;
     private Vector3 _max;
     private bool _ended;
+    private readonly List<EndMark> _ends = new(16);
+    private readonly List<FlowMark> _flows = new(8);
+    private long _endsStamp = -1;
+    private long _marksStamp;
+
+    /// <summary>What copying one instance costs of a step's budget when its group also writes marks (its ports are asked).</summary>
+    private const int MarkedInstanceCost = 8;
 
     // A chunk's box is grown by this much on every side, for pieces that reach past their cell's chunk.
     public const float ChunkMargin = 8f;
 
     /// <summary>A sort or a rebuild is under way, a rebuild is queued, or a claim change waits for its sort.</summary>
-    public bool Busy => _sorting || _group is not null || state.Dirty.Count > 0 || _sortedClaims != claims.Stamp || claims.Moved || _sortedPieces != state.PieceStamp;
+    public bool Busy => _sorting || _group is not null || state.Dirty.Count > 0 || _sortedClaims != claims.Stamp || claims.Moved || _sortedPieces != state.PieceStamp
+        || state.Facts is { } ends && ends.Stamp != _endsStamp;
 
     /// <summary>The batches in view at the last complete sort.</summary>
     public int Visible { get; private set; }
@@ -421,6 +505,7 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
             return StepOutcome.More;
         }
 
+        RefreshMarks();
         if (state.Dirty.Count == 0)
             return StepOutcome.NextFrame;
         _group = state.Dirty.Dequeue();
@@ -504,6 +589,72 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
         _written = 0;
         _min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         _max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+        if (group.Marks)
+        {
+            group.NextPorts.Clear(state.Pool);
+            group.NextOpenEnds.Clear(state.Pool);
+            group.NextFlow.Clear(state.Pool);
+            group.NextWaits.Clear(state.Pool);
+            _marksStamp = state.Facts?.Stamp ?? 0;
+        }
+    }
+
+    /// <summary>When what joins a port may have changed, every group drawing marks from an older stamp is queued.</summary>
+    private void RefreshMarks()
+    {
+        if (state.Facts is not { } ends)
+            return;
+        var stamp = ends.Stamp;
+        if (stamp == _endsStamp)
+            return;
+        _endsStamp = stamp;
+        var groups = state.Groups;
+        for (var i = 0; i < groups.Count; i++)
+            if (groups[i].Marks && groups[i].MarksAt != stamp)
+                state.MarkDirty(groups[i]);
+    }
+
+    private void WriteMarks(DrawGroup group, PrefabKey piece, DrawInstance instance)
+    {
+        if (state.Facts is not { } facts)
+            return;
+        var placement = new Placement(piece, instance.At, instance.Turn);
+        if (group.ShowsPorts || group.ShowsOpenEnds)
+        {
+            _ends.Clear();
+            facts.Ends(placement, _ends);
+            for (var i = 0; i < _ends.Count; i++)
+            {
+                var end = _ends[i];
+                if (group.ShowsPorts)
+                    group.NextPorts.Add(MarkShapes.Port(end), state.Pool);
+                if (group.ShowsOpenEnds && end.Open)
+                    group.NextOpenEnds.Add(MarkShapes.Open(end), state.Pool);
+            }
+        }
+
+        if (group.ShowsFlow)
+        {
+            _flows.Clear();
+            facts.Flow(placement, _flows);
+            for (var i = 0; i < _flows.Count; i++)
+            {
+                group.NextFlow.Add(MarkShapes.Shaft(_flows[i]), state.Pool);
+                group.NextFlow.Add(MarkShapes.Head(_flows[i]), state.Pool);
+            }
+        }
+
+        if (group.ShowsWaits && instance.Thing.Finding is Finding.WaitsFor waits)
+        {
+            var from = MarkShapes.Centre(instance.At);
+            foreach (var other in waits.Others)
+                if (facts.CellOf(other, out var cell))
+                {
+                    var to = MarkShapes.Centre(cell);
+                    group.NextWaits.Add(MarkShapes.Link(from, to), state.Pool);
+                    group.NextWaits.Add(MarkShapes.LinkTip(from, to), state.Pool);
+                }
+        }
     }
 
     private void Copy()
@@ -527,7 +678,8 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
                 Grow(batch.Chunk);
             }
 
-            var until = Math.Min(batch.Count, _index + budget);
+            var cost = group.Marks ? MarkedInstanceCost : 1;
+            var until = Math.Min(batch.Count, _index + Math.Max(1, budget / cost));
             if (_written + (until - _index) > group.Staging.Length)
             {
                 Begin();
@@ -538,7 +690,9 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
             {
                 var instance = batch[_index];
                 group.Staging[_written++] = Submission.Placement(instance.At, instance.Turn);
-                budget--;
+                if (group.Marks)
+                    WriteMarks(group, batch.Piece, instance);
+                budget -= cost;
             }
 
             if (_index >= batch.Count)
@@ -632,6 +786,19 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
             for (var p = 0; p < group.Pages.Length; p++)
                 state.Pool.Return(group.Pages[p]);
             group.HasPages = false;
+        }
+
+        if (group.Marks)
+        {
+            (group.Ports, group.NextPorts) = (group.NextPorts, group.Ports);
+            (group.OpenEnds, group.NextOpenEnds) = (group.NextOpenEnds, group.OpenEnds);
+            (group.Flow, group.NextFlow) = (group.NextFlow, group.Flow);
+            (group.Waits, group.NextWaits) = (group.NextWaits, group.Waits);
+            group.NextPorts.Clear(state.Pool);
+            group.NextOpenEnds.Clear(state.Pool);
+            group.NextFlow.Clear(state.Pool);
+            group.NextWaits.Clear(state.Pool);
+            group.MarksAt = _marksStamp;
         }
 
         group.Count = _written;
@@ -754,7 +921,25 @@ internal sealed class Submission
             }
         }
 
+        if (group.Marks)
+        {
+            calls += DrawMarks(group.PortLayer, group.Ports);
+            calls += DrawMarks(group.OpenLayer, group.OpenEnds);
+            calls += DrawMarks(group.FlowLayer, group.Flow);
+            calls += DrawMarks(group.WaitsLayer, group.Waits);
+        }
+
         return calls;
+    }
+
+    private int DrawMarks(LayerDraw layer, MarkPages marks)
+    {
+        if (!layer.On || layer.Material is not { } material || marks.Count == 0)
+            return 0;
+        var pages = marks.Pages;
+        for (var page = 0; page < pages.Count; page++)
+            _ports.Gpu.Draw(_ports.Gpu.Marker, 0, material, pages[page], Math.Min(Batch.PageSize, marks.Count - page * Batch.PageSize), layer.Block);
+        return pages.Count;
     }
 
     /// <summary>A piece's matrix in the world: its cell's position (cells are decimetres) and its turn's axes.</summary>
@@ -813,7 +998,7 @@ internal sealed class Submission
         if (fill.On)
         {
             var pattern = PatternCode(style.Pattern.Reduce(Pattern.None));
-            fill.Block.Set(ShaderProp.Pattern, new Vector4(pattern, 0f, 0f, 0f));
+            fill.Block.Set(ShaderProp.Pattern, pattern);
             var patternColour = look.Edge.A > 0 ? Colour(look.Edge) : Colour(look.Fill);
             fill.Block.Set(ShaderProp.PatternColor, new Vector4(patternColour.x, patternColour.y, patternColour.z, Math.Min(1f, patternColour.w * 2f)));
         }
@@ -837,6 +1022,17 @@ internal sealed class Submission
         Set(group, see, through is not null ? MaterialKeys.SeeThrough : default, Colour(look.Fill), beyond, ref needsPages);
         if (see.On && through is not null)
             see.Block.Set(ShaderProp.SeeThrough, new Vector4(through.Strength.Value, through.Range.Value, 0f, 0f));
+
+        // Port marks and flow arrows in the look's edge colour (its fill without an edge); open ends and waits links in
+        // its glow colour, else its fill (then edge), so they stand apart from the port marks on a look without a glow.
+        // All draw with the solid material, never the additive glow, so a mark reads on a light surface too, and at
+        // least nearly opaque, so it reads on a faint ghost.
+        var markLine = MarkColour(look.Edge.A > 0 ? look.Edge : look.Fill);
+        var markApart = MarkColour(look.Glow.A > 0 ? look.Glow : look.Fill.A > 0 ? look.Fill : look.Edge);
+        SetMark(group, group.PortLayer, group.ShowsPorts ? MaterialKeys.Solid : default, markLine, beyond);
+        SetMark(group, group.OpenLayer, group.ShowsOpenEnds ? MaterialKeys.Solid : default, markApart, beyond);
+        SetMark(group, group.FlowLayer, group.ShowsFlow ? MaterialKeys.Solid : default, markLine, beyond);
+        SetMark(group, group.WaitsLayer, group.ShowsWaits ? MaterialKeys.Solid : default, markApart, beyond);
 
         var effect = EffectCode(style);
         for (var i = 0; i < DrawGroup.Layers; i++)
@@ -902,6 +1098,31 @@ internal sealed class Submission
         layer.Block.Set(ShaderProp.Beyond, beyond);
     }
 
+    /// <summary>A mark layer: drawn instanced with the key's material (an override's, if any), none when the key has none.</summary>
+    private void SetMark(DrawGroup group, LayerDraw layer, MaterialKey key, Vector4 colour, Vector4 beyond)
+    {
+        layer.On = false;
+        layer.Material = null;
+        if (key.Value.Length == 0)
+            return;
+        var entry = _materials.Entry(key);
+        var material = group.Existing ? entry.Overlay : entry.Placement;
+        if (material is null)
+        {
+            _skippedLayers++;
+            return;
+        }
+
+        layer.Material = material;
+        layer.Procedural = false;
+        layer.Colour = colour;
+        layer.On = true;
+        layer.Block.Set(ShaderProp.Color, colour);
+        layer.Block.Set(ShaderProp.Beyond, beyond);
+    }
+
+    private static Vector4 MarkColour(Rgba c) => new(c.R / 255f, c.G / 255f, c.B / 255f, Math.Max(c.A / 255f, 0.85f));
+
     private static void SetOwn(DrawGroup group, LayerDraw layer, IGpuMaterial material, Vector4 colour, Vector4 beyond)
     {
         layer.Material = material;
@@ -935,7 +1156,7 @@ internal sealed class Submission
                 layer.Block.Set(ShaderProp.EdgeColor, new Vector4(e.x, e.y, e.z, e.w * factor));
             }
 
-            layer.Block.Set(ShaderProp.Time, new Vector4(t, 0f, 0f, 0f));
+            layer.Block.Set(ShaderProp.Time, t);
         }
     }
 

@@ -4,6 +4,9 @@ Shader "Lattice/Solid"
     Properties
     {
         _Color ("Colour", Color) = (0.25, 0.45, 1, 1)
+        _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
+        _LatticePattern ("Pattern", Float) = 0
+        _LatticePatternColor ("Pattern colour", Color) = (1, 1, 1, 1)
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
         _LatticeOffsetUnits ("Depth offset units", Float) = 0
     }

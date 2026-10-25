@@ -13,7 +13,7 @@ internal enum ShaderProp
     /// <summary><c>_Color</c>: the final colour, eases, effects and dim applied on the CPU.</summary>
     Color = 0,
 
-    /// <summary><c>_LatticePattern</c> (x: 0 none, 1 hatch, 2 cross-hatch, 3 dots).</summary>
+    /// <summary><c>_LatticePattern</c>, a float: 0 none, 1 hatch, 2 cross-hatch, 3 dots.</summary>
     Pattern = 1,
 
     /// <summary><c>_LatticePatternColor</c>.</summary>
@@ -22,7 +22,7 @@ internal enum ShaderProp
     /// <summary><c>_LatticeEffect</c>: kind, period, low or duty, phase.</summary>
     Effect = 3,
 
-    /// <summary><c>_LatticeTime</c>: seconds, unscaled.</summary>
+    /// <summary><c>_LatticeTime</c>, a float: seconds, unscaled.</summary>
     Time = 4,
 
     /// <summary><c>_LatticeSeeThrough</c>: strength, range.</summary>
@@ -34,7 +34,7 @@ internal enum ShaderProp
     /// <summary><c>_LatticeBeyond</c>: mode, dim. A global (the viewer's default) and per draw (a style's own).</summary>
     Beyond = 7,
 
-    /// <summary><c>_LatticeClipMode</c>, global: 0 none, 1 plane, 2 box.</summary>
+    /// <summary><c>_LatticeClipMode</c>, a global float: 0 none, 1 plane, 2 box.</summary>
     ClipMode = 8,
 
     /// <summary><c>_LatticeClipPlane</c>, global: xyz normal, w distance.</summary>
@@ -54,6 +54,21 @@ internal enum ShaderProp
 
     /// <summary><c>_LatticeEdgeColor</c>: the edge colour when one material draws fill and edge.</summary>
     EdgeColor = 14,
+}
+
+/// <summary>The shader name of each <see cref="ShaderProp"/>, in the enum's order.</summary>
+internal static class ShaderNames
+{
+    private static readonly string[] Names =
+    {
+        "_Color", "_LatticePattern", "_LatticePatternColor", "_LatticeEffect", "_LatticeTime", "_LatticeSeeThrough",
+        "_LatticeEdge", "_LatticeBeyond", "_LatticeClipMode", "_LatticeClipPlane", "_LatticeClipMin", "_LatticeClipMax",
+        "_LatticeInstances", "_LatticeLocal", "_LatticeEdgeColor",
+    };
+
+    public static int Count => Names.Length;
+
+    public static string Of(ShaderProp prop) => Names[(int)prop];
 }
 
 /// <summary>A mesh the GPU draws: how many submeshes it has.</summary>
@@ -97,6 +112,9 @@ internal interface IGpuBlock
 {
     void Set(ShaderProp prop, Vector4 value);
 
+    /// <summary>A value the shaders declare as a scalar <c>float</c>; the engine keeps floats apart from vectors, so a float is never set as a vector.</summary>
+    void Set(ShaderProp prop, float value);
+
     void Set(ShaderProp prop, Matrix4x4 value);
 
     void Set(ShaderProp prop, IGpuBuffer buffer);
@@ -121,6 +139,9 @@ internal interface IGpu
 
     IGpuBuffer NewBuffer(int capacity);
 
+    /// <summary>The mesh port and open-end marks are drawn with: a unit cube centred on its origin.</summary>
+    IGpuMesh Marker { get; }
+
     /// <summary>One instanced draw for the camera Lattice draws for, no shadows cast or received (at most 1023).</summary>
     void Draw(IGpuMesh mesh, int submesh, IGpuMaterial material, Matrix4x4[] matrices, int count, IGpuBlock block);
 
@@ -131,6 +152,9 @@ internal interface IGpu
     void DrawProcedural(IGpuMesh mesh, int submesh, IGpuMaterial material, Bounds bounds, int count, IGpuBlock block);
 
     void SetGlobal(ShaderProp prop, Vector4 value);
+
+    /// <summary>A global the shaders declare as a scalar <c>float</c> (see <see cref="IGpuBlock.Set(ShaderProp, float)"/>).</summary>
+    void SetGlobal(ShaderProp prop, float value);
 }
 
 /// <summary>The camera Lattice draws for, read once a frame.</summary>

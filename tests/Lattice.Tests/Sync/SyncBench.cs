@@ -112,7 +112,7 @@ internal sealed class Wire
 /// <summary>A host (a test board with its command service and sync) and clients on fake replicas, over a wire.</summary>
 internal sealed class SyncBench
 {
-    private readonly Dictionary<ConnectionId, (ClientSync Sync, FakeReplica Board, ClientId Player)> _clients = new();
+    private readonly Dictionary<ConnectionId, (ClientSync Sync, IReplicaBoard Board, ClientId Player)> _clients = new();
 
     public SyncBench(SyncLimits? limits = null, NamedPiece? modded = null)
     {
@@ -138,13 +138,19 @@ internal sealed class SyncBench
     /// <summary>A client on its own connection, the game's player <paramref name="player"/>, joined.</summary>
     public (ClientSync Sync, FakeReplica Board) Join(long connection, ulong player)
     {
-        var id = new ConnectionId(connection);
         var board = new FakeReplica();
+        return (Join(connection, player, board), board);
+    }
+
+    /// <summary>A client whose board is the one given (a client seat's own <see cref="Lattice.Core.Board.GhostBoard"/>), joined.</summary>
+    public ClientSync Join(long connection, ulong player, IReplicaBoard board)
+    {
+        var id = new ConnectionId(connection);
         board.Events.Answered += (ticket, outcome) => Answers.Add((ticket, outcome));
         var sync = new ClientSync(board, Wire.Client(id), Limits, ClientReports.Add);
         _clients[id] = (sync, board, new ClientId(player));
         HostSync.Joined(id);
-        return (sync, board);
+        return sync;
     }
 
     /// <summary>One frame everywhere: the host's slices and events, the wire both ways, the clients' events.</summary>

@@ -45,6 +45,10 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.10.4
+- Ghosts can now show their ports, open ends, flow arrows and what they wait for.
+- Hiding ghosts beyond the cut-away plane now works in game.
+
 v0.10.3
 - Selecting part of a large base is now fast: a box looks only at the structures it covers.
 

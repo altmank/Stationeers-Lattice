@@ -106,7 +106,8 @@ public interface IPlans
 
     /// <summary>
     /// What a plan (active or finished) holds, as a template; refused for an unknown plan. Reads a finished plan's file.
-    /// On a client, a finished plan is refused <see cref="ReasonCodes.ModuleMissing"/> (<c>module=saving</c>).
+    /// An active plan answers from the local board on every seat: on a client, the same template the host gives for the
+    /// same board. On a client, a finished plan is refused <see cref="ReasonCodes.ModuleMissing"/> (<c>module=saving</c>).
     /// </summary>
     Result<Template, Reason> AsTemplate(PlanId plan, TemplateName name);
 

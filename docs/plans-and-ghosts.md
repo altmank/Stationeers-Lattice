@@ -221,7 +221,7 @@ out in the background for every plan. `Plans.State(plan)` derives `Empty`, `HasE
 - `Command.Reopen(plan)` makes it active again, history intact.
 - `lattice.Plans.AsTemplate(plan, name)` gives what a plan holds as a template to place again.
 - Finished plans live on the host. On a client, `Plans.Finished` is empty and `AsTemplate` of a finished plan is
-  refused `module-missing`. A client can still submit `Repair`, `TakeDown` and `Reopen` for a finished plan id it
+  refused `module-missing`; `AsTemplate` of an active plan answers there from the client's board, as on the host. A client can still submit `Repair`, `TakeDown` and `Reopen` for a finished plan id it
   learned from `ChangeSet.PlansFinished`; the host works them out. See [multiplayer](multiplayer.md#what-runs-where).
 
 ## Limits

@@ -5,6 +5,7 @@ Shader "Lattice/Glow"
     Properties
     {
         _Color ("Colour", Color) = (0.3, 1, 0.4, 0.8)
+        _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
         _LatticeOffsetUnits ("Depth offset units", Float) = 0
         _GlowOffset ("Shell offset (m)", Range(0, 0.1)) = 0.015

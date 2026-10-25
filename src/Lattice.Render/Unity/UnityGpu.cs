@@ -11,13 +11,6 @@ namespace Lattice.Render.Unity;
 /// <summary>Shader property ids for <see cref="ShaderProp"/>, turned once from the material contract's names.</summary>
 internal static class ShaderIds
 {
-    private static readonly string[] Names =
-    {
-        "_Color", "_LatticePattern", "_LatticePatternColor", "_LatticeEffect", "_LatticeTime", "_LatticeSeeThrough",
-        "_LatticeEdge", "_LatticeBeyond", "_LatticeClipMode", "_LatticeClipPlane", "_LatticeClipMin", "_LatticeClipMax",
-        "_LatticeInstances", "_LatticeLocal", "_LatticeEdgeColor",
-    };
-
     private static int[]? _ids;
 
     public static int Of(ShaderProp prop)
@@ -25,9 +18,9 @@ internal static class ShaderIds
         var ids = _ids;
         if (ids is null)
         {
-            ids = new int[Names.Length];
-            for (var i = 0; i < Names.Length; i++)
-                ids[i] = Shader.PropertyToID(Names[i]);
+            ids = new int[ShaderNames.Count];
+            for (var i = 0; i < ids.Length; i++)
+                ids[i] = Shader.PropertyToID(ShaderNames.Of((ShaderProp)i));
             _ids = ids;
         }
 
@@ -116,6 +109,8 @@ internal sealed class UnityBlock : IGpuBlock
             Block.SetVector(ShaderIds.Of(prop), value);
     }
 
+    public void Set(ShaderProp prop, float value) => Block.SetFloat(ShaderIds.Of(prop), value);
+
     public void Set(ShaderProp prop, Matrix4x4 value) => Block.SetMatrix(ShaderIds.Of(prop), value);
 
     public void Set(ShaderProp prop, IGpuBuffer buffer) => Block.SetBuffer(ShaderIds.Of(prop), ((UnityBuffer)buffer).Buffer);
@@ -138,9 +133,13 @@ internal sealed class UnityBuffer(int capacity) : IGpuBuffer
 /// <summary>Lattice's draws for the camera it draws for: no shadows cast or received, layer 0.</summary>
 internal sealed class UnityGpu(MainCamera camera) : IGpu
 {
+    private UnityMesh? _marker;
+
     public IGpuBlock NewBlock() => new UnityBlock();
 
     public IGpuBuffer NewBuffer(int capacity) => new UnityBuffer(capacity);
+
+    public IGpuMesh Marker => _marker ??= new UnityMesh(Resources.GetBuiltinResource<Mesh>("Cube.fbx"));
 
     public void Draw(IGpuMesh mesh, int submesh, IGpuMaterial material, Matrix4x4[] matrices, int count, IGpuBlock block) =>
         Graphics.DrawMeshInstanced(((UnityMesh)mesh).Mesh, submesh, ((UnityMaterial)material).Material, matrices, count, ((UnityBlock)block).Block,
@@ -151,6 +150,8 @@ internal sealed class UnityGpu(MainCamera camera) : IGpu
             ShadowCastingMode.Off, false, 0, camera.Current);
 
     public void SetGlobal(ShaderProp prop, Vector4 value) => Shader.SetGlobalVector(ShaderIds.Of(prop), value);
+
+    public void SetGlobal(ShaderProp prop, float value) => Shader.SetGlobalFloat(ShaderIds.Of(prop), value);
 }
 
 /// <summary>The game's main camera, read live: none while the game has none.</summary>

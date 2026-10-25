@@ -8,6 +8,7 @@ using Lattice.Render.Claims;
 using Lattice.Render.Drawing;
 using Lattice.Render.Gpu;
 using Lattice.Render.Labels;
+using Lattice.Render.Marks;
 using Lattice.Render.Materials;
 using UnityEngine;
 
@@ -19,8 +20,12 @@ internal static class RenderOrder
     public static DrawOrder Default { get; } = new(FadedWorld: 2990, Ghosts: 3000, Overlays: 3010, SeeThrough: 3020, Labels: 3030);
 }
 
-/// <summary>What Game hands Render: the engine seams, and the piece meshes only Game can read.</summary>
-internal sealed record RenderPorts(IGpu Gpu, ICameraView Camera, IPieceParts Pieces, Func<MaterialKey, Option<IGpuMaterial>> Materials, Action<string> Log);
+/// <summary>
+/// What Game hands Render: the engine seams, and the piece meshes only Game can read. <paramref name="Facts"/> answers
+/// ports, joins, flow and waited-for ghosts for <see cref="Style.Ports"/>, <see cref="Style.OpenEnds"/>,
+/// <see cref="Style.FlowArrows"/> and <see cref="Style.WaitsLinks"/>; without it no marks are drawn.
+/// </summary>
+internal sealed record RenderPorts(IGpu Gpu, ICameraView Camera, IPieceParts Pieces, Func<MaterialKey, Option<IGpuMaterial>> Materials, Action<string> Log, IMarkFacts? Facts = null);
 
 /// <summary>
 /// The clip as shader globals (material contract): set once a frame before any camera renders and never reset, so
@@ -44,15 +49,15 @@ internal sealed class ClipGlobals(IGpu gpu)
                 var n = new Vector3(plane.Normal.X, plane.Normal.Y, plane.Normal.Z);
                 var w = n.x * plane.Point.X + n.y * plane.Point.Y + n.z * plane.Point.Z;
                 gpu.SetGlobal(ShaderProp.ClipPlane, new Vector4(n.x, n.y, n.z, w));
-                gpu.SetGlobal(ShaderProp.ClipMode, new Vector4(1f, 0f, 0f, 0f));
+                gpu.SetGlobal(ShaderProp.ClipMode, 1f);
                 break;
             case ClipShape.Box box:
                 gpu.SetGlobal(ShaderProp.ClipMin, new Vector4(box.Min.X, box.Min.Y, box.Min.Z, 0f));
                 gpu.SetGlobal(ShaderProp.ClipMax, new Vector4(box.Max.X, box.Max.Y, box.Max.Z, 0f));
-                gpu.SetGlobal(ShaderProp.ClipMode, new Vector4(2f, 0f, 0f, 0f));
+                gpu.SetGlobal(ShaderProp.ClipMode, 2f);
                 break;
             default:
-                gpu.SetGlobal(ShaderProp.ClipMode, Vector4.zero);
+                gpu.SetGlobal(ShaderProp.ClipMode, 0f);
                 break;
         }
 
@@ -117,7 +122,8 @@ internal sealed class Renderer
     public static Result<Renderer, Reason> Open(LatticeWorld world, RenderPorts ports, LabelPorts? labels = null) =>
         Off(world).TryGet(out var why) || world.StyleModule is not { } styles
             ? Result<Renderer, Reason>.Error(why)
-            : Over(styles.Plan, ports, world.Scheduler, styles.Watch, labels);
+            : Over(styles.Plan, ports.Facts is null ? ports with { Facts = new WorldMarkFacts(world.Catalogue, world.Board, world.World, world.Events) } : ports,
+                world.Scheduler, styles.Watch, labels);
 
     /// <summary>Why drawing does not open for a world (the <c>render</c> module is off, or styles are missing); none when it may.</summary>
     public static Option<Reason> Off(LatticeWorld world)
@@ -178,5 +184,6 @@ internal sealed class Renderer
         Labels?.End();
         _state.End();
         Materials.End();
+        (_ports.Facts as IDisposable)?.Dispose();
     }
 }

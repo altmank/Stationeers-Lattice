@@ -30,7 +30,10 @@ internal sealed class RenderRig
         Bundle[Lattice.Render.Materials.MaterialTable.FillAndEdgeKey] = new FakeMaterial("ghost-edged", procedural: true);
     }
 
-    public RenderPorts Ports => new(Gpu, Camera, Pieces, key => Bundle.TryGetValue(key, out var m) ? Option.Some<IGpuMaterial>(m) : Option<IGpuMaterial>.None, Log.Add);
+    /// <summary>Ports and joins for port and open-end marks; none draws no marks.</summary>
+    public Lattice.Render.Marks.IMarkFacts? Facts { get; set; }
+
+    public RenderPorts Ports => new(Gpu, Camera, Pieces, key => Bundle.TryGetValue(key, out var m) ? Option.Some<IGpuMaterial>(m) : Option<IGpuMaterial>.None, Log.Add, Facts);
 
     /// <summary>Drawing over the bench's styles, with frames run until its batches are built.</summary>
     public Renderer Over(StyleBench bench)

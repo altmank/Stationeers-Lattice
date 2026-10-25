@@ -5,7 +5,9 @@
 
 #include "UnityCG.cginc"
 
-// Set per draw call through a MaterialPropertyBlock: one style per batch, never per instance.
+// Set per draw call through a MaterialPropertyBlock: one style per batch, never per instance. A Lattice shader declares
+// in its Properties block each of these it reads: the player takes a property set as a global as well from the global
+// for a material that lacks it, so the block's value would never arrive.
 fixed4 _Color;               // final colour and opacity, eases, effects and dim applied on the CPU
 float _LatticePattern;       // 0 none, 1 hatch, 2 cross-hatch, 3 dots
 fixed4 _LatticePatternColor;
@@ -27,7 +29,8 @@ float4x4 _LatticeLocal;
 #endif
 
 // Globals, set once a frame before any camera renders and never reset. A per-draw _LatticeBeyond overrides the
-// global one for Lattice's own batches (a style's BeyondClip); the global is the viewer's default for other shaders.
+// global one for Lattice's own batches (a style's BeyondClip; Lattice's shaders declare it, so the block wins); the
+// global is the viewer's default for other shaders.
 float _LatticeClipMode;      // 0 none, 1 plane, 2 box
 float4 _LatticeClipPlane;    // xyz unit normal, w = dot(normal, a point on the plane); beyond = dot(normal, p) > w
 float4 _LatticeClipMin;      // box: beyond = outside [min, max]

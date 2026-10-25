@@ -27,8 +27,9 @@ The same `CommandId` sent twice applies once, so a client can resend after a dro
 
 ## What runs where
 
-- **Every seat:** the board, the catalogue, validation, steps, bills, previews, analysis, selectors and styles.
-  Previews and validation on a client run against its local copy of the board and world.
+- **Every seat:** the board, the catalogue, validation, steps, bills, previews, analysis, selectors, styles, and an
+  active plan's template (`Plans.AsTemplate`). Previews, validation and templates on a client run against its local
+  copy of the board and world, so they give what the host gives for the same board.
 - **Host only:** applying commands, matching built pieces to ghosts, saving, finished plans (`Plans.Finished` is
   empty on a client; finished-plan commands are submitted and worked out on the host), the inspector and executors.
   Clients see their results as change sets and status events.

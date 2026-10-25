@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.4
+
+- **Ports, open ends, flow arrows and waits links are drawn.** The style properties `Ports`, `OpenEnds`, `FlowArrows`
+  and `WaitsLinks` were resolved but not drawn; now they are. Ports show as a bar from the cell out to its face, open
+  ends (ports nothing joins) as a block, flow as arrows into a device's inputs and out of its outputs and along its
+  runs, and waits as a link to each ghost a ghost waits for. They draw in the look's own colours and allocate nothing
+  in a steady frame.
+- **Hiding ghosts beyond the clip works in game.** A look set to hide what lies past the clip plane now does so; two
+  values reached the shaders the wrong way and were ignored.
+- **Templates of active plans on clients** are documented and tested: a client builds them from its own board, the
+  same as the host's.
+
 ## 0.10.3
 
 - **Box selections are fast on large bases.** Selecting built structures or ghosts in a box looks only at the part of

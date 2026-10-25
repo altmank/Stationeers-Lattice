@@ -74,7 +74,19 @@ internal sealed class FakeBlock : IGpuBlock
     public readonly Matrix4x4[] Matrices = new Matrix4x4[16];
     public readonly FakeBuffer?[] Buffers = new FakeBuffer?[16];
     public readonly bool[] IsSet = new bool[16];
+
+    /// <summary>Whether a property was last set through the float setter, else through the vector one.</summary>
+    public readonly bool[] AsFloat = new bool[16];
+    public readonly bool[] AsVector = new bool[16];
     public int Writes;
+
+    public void Set(ShaderProp prop, float value)
+    {
+        Values[(int)prop] = new Vector4(value, 0f, 0f, 0f);
+        IsSet[(int)prop] = true;
+        AsFloat[(int)prop] = true;
+        Writes++;
+    }
 
     public void Set(ShaderProp prop, Matrix4x4 value)
     {
@@ -94,6 +106,7 @@ internal sealed class FakeBlock : IGpuBlock
     {
         Values[(int)prop] = value;
         IsSet[(int)prop] = true;
+        AsVector[(int)prop] = true;
         Writes++;
     }
 
@@ -145,9 +158,16 @@ internal sealed class FakeGpu : IGpu
     public readonly List<DrawCall> Draws = new(4096);
     public readonly Vector4[] Globals = new Vector4[16];
     public readonly bool[] GlobalSet = new bool[16];
+    public readonly bool[] GlobalAsFloat = new bool[16];
+    public readonly bool[] GlobalAsVector = new bool[16];
     public int Calls;
     public int Blocks;
     public readonly List<FakeBuffer> Buffers = new();
+
+    /// <summary>Every matrix the marker mesh was drawn with this frame (port and open-end marks).</summary>
+    public readonly List<Matrix4x4> Marks = new(4096);
+
+    public IGpuMesh Marker { get; } = new FakeMesh("marker");
 
     /// <summary>Off: draws are counted, not recorded, so a timing measures only the caller.</summary>
     public bool Recording { get; set; } = true;
@@ -162,8 +182,12 @@ internal sealed class FakeGpu : IGpu
     public void Draw(IGpuMesh mesh, int submesh, IGpuMaterial material, Matrix4x4[] matrices, int count, IGpuBlock block)
     {
         Calls++;
-        if (Recording)
-            Draws.Add(new DrawCall { Mesh = mesh, Submesh = submesh, Material = material, Count = count, First = matrices[0], Block = (FakeBlock)block });
+        if (!Recording)
+            return;
+        Draws.Add(new DrawCall { Mesh = mesh, Submesh = submesh, Material = material, Count = count, First = matrices[0], Block = (FakeBlock)block });
+        if (ReferenceEquals(mesh, Marker))
+            for (var i = 0; i < count; i++)
+                Marks.Add(matrices[i]);
     }
 
     public IGpuBuffer NewBuffer(int capacity)
@@ -189,11 +213,24 @@ internal sealed class FakeGpu : IGpu
         Calls++;
         Globals[(int)prop] = value;
         GlobalSet[(int)prop] = true;
+        GlobalAsVector[(int)prop] = true;
+    }
+
+    public void SetGlobal(ShaderProp prop, float value)
+    {
+        Calls++;
+        Globals[(int)prop] = new Vector4(value, 0f, 0f, 0f);
+        GlobalSet[(int)prop] = true;
+        GlobalAsFloat[(int)prop] = true;
     }
 
     public Vector4 Global(ShaderProp prop) => Globals[(int)prop];
 
-    public void NewFrame() => Draws.Clear();
+    public void NewFrame()
+    {
+        Draws.Clear();
+        Marks.Clear();
+    }
 }
 
 /// <summary>A camera at a point; sees everything unless planes are given.</summary>
