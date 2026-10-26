@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.13.1
+- Lattice enabled twice, Workshop and local, now runs once and says which copy.
+
 v0.13.0
 - Planned pieces can be swapped in place: a planned cable run becomes heavy cable and keeps its labels, colours and groups.
 - Swapping a built piece that already has a planned swap now changes that planned swap instead of replacing it.

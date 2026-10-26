@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.1
+
+- **Lattice enabled twice runs once.** With two copies in the mod list (the Workshop item and a local copy), both
+  started Lattice: two plugins, and the second one's log wrongly said sync was off. Now the first copy to start runs
+  Lattice, and any later copy does nothing and logs one line naming both copies, their versions and which one runs.
+  Keep one copy of Lattice enabled.
+
 ## 0.13.0
 
 - **Planned pieces swap in place.** `GhostEdit.Swap`, sent with `Command.Change`, changes the piece of planned

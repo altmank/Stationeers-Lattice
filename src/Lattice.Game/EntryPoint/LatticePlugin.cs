@@ -16,9 +16,10 @@ namespace Lattice.Game.EntryPoint;
 
 /// <summary>
 /// Lattice's plugin, loaded once per process by LaunchPad (it adds every <see cref="BaseUnityPlugin"/> subclass of a
-/// mod's assemblies; the type stays internal). It logs Lattice's loaded copies, checks the entry point's game
-/// members, installs the save hooks before any world loads, registers Lattice's networking as required on every
-/// peer (decided), and leaves a <see cref="WorldWatcher"/> that starts and ends Lattice with each world.
+/// mod's assemblies; the type stays internal). The first copy to start runs Lattice; a later copy (Lattice enabled
+/// twice) logs one line and does nothing else (<see cref="PluginStart"/>). The copy that runs logs Lattice's loaded
+/// copies, checks the entry point's game members, installs the save hooks before any world loads, registers Lattice's
+/// networking as required on every peer (decided), and leaves a <see cref="WorldWatcher"/> that starts and ends Lattice with each world.
 /// </summary>
 [BepInPlugin(LatticeIdentity.ModIdText, "Lattice", LatticeVersion.Text)]
 internal sealed class LatticePlugin : BaseUnityPlugin
@@ -26,6 +27,13 @@ internal sealed class LatticePlugin : BaseUnityPlugin
     private void Awake()
     {
         Action<string> log = Logger.LogInfo;
+        var me = new LatticeCopy(LatticeVersion.Text, typeof(LatticePlugin).Assembly.Location);
+        if (PluginStart.Claim(new AppDomainCopySlot(AppDomainCopySlot.Key), me) is CopyStart.StandsDown down)
+        {
+            log(PluginStart.StandDownLine(me, down.Running));
+            return;
+        }
+
         foreach (var line in AssemblyCopies.Report(Loaded(), Own()))
             log(line);
 
