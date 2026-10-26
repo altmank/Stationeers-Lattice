@@ -45,6 +45,14 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.12.1
+- A route that cannot be found now says where its search stopped and what kept it out.
+
+v0.12.0
+- Runs and routes can end on a built device's port.
+- Routes can be pinned through chosen cells.
+- One highlight can light a whole network, ghosts and built pieces together.
+
 v0.11.0
 - Seeing ghosts through walls is stronger at full strength, and a look can set how strongly the hidden part shows.
 
