@@ -28,6 +28,9 @@ internal enum Refusal
 
     /// <summary>No unsafe joins: the route would join a network that is neither end's.</summary>
     Join = 5,
+
+    /// <summary>A leg of a route with via cells: an earlier leg's cell, or an end or via cell that is not this leg's.</summary>
+    Crosses = 6,
 }
 
 /// <summary>
@@ -42,8 +45,10 @@ internal enum Refusal
 /// mounting (a frame, built, being built or planned; not broken), or within <see cref="OffFrameReach"/> cells of an
 /// end, so a port off the frames is still reached.</item>
 /// <item>Doors and windows clear: no cell in an opening's keep-out (<see cref="OpeningKeepOuts"/>).</item>
+/// <item>Always, for a leg of a route with via cells: none of the closed cells (earlier legs', the other ends and via
+/// cells), so the route never crosses itself; and on frames, the leg's own two cells reach off the frames as ends do.</item>
 /// <item>Ports free: no cell a device's port (an end with a role) faces while nothing joins that port, but for the ports
-/// the request names as its ends.</item>
+/// the request names as its ends, a ghost's or a built structure's.</item>
 /// <item>No unsafe joins: no cell where the route would join a network that is neither end's: a piece of the kit
 /// there, or a neighbour's end pointing in that joins the kit (as the piece chooser joins it). A branch's ends are the
 /// whole request's: the main route's and every branch's, so branches never count as a bridge.</item>
@@ -77,13 +82,17 @@ internal sealed class CellRules : IRouteCells
     private readonly HashSet<NetworkKey> _own = [];
     private readonly Dictionary<ReferenceId, PlacedShape?> _placed = [];
     private readonly IReadOnlyList<PortTarget> _named;
+    private readonly IReadOnlyList<Cell> _near;
+    private readonly HashSet<Cell>? _closed;
 
     public CellRules(
         KitShapes kit, IGrid grid, Shapes shapes, IWorldQuery planned, RouteToggles toggles, Cell from, Cell to,
         OpeningKeepOuts openings, ISupportFacts support, RouteNetworks networks, IReadOnlyList<PortTarget>? named = null,
-        IReadOnlyList<Cell>? sameRun = null)
+        IReadOnlyList<Cell>? sameRun = null, IReadOnlyList<Cell>? near = null, HashSet<Cell>? closed = null)
     {
         _named = named ?? System.Array.Empty<PortTarget>();
+        _near = near ?? System.Array.Empty<Cell>();
+        _closed = closed;
         _kit = kit;
         _grid = grid;
         _shapes = shapes;
@@ -109,6 +118,8 @@ internal sealed class CellRules : IRouteCells
     /// <summary>Why the route may not enter the cell travelling this way; <see cref="Refusal.None"/> when it may.</summary>
     public Refusal Why(Cell cell, Direction heading)
     {
+        if (_closed is not null && _closed.Contains(cell))
+            return Refusal.Crosses;
         if (Collides(cell, heading.AxisOf()))
             return Refusal.Collides;
         if (!_cells.TryGetValue(cell, out var why))
@@ -179,7 +190,15 @@ internal sealed class CellRules : IRouteCells
         return false;
     }
 
-    private bool NearEnd(Cell cell) => Steps(cell, _from) <= OffFrameReach || Steps(cell, _to) <= OffFrameReach;
+    private bool NearEnd(Cell cell)
+    {
+        if (Steps(cell, _from) <= OffFrameReach || Steps(cell, _to) <= OffFrameReach)
+            return true;
+        foreach (var end in _near)
+            if (Steps(cell, end) <= OffFrameReach)
+                return true;
+        return false;
+    }
 
     private int Steps(Cell a, Cell b) => (System.Math.Abs(a.X - b.X) + System.Math.Abs(a.Y - b.Y) + System.Math.Abs(a.Z - b.Z)) / _kit.Step;
 

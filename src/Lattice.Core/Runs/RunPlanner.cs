@@ -141,7 +141,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
             return Result<RunPlan, Reason>.Error(_chooser.Kit(request.Kit).TryGetError(out var why) ? why : Reason.Of(ReasonCodes.NoPiece, RunCodes.Runs));
         var around = new Neighbourhood(_shapes, grid, board, world, laid);
         var kit = request.Lay.MatchGrade ? Grade(asked, request, around) : asked;
-        var resolved = _ports.Resolve(request.FromPort, request.From, request.ToPort, request.To, kit, board);
+        var resolved = _ports.Resolve(request.FromPort, request.From, request.ToPort, request.To, kit, board, world);
         if (!resolved.TryGet(out var ports))
             return Result<RunPlan, Reason>.Error(resolved.ErrorOf());
         var walked = RunPath.Walk(request, kit, grid, ports);

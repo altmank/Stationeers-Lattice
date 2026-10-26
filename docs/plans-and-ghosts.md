@@ -108,8 +108,8 @@ These are worked out by a module into primitive commands. With the module off th
 | `MarkRemoval(structures, into, madeBy)` | `selectors` | A remove ghost per structure. |
 | `PlanFinish(structures, finish, into, madeBy)` | `selectors` | A finish ghost per structure. |
 | `PlanSwap(structures, to, into, madeBy)` | `swaps` | "Swap all": a swap ghost per structure. `SwapTo.Exactly(piece)`, or `SwapTo.SameShapeFrom(kit)` for the piece of the same shape that kit places (every cable shape to its heavy cable shape). |
-| `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8): the end piece joins that port. `Lay` chooses the pieces (contract 0.9, [below](#choosing-the-pieces)). |
-| `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging; and from contract 0.9 which leg first and hugging frames and walls ([below](#route-choices)). `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. `Branches` and `Lay` from contract 0.9. |
+| `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8) or a built structure's (contract 0.12): the end piece joins that port. `Lay` chooses the pieces (contract 0.9, [below](#choosing-the-pieces)). |
+| `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging; and from contract 0.9 which leg first and hugging frames and walls ([below](#route-choices)). `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. `Branches` and `Lay` from contract 0.9; `Via`, cells the route passes through, from contract 0.12 ([below](#pinned-points)). |
 | `PlanSplit(which, into, madeBy)` | `runs` | Long straights planned as single pieces (contract 0.9, [below](#splitting-long-straights)). |
 | `Transform`, `PlaceTemplate`, `PlaceTemplateIn` | `transforms`, `templates` | See [transforms and templates](transforms-and-templates.md). `PlaceTemplate` makes a new plan; `PlaceTemplateIn` (contract 0.10) places into a plan that is already there, and reverts like a place. |
 | `Repair`, `TakeDown`, `Reopen` | `finished-plans` | See [finished plans](#finished-plans) below. |
@@ -117,20 +117,29 @@ These are worked out by a module into primitive commands. With the module off th
 Preview a run or route before you submit it: the preview carries a `RunReport` with its cells, the pieces placed, the
 first cell that fails and its cost against single pieces. See [previews and analysis](previews-and-analysis.md).
 
-A port end (`PortEnd.OnGhost(ghost, index)`, contract 0.8) is checked when the run is laid, against the board as the
-sender sees it:
+A port end is a ghost's port (`PortEnd.OnGhost(ghost, index)`, contract 0.8) or a built structure's
+(`PortEnd.OnStructure(structure, index)`, contract 0.12). It is checked when the command expands on the host and again
+when the run is laid, against the board as the sender sees it and the world as it stands:
 
 | Refused | When |
 |---|---|
-| `not-found` | The ghost is not on the board, or the sender may not see it (the answer is the same, so it tells nothing about hidden ghosts); with `problem=port`, its piece has no port at that index. |
-| `invalid-value`, `problem=no-new-piece` | The ghost removes or finishes a structure: it has no new piece, so no port of its own. The standing structure joins through its cell. |
-| `changed-since` | `From` or `To` is not the port's `Joins` cell now: the ghost moved, turned or changed piece since you read its ports. Facts `expected` and `now`. Read `PortsAt` again. |
+| `not-found` | The ghost is not on the board, or the sender may not see it (the answer is the same, so it tells nothing about hidden ghosts). The structure no longer stands: it is found by its reference id, else by its piece and cell. With `problem=port`, the piece has no port at that index. |
+| `invalid-value`, `problem=no-new-piece` | The ghost removes or finishes a structure: it has no new piece, so no port of its own. Name the standing structure's port instead. |
+| `changed-since` | `From` or `To` is not the port's `Joins` cell now: the ghost or structure moved, turned or changed piece since you read its ports. Facts `expected` and `now`. Read `PortsAt` again. |
 | `port-mismatch` | The kit's run pieces share no network kind with the port: a pipe kit to a power port, gas to liquid. |
 | `invalid-value`, `problem=same-port` | Both ends name one port. |
 
-Every refusal names `ghost` and `port`. The port end is a planning input, not a link: the run's ghosts are plain
-build ghosts. Move or turn a device with its runs by transforming them together; moving the device alone leaves the
-run's end open, and removing it leaves the run.
+Every refusal names `port`, and `ghost` or `structure` (its reference id). A run that simply ends in a built port's
+`Joins` cell joins it too; naming the port adds the refusals above, and the `RunReport.PortEnds` entry that says which
+piece joins it, so a tool can tell "joined" from "ended beside it".
+
+A structure taken down between the request and the laying refuses the command `not-found`; a run is never laid to
+nothing. A built structure with a planned removal or swap is joined as it stands: to join what replaces it, name the
+swap ghost's port.
+
+The port end is a planning input, not a link: the run's ghosts are plain build ghosts. Move or turn a device with its
+runs by transforming them together; moving the device alone leaves the run's end open, and removing it leaves the
+run.
 
 To list what one built structure can become in place, ask `lattice.Swaps.OptionsFor(structure)`. Each `SwapOption`
 is a placement in the structure's cell, and for a face piece with a rating, the load across that face now.
@@ -157,6 +166,28 @@ the first run cell it reaches, so no loop is made. The main route and every bran
 
 With `KeepPortsFree`, a branch's own port cell stays open to it. With `NoBridging`, the branches count as the same run:
 the networks at every branch's start are the route's own, never a bridge.
+
+### Pinned points
+
+`RouteRequest.Via` (contract 0.12) lists cells the route passes through, in order, at most 16. Unlike a run's `Via`,
+they are not bends: the route may run straight through one.
+
+- The route is searched leg by leg: from `From` to the first via cell, from each to the next, and from the last to
+  `To`. Each leg is the cheapest between its two cells under the toggles. A leg's two cells are entered as ends are, so
+  the toggles do not judge them, and with `OnFrames` a pin just off the frames is still reached.
+- A leg never enters an earlier leg's cells, `To` (but the last leg) or another leg's via cell, so the route never
+  crosses itself. The legs are greedy: an earlier leg is not searched again to make room for a later one, so a pin can
+  be boxed in. That answers `no-route` with fact `leg`.
+- The legs are laid as one run, so a via cell gets one piece (a straight or an elbow) and long straights run through
+  it. `FromPort` joins the first leg, `ToPort` the last. Branches route to the nearest cell of any leg.
+- `SearchBound` is for each search: each leg and each branch. `RoutePlan` bends and expansions are totals.
+
+| Refused | When |
+|---|---|
+| `too-large`, facts `via` and `most` | More than 16 via cells. |
+| `invalid-value`, `problem=off-grid`, fact `via` | A via cell off the kit's grid; `via` is its index. |
+| `invalid-value`, `problem=via-repeats`, fact `via` | A via cell equal to `From`, `To` or an earlier via cell. |
+| `no-route`, `search-limit`, fact `leg` | A leg found no route: 0 from `From`, the last from the last via cell to `To`. `from`, `to`, `nearest` and `cells-left` are that leg's. A request without via cells has no `leg`. |
 
 ### Choosing the pieces
 

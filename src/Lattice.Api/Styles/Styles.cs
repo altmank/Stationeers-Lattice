@@ -39,7 +39,8 @@ public interface IGhostStyles
 
     /// <summary>
     /// Draws targets with a style in the highlight band for a time, then ends itself; disposing ends it early. A selector
-    /// is resolved once, at the call. Refused (<c>invalid-value</c>) for a zero duration. Cost: the targets.
+    /// is resolved once, at the call. Refused (<c>invalid-value</c>) for a zero duration, and with a selector's own
+    /// refusal for <see cref="HighlightTargets.PickedAndBuilt"/>. Cost: the targets.
     /// </summary>
     Result<IDisposable, Reason> Highlight(HighlightRequest request);
 
@@ -261,7 +262,10 @@ public interface IStructureSet
     void Clear();
 }
 
-/// <summary>What a highlight draws.</summary>
+/// <summary>
+/// What a highlight draws. A later minor may add cases; Lattice refuses a case it does not know with
+/// <see cref="ReasonCodes.UnknownKind"/>.
+/// </summary>
 public abstract record HighlightTargets
 {
     private HighlightTargets() { }
@@ -277,6 +281,15 @@ public abstract record HighlightTargets
     /// <summary>These built structures, as overlays.</summary>
     /// <param name="Refs">The structures.</param>
     public sealed record Structures(ValueList<StructureRef> Refs) : HighlightTargets;
+
+    /// <summary>
+    /// The ghosts a selector picks and the built structures a structure selector picks, at the call: one highlight over
+    /// both. A whole network is <c>new PickedAndBuilt(new Selector.Network(n), new StructureSelector.Network(n))</c>.
+    /// A refusal of either selector (an unknown kind, an off module) refuses the highlight. Added in contract 0.12.
+    /// </summary>
+    /// <param name="Which">The ghosts' selector, on the viewer's board.</param>
+    /// <param name="Built">The built structures' selector, drawn as overlays.</param>
+    public sealed record PickedAndBuilt(Selector Which, StructureSelector Built) : HighlightTargets;
 }
 
 /// <summary>A timed highlight: targets drawn with a style in the highlight band for a time.</summary>

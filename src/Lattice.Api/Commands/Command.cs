@@ -338,9 +338,10 @@ public sealed record LayOptions(bool SinglePiecesOnly, bool MatchGrade)
 public sealed record RouteRequest(KitKey Kit, Cell From, Cell To, RouteToggles Toggles, Option<PlanId> Into, Maker MadeBy)
 {
     /// <summary>
-    /// The most search states the route may take, at least 1; none lets Lattice scale the bound with the distance
-    /// between the ends. A search that reaches it is refused <see cref="ReasonCodes.SearchLimit"/>; a bound below 1 is
-    /// refused <see cref="ReasonCodes.InvalidValue"/> (fact <c>problem</c> = <c>search-bound</c>).
+    /// The most search states each search (each leg of the main route, each branch) may take, at least 1; none lets
+    /// Lattice scale the bound with the distance between that search's ends. A search that reaches it is refused
+    /// <see cref="ReasonCodes.SearchLimit"/>; a bound below 1 is refused <see cref="ReasonCodes.InvalidValue"/> (fact
+    /// <c>problem</c> = <c>search-bound</c>).
     /// </summary>
     public Option<int> SearchBound { get; init; }
 
@@ -365,6 +366,19 @@ public sealed record RouteRequest(KitKey Kit, Cell From, Cell To, RouteToggles T
     /// Added in contract 0.9.
     /// </summary>
     public ValueList<RouteBranch> Branches { get; init; } = ValueList<RouteBranch>.Empty;
+
+    /// <summary>
+    /// Cells the route passes through, in order: the route is searched leg by leg (from the start to the first, ...,
+    /// from the last to the end), each leg the cheapest between its two cells under the toggles, and laid as one run.
+    /// A later leg never enters an earlier leg's cells, so the route never crosses itself. An earlier leg is not
+    /// searched again to make room for a later one. Unlike <see cref="RunRequest.Via"/>, these are not bends: the
+    /// route may run straight through. At most <c>MaxVia</c> (16); more is refused <see cref="ReasonCodes.TooLarge"/>
+    /// (fact <c>via</c>). A cell off the kit's grid is refused <see cref="ReasonCodes.InvalidValue"/> (<c>off-grid</c>,
+    /// fact <c>via</c>, its index), and one equal to an end or to another of them is refused (<c>via-repeats</c>). A leg
+    /// with no route refuses the command with the search's reason and fact <c>leg</c>: 0 from the start, the last
+    /// from the last via cell to the end. Added in contract 0.12.
+    /// </summary>
+    public ValueList<Cell> Via { get; init; } = ValueList<Cell>.Empty;
 }
 
 /// <summary>One extra start of a route; <paramref name="Port"/> as <see cref="RouteRequest.FromPort"/>. Added in contract 0.9.</summary>

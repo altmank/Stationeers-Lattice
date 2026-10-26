@@ -201,7 +201,9 @@ public static class ReasonCodes
 
     /// <summary>
     /// No route exists inside the search box under the request's toggles; facts <c>from</c>, <c>to</c>, <c>nearest</c>
-    /// (the reached cell closest to the far end, "x,y,z"), <c>cells-left</c>, <c>expanded</c>, <c>bound</c>, <c>margin</c>.
+    /// (the reached cell closest to the far end, "x,y,z"), <c>cells-left</c>, <c>expanded</c>, <c>bound</c>, <c>margin</c>;
+    /// <c>branch</c> for a branch, and <c>leg</c> for a leg of a route with <see cref="RouteRequest.Via"/> cells, whose
+    /// <c>from</c>, <c>to</c>, <c>nearest</c> and <c>cells-left</c> are that leg's.
     /// Moving an end or relaxing a toggle may help; a bigger bound does not.
     /// </summary>
     public static readonly ReasonCode NoRoute = ReasonCode.Known("no-route");
@@ -214,7 +216,7 @@ public static class ReasonCodes
 
     /// <summary>
     /// A run's kit shares no network kind with the port it was asked to join (a pipe kit to a power port, a gas pipe to
-    /// a liquid port); facts <c>ghost</c>, <c>port</c> and <c>kit</c>. Added in contract 0.8.
+    /// a liquid port); facts <c>ghost</c> or <c>structure</c>, <c>port</c> and <c>kit</c>. Added in contract 0.8.
     /// </summary>
     public static readonly ReasonCode PortMismatch = ReasonCode.Known("port-mismatch");
 

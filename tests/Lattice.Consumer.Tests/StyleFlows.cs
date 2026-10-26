@@ -268,6 +268,17 @@ public abstract class StyleFlows
     }
 
     [Fact]
+    public void Need_8_one_highlight_lights_ghosts_and_built_structures_together()
+    {
+        Place(Draft(6));
+        var flash = new Style { Dim = Option.Some(Must(Fraction.Create(0.5f))) };
+        var targets = new HighlightTargets.PickedAndBuilt(new Selector.Everything(), new StructureSelector.Refs(ValueList.Of(Built)));
+
+        var highlight = Must(Styles.Highlight(new HighlightRequest(targets, flash, Must(Duration.Create(2f)))));
+        highlight.Dispose();
+    }
+
+    [Fact]
     public void Need_9_a_view_filter_hides_a_family_and_unpicks_it()
     {
         var pipes = Must(PieceFamily.Create(Planner, "pipes"));

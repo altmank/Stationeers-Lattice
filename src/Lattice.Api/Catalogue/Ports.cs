@@ -45,6 +45,17 @@ public abstract record PortEnd
     /// <param name="Ghost">The ghost.</param>
     /// <param name="Port">The port of its new piece.</param>
     public sealed record OnGhost(GhostId Ghost, PortIndex Port) : PortEnd;
+
+    /// <summary>
+    /// A port of a built structure, numbered as <see cref="IPieceCatalogue.PortsAt"/> numbers it for the structure's
+    /// piece, cell and turn. The structure is found by its reference id, else by its piece and cell (as
+    /// <see cref="IGhostBoard.On"/> finds it). Refused <see cref="ReasonCodes.NotFound"/> for a structure that no
+    /// longer stands or a port its piece lacks. Any build state joins. A planned removal or swap of the structure is not
+    /// followed: to join what replaces it, name the swap ghost's port (<see cref="OnGhost"/>). Added in contract 0.12.
+    /// </summary>
+    /// <param name="Structure">The structure.</param>
+    /// <param name="Port">The port of its piece.</param>
+    public sealed record OnStructure(StructureRef Structure, PortIndex Port) : PortEnd;
 }
 
 /// <summary>A port's index in its piece's game <c>OpenEnds</c> list. <c>default</c> is index 0. Added in contract 0.8.</summary>

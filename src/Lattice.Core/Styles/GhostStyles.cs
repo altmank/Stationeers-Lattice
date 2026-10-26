@@ -349,22 +349,8 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
             return Result<IDisposable, Reason>.Error(Reason.InvalidValue(nameof(HighlightRequest), "0", "positive-duration"));
         var ghosts = new HashSet<GhostId>();
         var structures = new StructureRefs();
-        switch (request.Targets)
-        {
-            case HighlightTargets.Ghosts ids:
-                foreach (var id in ids.Ids)
-                    ghosts.Add(id);
-                break;
-            case HighlightTargets.Picked picked:
-                if (_board.Select(picked.Which, _viewer).TryGet(out var entries))
-                    foreach (var entry in entries)
-                        ghosts.Add(entry.Id);
-                break;
-            case HighlightTargets.Structures refs:
-                foreach (var structure in refs.Refs)
-                    structures.Add(structure);
-                break;
-        }
+        if (Targets(request.Targets, ghosts, structures) is { } refused)
+            return Result<IDisposable, Reason>.Error(refused);
 
         var highlight = new HighlightEntry(++_registrations, request.Style, _parts.Clock.Now + TimeSpan.FromSeconds(request.For.Seconds), ghosts, structures, Ended);
         _sets.Highlights.Add(highlight);
@@ -379,6 +365,49 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
 
         Touch(highlight);
         return Result<IDisposable, Reason>.Ok(highlight);
+    }
+
+    /// <summary>
+    /// Fills in what a highlight's targets name, at the call, or answers why they are refused: an unknown case, or either
+    /// selector's refusal for <see cref="HighlightTargets.PickedAndBuilt"/>. Both of its halves resolve before anything is
+    /// lit.
+    /// </summary>
+    private Reason? Targets(HighlightTargets targets, HashSet<GhostId> ghosts, StructureRefs structures)
+    {
+        switch (targets)
+        {
+            case HighlightTargets.Ghosts ids:
+                foreach (var id in ids.Ids)
+                    ghosts.Add(id);
+                return null;
+            case HighlightTargets.Picked picked:
+                if (_board.Select(picked.Which, _viewer).TryGet(out var entries))
+                    foreach (var entry in entries)
+                        ghosts.Add(entry.Id);
+                return null;
+            case HighlightTargets.Structures refs:
+                foreach (var structure in refs.Refs)
+                    structures.Add(structure);
+                return null;
+            case HighlightTargets.PickedAndBuilt both:
+                if (_parts.World is not { } world)
+                    return Reason.Of(ReasonCodes.ModuleMissing, StyleRules.Styles, ValueMap.Of("module", "selectors"));
+                var picks = _board.Select(both.Which, _viewer);
+                if (picks.TryGetError(out var unpicked))
+                    return unpicked;
+                var built = world.Select(both.Built);
+                if (built.TryGetError(out var unbuilt))
+                    return unbuilt;
+                if (picks.TryGet(out var found))
+                    foreach (var entry in found)
+                        ghosts.Add(entry.Id);
+                if (built.TryGet(out var standing))
+                    foreach (var structure in standing)
+                        structures.Add(structure);
+                return null;
+            default:
+                return Reason.Of(ReasonCodes.UnknownKind, StyleRules.Styles, ValueMap.Of("kind", targets.GetType().Name));
+        }
     }
 
     public Result<IDrafts, Reason> Drafts(DraftsId id)

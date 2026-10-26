@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 11 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 12 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -752,6 +752,12 @@ Lattice.Api.HighlightTargets.Picked
 Lattice.Api.HighlightTargets.Picked.Picked(Lattice.Api.Selector! Which) -> void
 Lattice.Api.HighlightTargets.Picked.Which.get -> Lattice.Api.Selector!
 Lattice.Api.HighlightTargets.Picked.Which.init -> void
+Lattice.Api.HighlightTargets.PickedAndBuilt
+Lattice.Api.HighlightTargets.PickedAndBuilt.Built.get -> Lattice.Api.StructureSelector!
+Lattice.Api.HighlightTargets.PickedAndBuilt.Built.init -> void
+Lattice.Api.HighlightTargets.PickedAndBuilt.Which.get -> Lattice.Api.Selector!
+Lattice.Api.HighlightTargets.PickedAndBuilt.Which.init -> void
+Lattice.Api.HighlightTargets.PickedAndBuilt.PickedAndBuilt(Lattice.Api.Selector! Which, Lattice.Api.StructureSelector! Built) -> void
 Lattice.Api.HighlightTargets.Structures
 Lattice.Api.HighlightTargets.Structures.Refs.get -> Lattice.Api.ValueList<Lattice.Api.StructureRef>!
 Lattice.Api.HighlightTargets.Structures.Refs.init -> void
@@ -2646,3 +2652,11 @@ Lattice.Api.Command.PlaceTemplateIn.Template.get -> Lattice.Api.Template!
 Lattice.Api.Command.PlaceTemplateIn.Template.init -> void
 Lattice.Api.Command.PlaceTemplateIn.Turn.get -> Lattice.Api.Turn
 Lattice.Api.Command.PlaceTemplateIn.Turn.init -> void
+Lattice.Api.PortEnd.OnStructure
+Lattice.Api.PortEnd.OnStructure.OnStructure(Lattice.Api.StructureRef Structure, Lattice.Api.PortIndex Port) -> void
+Lattice.Api.PortEnd.OnStructure.Port.get -> Lattice.Api.PortIndex
+Lattice.Api.PortEnd.OnStructure.Port.init -> void
+Lattice.Api.PortEnd.OnStructure.Structure.get -> Lattice.Api.StructureRef
+Lattice.Api.PortEnd.OnStructure.Structure.init -> void
+Lattice.Api.RouteRequest.Via.get -> Lattice.Api.ValueList<Lattice.Api.Cell>!
+Lattice.Api.RouteRequest.Via.init -> void

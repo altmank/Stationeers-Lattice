@@ -112,6 +112,12 @@ internal sealed class StyleBench
 
     /// <summary>Styles with or without the starter library, and with the game's paint colours given (none: unknown).</summary>
     public StyleBench(bool drawing, Lattice.Core.Styles.Library.StarterLibrary? library, IPaintColours? paints, params NamedPiece[] extra)
+        : this(drawing, library, paints, true, extra)
+    {
+    }
+
+    /// <summary>Styles as above, with the built world given to them or not (none: overlays unturned, no structure selectors).</summary>
+    public StyleBench(bool drawing, Lattice.Core.Styles.Library.StarterLibrary? library, IPaintColours? paints, bool world, params NamedPiece[] extra)
     {
         var pieces = new List<NamedPiece>(extra) { ModdedPiece() };
         T = new TestBoard(default, pieces.ToArray());
@@ -125,7 +131,7 @@ internal sealed class StyleBench
             Drawing = drawing,
             Library = library,
             Paints = paints ?? new NoPaintColours(),
-            World = new Lattice.TestKit.World.FakeWorldQuery(World),
+            World = world ? new Lattice.TestKit.World.FakeWorldQuery(World) : null,
         });
     }
 

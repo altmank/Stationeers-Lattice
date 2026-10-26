@@ -124,7 +124,7 @@ internal sealed class ClientChecks(CommandLimits limits, ICatalogue catalogue, A
             Api.Command.PlanSwap swap => Structures(swap.Which, 1) ?? SwapTo(swap.To),
             Api.Command.PlanFinish finish => Structures(finish.Which, 1),
             Api.Command.PlanRun run => Cells(run.Request.From, run.Request.To, run.Request.Via) ?? Kit(run.Request.Kit),
-            Api.Command.PlanRoute route => Cells(route.Request.From, route.Request.To, Starts(route.Request.Branches)) ?? Kit(route.Request.Kit),
+            Api.Command.PlanRoute route => Cells(route.Request.From, route.Request.To, Starts(route.Request.Branches)) ?? Each(route.Request.Via) ?? Kit(route.Request.Kit),
             Api.Command.PlanSplit split => split.Which switch
             {
                 SplitTargets.Ghosts ghosts => Selector(ghosts.Which, 1),
@@ -283,7 +283,12 @@ internal sealed class ClientChecks(CommandLimits limits, ICatalogue catalogue, A
         {
             if ((Cell(from) ?? Cell(to)) is { } why)
                 return why;
-            foreach (var cell in via)
+            return Each(via);
+        }
+
+        private Reason? Each(ValueList<Cell> cells)
+        {
+            foreach (var cell in cells)
                 if (Cell(cell) is { } outside)
                     return outside;
             return null;

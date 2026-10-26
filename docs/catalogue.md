@@ -98,9 +98,9 @@ foreach (var port in lattice.Catalogue.PortsAt(placement).Match(static p => p, s
     Show($"port {port.Index} {port.GameName} {port.Role} at {port.Joins}, facing {port.Toward}");
 ```
 
-To lay a run between two ghosts' ports, name the ports as the run's ends: `RunRequest.FromPort` and `ToPort` (and
-the same on `RouteRequest`) take `PortEnd.OnGhost(ghost, index)`, and `From`/`To` are the ports' `Joins` cells as you
-read them. The run's end pieces then leave toward the ports, so they join them, and the preview's
+To lay a run between two ports, name the ports as the run's ends: `RunRequest.FromPort` and `ToPort` (and the same
+on `RouteRequest`) take `PortEnd.OnGhost(ghost, index)`, or `PortEnd.OnStructure(structure, index)` for a built
+device (contract 0.12), and `From`/`To` are the ports' `Joins` cells as you read them. The run's end pieces then leave toward the ports, so they join them, and the preview's
 `RunReport.PortEnds` names the piece that joins each port. See the agent recipe in
 [building a layer](building-a-layer.md#joining-ghosts-ports).
 

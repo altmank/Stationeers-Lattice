@@ -9,13 +9,6 @@ namespace Lattice.Tests.Contract;
 public sealed class ContractElevenTests
 {
     [Fact]
-    public void The_contract_is_zero_eleven()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(11, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void A_see_through_looks_own_opacity_says_it_was_added_in_zero_eleven()
     {
         var docs = XDocument.Load(Path.ChangeExtension(typeof(ApiVersion).Assembly.Location, ".xml"));

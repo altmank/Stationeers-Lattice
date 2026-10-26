@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.0
+
+- **Runs and routes can end on a built device's port.** Name the port with `PortEnd.OnStructure`, as a ghost's port
+  is named. The run reports the piece that joins it, and it is refused before anything is laid when the device has
+  moved or turned, the kit cannot join the port, or the device is gone. A device taken down while the route is being
+  found refuses the route, so nothing is laid to nothing.
+- **Pin a route through cells.** `RouteRequest.Via` lists cells the route passes through, in order. Each leg is found
+  in turn, never crosses an earlier one, and the whole route is laid as one run. A leg with no route says which leg.
+- **One highlight over ghosts and built structures.** `HighlightTargets.PickedAndBuilt` lights the ghosts a selector
+  picks and the built structures a structure selector picks with one call, one handle and one timer: a whole network
+  is `new PickedAndBuilt(new Selector.Network(n), new StructureSelector.Network(n))`. A refusal of either selector
+  refuses the highlight.
+- A highlight target case this Lattice does not know is refused `unknown-kind`; it lit nothing before.
+- Contract 0.12, which only adds: a mod written for 0.11 sees the same answers.
+
 ## 0.11.0
 
 - **See-through strength now reaches the full look.** Above 0.5, faces seen square-on show more strongly, and at 1

@@ -159,6 +159,8 @@ void OnWorld(IGhostSystem lattice)
   `Lattice.Testing.Stubs` (`StubPlans` for `IPlans`): a minor adds its new members there too, so your fake keeps
   compiling. "A minor only adds" is a promise to callers, not to implementers.
 - `lattice.Has(kind)` tells you whether this Lattice knows an intent kind. Skip and report kinds you don't know.
+- Read `Version` before you send a request that uses a newer member. For example, check for 0.12 before a run end on
+  a built structure (`PortEnd.OnStructure`) or a route's `Via` cells. An older host refuses either; it never drops it.
 - `lattice.Modules` lists each module, on or off with the reason. A module turns itself off when a game update
   removes members it uses, or when it is host only and you are on a client. Calls into an off module answer
   `module-missing`, with the module named in the reason's facts.

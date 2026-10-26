@@ -204,6 +204,8 @@ internal static class CommandForm
                     if (toggles.HugFramesAndWalls)
                         fields.Add("hug", Flag(true));
                     PortFields(fields, request.FromPort, request.ToPort);
+                    foreach (var via in request.Via)
+                        fields.Add("via", WrittenValues.Cell(via));
                     foreach (var branch in request.Branches)
                         fields.Add("branch", branch.Port.TryGet(out var port)
                             ? WrittenValues.Cell(branch.From) + "@" + PortText(port)
@@ -301,7 +303,7 @@ internal static class CommandForm
         private static FieldList Into(FieldList fields, Option<PlanId> into) =>
             into.TryGet(out var plan) ? fields.Add("into", plan.Value) : fields;
 
-        /// <summary>A run's or route's port ends, <c>&lt;ghost id&gt;:&lt;port index&gt;</c>; nothing for a request without them.</summary>
+        /// <summary>A run's or route's port ends (<see cref="PortText"/>); nothing for a request without them.</summary>
         private static FieldList PortFields(FieldList fields, Option<PortEnd> from, Option<PortEnd> to)
         {
             if (from.TryGet(out var start))
@@ -321,9 +323,14 @@ internal static class CommandForm
             return fields;
         }
 
+        /// <summary>
+        /// A port end: <c>&lt;ghost id&gt;:&lt;port index&gt;</c> on a ghost; <c>s&lt;structure&gt;:&lt;port index&gt;</c> on a
+        /// built structure, which a reader that knows only ghost ends refuses rather than reads as a ghost.
+        /// </summary>
         private static string PortText(PortEnd end) => end switch
         {
             PortEnd.OnGhost onGhost => WrittenValues.Number(onGhost.Ghost.Value) + ":" + WrittenValues.Number(onGhost.Port.Value),
+            PortEnd.OnStructure onStructure => "s" + WrittenValues.Structure(onStructure.Structure) + ":" + WrittenValues.Number(onStructure.Port.Value),
             _ => "",
         };
 
@@ -711,6 +718,14 @@ internal static class CommandForm
                 !Common.Get(Optional(read, "hug", FlagOf), out var hug, ref problem) ||
                 !Common.Get(Lay(read), out var lay, ref problem))
                 return Result<object, string>.Error(problem);
+            var pins = new List<Cell>();
+            foreach (var text in read.TakeAll("via"))
+            {
+                if (!WrittenValues.Cell(text).TryGet(out var cell))
+                    return Result<object, string>.Error($"bad via '{text}'");
+                pins.Add(cell);
+            }
+
             var branches = new List<RouteBranch>();
             foreach (var text in read.TakeAll("branch"))
             {
@@ -727,22 +742,28 @@ internal static class CommandForm
                     ToPort = toPort,
                     Lay = lay,
                     Branches = branches.Count == 0 ? ValueList<RouteBranch>.Empty : ValueList.From(branches),
+                    Via = pins.Count == 0 ? ValueList<Cell>.Empty : ValueList.From(pins),
                 }));
         }
 
-        /// <summary>A port end as the writer writes it: <c>&lt;ghost id&gt;:&lt;port index&gt;</c>.</summary>
+        /// <summary>A port end as the writer writes it: <c>&lt;ghost id&gt;:&lt;port index&gt;</c> or <c>s&lt;structure&gt;:&lt;port index&gt;</c>.</summary>
         private static Result<PortEnd, string> PortEndOf(string text)
         {
-            var colon = text.IndexOf(':');
+            var colon = text.LastIndexOf(':');
             if (colon <= 0)
                 return Result<PortEnd, string>.Error($"bad port end '{text}'");
             var problem = "";
-            if (!Common.Get(WrittenValues.Long(text.Substring(0, colon)), out var ghost, ref problem) ||
-                !Common.Get(WrittenValues.Int(text.Substring(colon + 1)), out var index, ref problem))
+            if (!Common.Get(WrittenValues.Int(text.Substring(colon + 1)), out var index, ref problem))
                 return Result<PortEnd, string>.Error(problem);
-            return PortIndex.Create(index).Match(
-                port => Result<PortEnd, string>.Ok(new PortEnd.OnGhost(new GhostId(ghost), port)),
-                _ => Result<PortEnd, string>.Error($"bad port index '{text}'"));
+            if (!PortIndex.Create(index).TryGet(out var port))
+                return Result<PortEnd, string>.Error($"bad port index '{text}'");
+            if (text[0] == 's')
+                return WrittenValues.Structure(text.Substring(1, colon - 1))
+                    .Map(structure => (PortEnd)new PortEnd.OnStructure(structure, port))
+                    .MapError(_ => $"bad port end '{text}'");
+            if (!Common.Get(WrittenValues.Long(text.Substring(0, colon)), out var ghost, ref problem))
+                return Result<PortEnd, string>.Error(problem);
+            return Result<PortEnd, string>.Ok(new PortEnd.OnGhost(new GhostId(ghost), port));
         }
 
         private Result<object, string> PlaceTemplate(FieldReader read)

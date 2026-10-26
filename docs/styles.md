@@ -167,6 +167,20 @@ Must(lattice.Styles.Highlight(new HighlightRequest(
 A highlight draws targets (ghosts, the ghosts a selector picks at the call, or built structures) with a style in the
 Highlight band for a time, then ends itself. Disposing ends it early.
 
+`PickedAndBuilt` (contract 0.12) lights the ghosts a selector picks and the built structures a structure selector
+picks as one highlight, with one handle and one timer. A whole network, its pieces and the ghosts on it:
+
+```csharp
+if (lattice.World.NetworkOf(cable.Id).TryGet(out var network))
+    Must(lattice.Styles.Highlight(new HighlightRequest(
+        new HighlightTargets.PickedAndBuilt(new Selector.Network(network), new StructureSelector.Network(network)),
+        flash, Must(Duration.Create(2f)))));
+```
+
+Both selectors are resolved at the call. If either is refused (a kind this Lattice does not know, the selectors
+module off), the highlight is refused with that reason and nothing is lit. A target case this Lattice does not know
+is refused `unknown-kind`.
+
 ## Drafts
 
 A drafts handle shows uncommitted ghosts: the piece at the cursor, a run being dragged.
