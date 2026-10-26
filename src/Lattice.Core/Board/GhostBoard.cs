@@ -89,6 +89,9 @@ internal sealed partial class GhostBoard
     /// <summary>The plan-state module's facts and states; none until it is installed.</summary>
     internal IPlanStates? PlanStates { get; private set; }
 
+    /// <summary>The swaps module's fits, once installed: what <see cref="GhostEdit.Swap"/> changes a piece to.</summary>
+    internal IPieceSwaps? Swaps { get; private set; }
+
     /// <summary>The board as an actor may see it; one view per actor, kept for the world.</summary>
     public BoardView ViewFor(Actor viewer)
     {
@@ -160,6 +163,13 @@ internal sealed partial class GhostBoard
     internal void InstallPlanStates(IPlanStates states)
     {
         PlanStates = states;
+        Epoch++;
+    }
+
+    /// <summary>Installs the swaps module's fits for the world; read caches are dropped.</summary>
+    internal void InstallSwaps(IPieceSwaps swaps)
+    {
+        Swaps = swaps;
         Epoch++;
     }
 
@@ -340,7 +350,9 @@ internal sealed partial class GhostBoard
     /// with their ids, ghosts and plans it changed are set back. Plan changes only: a ghost keeps its lifecycle state, and
     /// a ghost the world has since completed (or whose target is gone) is skipped, never rebuilt or torn down. Refused
     /// when another actor changed one of those ghosts or plans since, or has a ghost in a spot a removed ghost would
-    /// come back to; one refusal naming every such ghost and, in <c>actor</c>, who changed them. A change set that
+    /// come back to or a changed ghost's piece or placement would go back to; one refusal naming every such ghost and, in
+    /// <c>actor</c>, who changed them. The actor's own ghost in such a spot is replaced, as a placement replaces it. A
+    /// piece going back that cannot share a small cell with a ghost there refuses, naming both. A change set that
     /// opened or finished plans is refused: plans are kept, and finishing is the finished-plans module's.
     /// </summary>
     private Result<Pending, Refusal> PrepareRevert(Command.Revert revert, Actor actor, Pending pending)
@@ -375,6 +387,26 @@ internal sealed partial class GhostBoard
                 pending.Removed.Add((entry, new RemovalCause.Removed()));
             }
 
+        var reverting = new List<(GhostEntry Current, GhostEntry Back)>(changes.Changed.Count);
+        var reshaped = new Dictionary<GhostId, GhostEntry>();
+        foreach (var change in changes.Changed)
+            if (!leaving.Contains(change.After.Id) && Index.Ghosts.TryGetValue(change.After.Id, out var current))
+            {
+                var back = change.Before with { Revision = pending.At, State = current.Ghost.State };
+                if (back.Intent.Equals(current.Ghost.Intent))
+                {
+                    reverting.Add((current, current.With(back, Option.Some(pending.At))));
+                    continue;
+                }
+
+                var resolved = Resolve(back.Intent);
+                if (!resolved.TryGet(out var parts))
+                    return Fail(new Refusal(resolved.ErrorOf(), ValueList.Of(back.Id)));
+                var entry = new GhostEntry(back, parts.Shape, parts.Target, pending.At);
+                reshaped.Add(entry.Id, entry);
+                reverting.Add((current, entry));
+            }
+
         foreach (var removal in changes.Removed)
         {
             if (Index.Ghosts.ContainsKey(removal.Ghost.Id))
@@ -387,21 +419,27 @@ internal sealed partial class GhostBoard
                 return Fail(new Refusal(resolved.ErrorOf(), ValueList.Of(restored.Id)));
             var entry = new GhostEntry(restored, parts.Shape, parts.Target, pending.At);
             foreach (var holder in Holders(entry))
-                if (leaving.Add(holder) && since.CheckHolder(holder, Index.Ghosts[holder].Ghost.PlacedBy))
+                if (!reshaped.ContainsKey(holder) && leaving.Add(holder) && since.CheckHolder(holder, Index.Ghosts[holder].Ghost.PlacedBy))
                     pending.Removed.Add((Index.Ghosts[holder], new RemovalCause.Replaced(restored.Id)));
 
             pending.Added.Add(entry);
         }
 
+        foreach (var entry in reshaped.Values)
+            foreach (var holder in Holders(entry))
+                if (holder != entry.Id && !reshaped.ContainsKey(holder) && leaving.Add(holder) &&
+                    since.CheckHolder(holder, Index.Ghosts[holder].Ghost.PlacedBy))
+                    pending.Removed.Add((Index.Ghosts[holder], new RemovalCause.Replaced(entry.Id)));
+
         if (since.Refusal() is { } changedSince)
             return Fail(changedSince);
 
-        foreach (var change in changes.Changed)
-            if (!leaving.Contains(change.After.Id) && Index.Ghosts.TryGetValue(change.After.Id, out var current))
-            {
-                var back = change.Before with { Revision = pending.At, State = current.Ghost.State };
-                pending.Changed.Add((current, current.With(back, Option.Some(pending.At))));
-            }
+        foreach (var (current, back) in reverting)
+            if (!leaving.Contains(current.Id))
+                pending.Changed.Add((current, back));
+        foreach (var entry in reshaped.Values)
+            if (!leaving.Contains(entry.Id) && SmallClash(entry, reshaped, leaving, pending.Added) is { } clash)
+                return Fail(clash);
 
         foreach (var change in changes.PlansChanged)
             pending.PlansChanged.Add((Index.Plans[change.After.Id].Plan, change.Before with { Revision = pending.At }));
@@ -544,6 +582,8 @@ internal sealed partial class GhostBoard
 
     private Result<Pending, Refusal> PrepareChange(Command.Change change, Actor actor, Pending pending)
     {
+        if (change.Edit is GhostEdit.Swap swap)
+            return PrepareSwap(change, swap.To, actor, pending);
         var selected = Selected(change.Which, actor);
         if (!selected.TryGet(out var entries))
             return Fail(selected.ErrorOf());
@@ -560,6 +600,83 @@ internal sealed partial class GhostBoard
         }
 
         return Ok(pending);
+    }
+
+    /// <summary>
+    /// The swap edit: each picked ghost the swaps module can change takes its new piece and shape, ids and fields kept;
+    /// the rest are left as they are. Nothing picked changes nothing. Refused with the first ghost's reason (fact
+    /// <c>picked</c>) when ghosts were picked and none could swap, and as a placement for a new piece that clashes in a
+    /// small cell with a ghost there (naming both). Linear in the picked ghosts and the ghosts in their small cells.
+    /// </summary>
+    private Result<Pending, Refusal> PrepareSwap(Command.Change change, SwapTo to, Actor actor, Pending pending)
+    {
+        if (Swaps is not { } swaps)
+            return Fail(Reason.Of(ReasonCodes.ModuleMissing, LatticeIdentity.Board, ValueMap.Of("module", "swaps")));
+        if (swaps.Unknown(to).TryGet(out var unknown))
+            return Fail(unknown);
+        var selected = Select(change.Which, actor);
+        if (!selected.TryGet(out var entries))
+            return Fail(selected.ErrorOf());
+        if (change.UnchangedSince.TryGet(out var since) && ChangedSince(entries, since, pending.At) is { } changedSince)
+            return Fail(changedSince);
+
+        var swappable = 0;
+        (Reason Why, GhostId Ghost)? first = null;
+        var changed = new Dictionary<GhostId, GhostEntry>();
+        foreach (var entry in entries)
+        {
+            var swapped = Edits.Swap(entry.Ghost, to, swaps, pending.At);
+            if (swapped.Why is { } leftOut)
+            {
+                first ??= (leftOut, entry.Id);
+                continue;
+            }
+
+            swappable++;
+            if (swapped.After is not { } edited)
+                continue;
+            var resolved = Resolve(edited.Intent);
+            if (!resolved.TryGet(out var parts))
+                return Fail(new Refusal(resolved.ErrorOf(), ValueList.Of(entry.Id)));
+            var after = new GhostEntry(edited, parts.Shape, parts.Target, pending.At);
+            changed.Add(entry.Id, after);
+            pending.Changed.Add((entry, after));
+            Ask(pending, new AccessRequest(actor, change, entry.Ghost.Plan, Option.Some(entry.Ghost)), ValueList.Of(entry.Id));
+        }
+
+        if (swappable == 0 && first is { } refused)
+            return Fail(new Refusal(
+                refused.Why with { Facts = refused.Why.Facts.With("picked", entries.Count.ToString()) }, ValueList.Of(refused.Ghost)));
+        foreach (var (_, after) in pending.Changed)
+            if (SmallClash(after, changed, null, null) is { } clash)
+                return Fail(clash);
+        return Ok(pending);
+    }
+
+    /// <summary>
+    /// A ghost's new small piece against every other ghost in its cells as they stand after the change: those in
+    /// <paramref name="changed"/> with their new shapes, those in <paramref name="leaving"/> gone, those in
+    /// <paramref name="added"/> there too. Linear in the ghosts in its cells and the added ones.
+    /// </summary>
+    private Refusal? SmallClash(GhostEntry after, Dictionary<GhostId, GhostEntry> changed, HashSet<GhostId>? leaving, List<GhostEntry>? added)
+    {
+        if (!after.Shape.TryGet(out var shape) || !shape.IsSmall)
+            return null;
+        foreach (var spot in shape.Spots)
+            foreach (var other in Index.InCell(spot.Cell))
+            {
+                if (other == after.Id || (leaving is not null && leaving.Contains(other)))
+                    continue;
+                var theirs = changed.TryGetValue(other, out var moved) ? moved.Shape : Index.Ghosts[other].Shape;
+                if (theirs.TryGet(out var their) && Shapes.Conflict(shape, their).TryGet(out var code))
+                    return new Refusal(Clash(code, shape, their), Lists.Own(new[] { after.Id, other }));
+            }
+
+        if (added is not null)
+            foreach (var entry in added)
+                if (entry.Shape.TryGet(out var their) && Shapes.Conflict(shape, their).TryGet(out var code))
+                    return new Refusal(Clash(code, shape, their), Lists.Own(new[] { after.Id, entry.Id }));
+        return null;
     }
 
     private Result<Pending, Refusal> PrepareMoveToPlan(Command.MoveToPlan move, Actor actor, Pending pending)

@@ -8,11 +8,13 @@ namespace Lattice.Core.Swaps;
 
 /// <summary>
 /// One <see cref="Command.PlanSwap"/> being expanded in slices: the selector's structures on the first step, then
-/// <see cref="PerStep"/> structures a step, each given the piece <see cref="SwapPlanner.Target"/> picks; the swap ghosts
-/// go out as one <see cref="Command.Place"/>. A structure that is gone, already is that piece in that turn, or has no
-/// piece to become is left out. Refused with the first structure's reason when structures were picked and none of them
-/// can swap (a kit with no piece of their shape, an unknown kit); the selector's refusal passes through; a selector that
-/// picks nothing gives an empty <see cref="Command.Place"/>.
+/// <see cref="PerStep"/> structures a step, each given the piece <see cref="SwapPlanner.Target(StructureInfo, SwapTo)"/>
+/// picks; the swap ghosts go out as one <see cref="Command.Place"/>. A structure that is gone, already is that piece in
+/// that turn, or has no piece to become is left out. A structure with a swap ghost the sender may see keeps it: that
+/// ghost is changed in place by a <see cref="GhostEdit.Swap"/> after the placement, in one <see cref="Command.Batch"/>,
+/// unless it is part-built (then it is left as it is). Refused with the first structure's reason when structures were
+/// picked and none of them can swap (a kit with no piece of their shape, an unknown kit); the selector's refusal passes
+/// through; a selector that picks nothing gives an empty <see cref="Command.Place"/>.
 /// </summary>
 internal sealed class SwapExpansion(SwapPlanner planner, ExpansionInput<Command.PlanSwap> input) : IExpansionWork
 {
@@ -21,6 +23,7 @@ internal sealed class SwapExpansion(SwapPlanner planner, ExpansionInput<Command.
 
     private ValueList<StructureRef>? _picked;
     private readonly List<GhostDraft> _drafts = new();
+    private readonly List<GhostId> _kept = new();
     private int _next;
     private int _swappable;
     private Option<Reason> _firstRefusal;
@@ -71,8 +74,16 @@ internal sealed class SwapExpansion(SwapPlanner planner, ExpansionInput<Command.
         if (target.TryGet(out var placement))
         {
             _swappable++;
-            if (placement.Piece != info.Ref.Piece || placement.Turn != info.Turn)
-                _drafts.Add(new GhostDraft(
+            if (placement.Piece == info.Ref.Piece && placement.Turn == info.Turn)
+                return;
+            if (SwapGhostOn(info.Ref).TryGet(out var planned))
+            {
+                if (planned.State is not GhostState.Started)
+                    _kept.Add(planned.Id);
+                return;
+            }
+
+            _drafts.Add(new GhostDraft(
                     new Intent.Swap(info.Ref, placement, Option<Finish>.None), input.Command.Into, input.Command.MadeBy,
                     new Visibility.Everyone(), Option<Label>.None, Option<Tint>.None, ValueSet<GroupName>.Empty,
                     ValueMap<AttachmentKey, Attachment>.Empty));
@@ -83,11 +94,23 @@ internal sealed class SwapExpansion(SwapPlanner planner, ExpansionInput<Command.
             _firstRefusal = Option.Some(why);
     }
 
+    private Option<Ghost> SwapGhostOn(StructureRef structure)
+    {
+        foreach (var ghost in input.Board.On(structure))
+            if (ghost.Intent is Intent.Swap)
+                return Option.Some(ghost);
+        return Option<Ghost>.None;
+    }
+
     private Result<Command, Reason> Finish()
     {
         if (_swappable == 0 && _firstRefusal.TryGet(out var why))
             return Result<Command, Reason>.Error(why with { Facts = why.Facts.With("picked", _picked!.Count.ToString()) });
-        return Result<Command, Reason>.Ok(new Command.Place(ValueList.From(_drafts)));
+        var place = new Command.Place(ValueList.From(_drafts));
+        if (_kept.Count == 0)
+            return Result<Command, Reason>.Ok(place);
+        var change = new Command.Change(new Selector.Ids(ValueList.From(_kept)), new GhostEdit.Swap(input.Command.To), Option<Revision>.None);
+        return Result<Command, Reason>.Ok(new Command.Batch(ValueList.From(new Command[] { place, change })));
     }
 }
 

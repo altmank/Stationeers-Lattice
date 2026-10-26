@@ -8,13 +8,6 @@ namespace Lattice.Tests.Contract;
 /// <summary>Contract 0.12: run and route ends on a built structure's port and a route's via cells, documented as added in 0.12.</summary>
 public sealed class ContractTwelveConnectTests
 {
-    [Fact]
-    public void The_contract_is_zero_twelve()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(12, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("T:Lattice.Api.PortEnd.OnStructure")]
     [InlineData("P:Lattice.Api.RouteRequest.Via")]

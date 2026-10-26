@@ -163,18 +163,8 @@ internal static class CommandForm
                 case Api.Command.PlanSwap swap:
                 {
                     var fields = new FieldList();
-                    switch (swap.To)
-                    {
-                        case SwapTo.Exactly exactly:
-                            fields.Add("to-piece", exactly.Piece.Hash);
-                            break;
-                        case SwapTo.SameShapeFrom shape:
-                            fields.Add("to-kit", shape.Kit.Hash);
-                            break;
-                        default:
-                            return Refuse(swap.To);
-                    }
-
+                    if (!SwapTo(fields, swap.To))
+                        return Refuse(swap.To);
                     return WithStructures("plan-swap", swap.Which, Into(fields, swap.Into).Add("made", swap.MadeBy.Value));
                 }
                 case Api.Command.PlanFinish finish:
@@ -474,8 +464,29 @@ internal static class CommandForm
                     return Node("e.attach", new FieldList().Add("key", attach.Key.Value).Add("value", attach.Value.Value));
                 case GhostEdit.Detach detach:
                     return Node("e.detach", new FieldList().Add("key", detach.Key.Value));
+                case GhostEdit.Swap swap:
+                {
+                    var fields = new FieldList();
+                    return SwapTo(fields, swap.To) ? Node("e.swap", fields) : Refuse(swap.To);
+                }
                 default:
                     return Refuse(edit);
+            }
+        }
+
+        /// <summary>Adds a swap's target as <c>to-piece</c> or <c>to-kit</c>; false for a kind of swap this version does not write.</summary>
+        private static bool SwapTo(FieldList fields, SwapTo to)
+        {
+            switch (to)
+            {
+                case Api.SwapTo.Exactly exactly:
+                    fields.Add("to-piece", exactly.Piece.Hash);
+                    return true;
+                case Api.SwapTo.SameShapeFrom shape:
+                    fields.Add("to-kit", shape.Kit.Hash);
+                    return true;
+                default:
+                    return false;
             }
         }
 
@@ -593,6 +604,7 @@ internal static class CommandForm
             "e.vis" => Need(read, "to", WrittenValues.Visibility).Map(static v => (object)new GhostEdit.SetVisibility(v)),
             "e.attach" => Need(read, "key", KeyOf).Bind(key => Need(read, "value", AttachmentOf).Map(value => (object)new GhostEdit.Attach(key, value))),
             "e.detach" => Need(read, "key", KeyOf).Map(static k => (object)new GhostEdit.Detach(k)),
+            "e.swap" => SwapTo(read).Map(static to => (object)new GhostEdit.Swap(to)),
             "p.rename" => Need(read, "to", static t => WrittenValues.Checked(PlanName.Create(t), "plan name", t)).Map(static n => (object)new PlanEdit.Rename(n)),
             "p.owner" => Need(read, "to", WrittenValues.Actor).Map(static a => (object)new PlanEdit.ChangeOwner(a)),
             "p.vis" => Need(read, "to", WrittenValues.Visibility).Map(static v => (object)new PlanEdit.ChangeVisibility(v)),
@@ -822,7 +834,7 @@ internal static class CommandForm
                 return PieceOf(piece).Map(static p => (SwapTo)new SwapTo.Exactly(p));
             if (read.Take("to-kit").TryGet(out var kit))
                 return KitOf(kit).Map(static k => (SwapTo)new SwapTo.SameShapeFrom(k));
-            return Result<SwapTo, string>.Error("plan-swap names to-piece or to-kit");
+            return Result<SwapTo, string>.Error("a swap names to-piece or to-kit");
         }
 
         private static Result<Transformation, string> Transformation(FieldReader read)

@@ -159,6 +159,7 @@ public sealed class KindAndDefaultTests
             [typeof(GhostEdit.SetVisibility)] = () => Edit(new GhostEdit.SetVisibility(new Visibility.OwnerOnly())),
             [typeof(GhostEdit.Attach)] = () => Edit(new GhostEdit.Attach(key, default)),
             [typeof(GhostEdit.Detach)] = () => Edit(new GhostEdit.Detach(key)),
+            [typeof(GhostEdit.Swap)] = () => Edit(new GhostEdit.Swap(new SwapTo.Exactly(placement.Piece))),
 
             [typeof(PlanEdit.Rename)] = () => EditPlan(new PlanEdit.Rename(name)),
             [typeof(PlanEdit.ChangeOwner)] = () => EditPlan(new PlanEdit.ChangeOwner(Bob)),

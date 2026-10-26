@@ -19,6 +19,49 @@ internal static class Edits
         _ => Result<Ghost, Reason>.Error(Unknown.Kind(edit)),
     };
 
+    /// <summary>
+    /// What <see cref="GhostEdit.Swap"/> does to one ghost: a build or swap ghost not part-built takes the piece
+    /// <paramref name="swaps"/> picks, everything else about it kept; the same piece in the same turn leaves it as it is;
+    /// any other ghost, or a piece with nothing that fits, is left out with the reason. One target lookup; it allocates
+    /// only the edited ghost and its intent.
+    /// </summary>
+    public static PieceSwap Swap(Ghost ghost, SwapTo to, IPieceSwaps swaps, Revision at)
+    {
+        if (ghost.State is GhostState.Started)
+            return PieceSwap.Out(PartBuilt);
+        switch (ghost.Intent)
+        {
+            case Intent.Build build:
+            {
+                var target = swaps.Target(build.Target, Option<StructureRef>.None, to);
+                if (!target.TryGet(out var placement))
+                    return PieceSwap.Out(target.ErrorOf());
+                return placement == build.Target
+                    ? PieceSwap.Unchanged
+                    : PieceSwap.To(ghost with { Intent = build with { Target = placement }, Revision = at });
+            }
+            case Intent.Swap swap:
+            {
+                var target = swaps.Target(swap.New, Option.Some(swap.Old), to);
+                if (!target.TryGet(out var placement))
+                    return PieceSwap.Out(target.ErrorOf());
+                return placement == swap.New
+                    ? PieceSwap.Unchanged
+                    : PieceSwap.To(ghost with { Intent = swap with { New = placement }, Revision = at });
+            }
+            case Intent.Remove:
+                return PieceSwap.Out(RemovalHasNoPiece);
+            case Intent.FinishOnly:
+                return PieceSwap.Out(FinishHasNoPiece);
+            default:
+                return PieceSwap.Out(Unknown.Kind(ghost.Intent));
+        }
+    }
+
+    private static readonly Reason PartBuilt = Reason.InvalidValue(nameof(Ghost.State), nameof(GhostState.Started), "part-built");
+    private static readonly Reason RemovalHasNoPiece = Reason.InvalidValue(nameof(Intent), "remove", "no-piece");
+    private static readonly Reason FinishHasNoPiece = Reason.InvalidValue(nameof(Intent), "finish", "no-piece");
+
     public static Result<Plan, Reason> Apply(Plan plan, PlanEdit edit, Revision at) => edit switch
     {
         PlanEdit.Rename rename => OkPlan(plan with { Name = rename.To, Revision = at }),
@@ -66,6 +109,22 @@ internal static class Edits
     private static Result<Ghost, Reason> Ok(Ghost ghost) => Result<Ghost, Reason>.Ok(ghost);
 
     private static Result<Plan, Reason> OkPlan(Plan plan) => Result<Plan, Reason>.Ok(plan);
+}
+
+/// <summary>
+/// What a swap edit does to one ghost, as a value: the ghost with its new piece (<see cref="After"/>), left out with a
+/// reason (<see cref="Why"/>), or neither, <see cref="Unchanged"/>: it already is that piece in that turn.
+/// </summary>
+internal readonly record struct PieceSwap(Ghost? After, Reason? Why)
+{
+    /// <summary>Swappable, nothing to change.</summary>
+    public static PieceSwap Unchanged => default;
+
+    /// <summary>The ghost with its new piece.</summary>
+    public static PieceSwap To(Ghost after) => new(after, null);
+
+    /// <summary>The ghost cannot take the swap and is left as it is.</summary>
+    public static PieceSwap Out(Reason why) => new(null, why);
 }
 
 /// <summary>Reading the error of a result already known to be one.</summary>

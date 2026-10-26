@@ -92,7 +92,14 @@ public abstract record Command
     /// <param name="MadeBy">What makes the remove ghosts.</param>
     public sealed record MarkRemoval(StructureSelector Which, Option<PlanId> Into, Maker MadeBy) : Command;
 
-    /// <summary>"Swap all": swap ghosts for every structure a selector picks. Expanded by the swap planner.</summary>
+    /// <summary>
+    /// "Swap all": swap ghosts for every structure a selector picks. Expanded by the swap planner. A picked structure
+    /// that already has a swap ghost the sender may see keeps it: from contract 0.13 that ghost is changed in place as
+    /// <see cref="GhostEdit.Swap"/> changes it, keeping its id, plan, maker, label, tint, groups and attachments, and it
+    /// stays in its plan (send <see cref="MoveToPlan"/> to move it into <paramref name="Into"/>). To swap built and
+    /// planned pieces as one change set, send a <see cref="Batch"/> of this and a <see cref="Change"/> with
+    /// <see cref="GhostEdit.Swap"/> over the matching ghost selector.
+    /// </summary>
     /// <param name="Which">The structures.</param>
     /// <param name="To">What each becomes.</param>
     /// <param name="Into">The plan, or the default plan.</param>
@@ -208,7 +215,10 @@ public sealed record GhostDraft(
     ValueSet<GroupName> Groups,
     ValueMap<AttachmentKey, Attachment> Attached);
 
-/// <summary>One edit to a ghost.</summary>
+/// <summary>
+/// One edit to a ghost. A later minor may add cases; Lattice refuses a case it does not know with
+/// <see cref="ReasonCodes.UnknownKind"/>.
+/// </summary>
 public abstract record GhostEdit
 {
     private GhostEdit() { }
@@ -245,6 +255,26 @@ public abstract record GhostEdit
     /// <summary>Removes the data under a key.</summary>
     /// <param name="Key">The key.</param>
     public sealed record Detach(AttachmentKey Key) : GhostEdit;
+
+    /// <summary>
+    /// Changes the piece of a build or swap ghost in place, as <see cref="Command.PlanSwap"/> changes a built
+    /// structure's: <see cref="SwapTo.Exactly"/> that piece if it fits, <see cref="SwapTo.SameShapeFrom"/> the kit's
+    /// piece of the same shape (same spots, same ends with the same network kinds; its turn may change). The ghost keeps
+    /// its id, plan, label, tint, groups, attachments, finish, maker and placer; what follows from the piece (support,
+    /// build order and waits, bill, steps, network effects, looks) is worked out again. A ghost it cannot change is left
+    /// as it is: a removal or finish ghost, a ghost whose structure is part-built (<see cref="GhostState.Started"/>), one
+    /// already that piece in that turn, one with nothing that fits, or a swap ghost that would become its own old
+    /// structure. Unlike the other edits, which refuse the whole command when one ghost refuses, the command is refused
+    /// with the first ghost's reason (fact <c>picked</c>, the number of ghosts picked) only when ghosts were picked and
+    /// none could take it. A new piece that cannot share a small cell with another ghost there refuses the command,
+    /// naming both. Refused <see cref="ReasonCodes.ModuleMissing"/> (fact <c>module</c>) when swaps are not running, and
+    /// <see cref="ReasonCodes.UnknownKind"/> for a kind of <see cref="SwapTo"/> this version does not know, even when
+    /// nothing is picked. A swap that changes nothing (nothing picked, or every ghost already that piece) is applied as
+    /// an empty change set, which takes a revision and can be reverted. <c>UnchangedSince</c> guards every ghost picked,
+    /// those the swap leaves as they are too. To cancel a planned swap, remove its ghost. Added in contract 0.13.
+    /// </summary>
+    /// <param name="To">What each ghost's piece becomes.</param>
+    public sealed record Swap(SwapTo To) : GhostEdit;
 }
 
 /// <summary>Whether a transform moves ghosts or places transformed copies. A later minor may add cases; an unknown case is refused with <see cref="ReasonCodes.UnknownKind"/>.</summary>

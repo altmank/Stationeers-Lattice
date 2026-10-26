@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.0
+
+- **Planned pieces swap in place.** `GhostEdit.Swap`, sent with `Command.Change`, changes the piece of planned
+  ghosts as `PlanSwap` changes built ones: a planned cable run dragged with heavy cable becomes heavy cable, each ghost
+  keeping its id, plan, label, tint, groups, attachments and maker. What it waits for, its bill, steps and looks follow
+  the new piece. Ghosts that cannot swap are left as they are; the edit is refused only when none could.
+- **One drag over built and planned pieces** is a `Batch` of a `PlanSwap` and a `Change` with `GhostEdit.Swap`: one
+  change set, one undo.
+- **Changed: `PlanSwap` keeps a structure's existing swap ghost.** A picked structure that already had a planned swap
+  got a new swap ghost in its place, with a new id, in the command's plan, with its label, tint, groups and attachments
+  lost. Now that ghost is changed in place and stays in its plan; send `MoveToPlan` to move it.
+- Undoing a change that changed a ghost's piece puts its shape back too.
+- `GhostEdit` says that a later minor may add cases; an edit Lattice does not know is refused `unknown-kind`, as before.
+- Contract 0.13, which only adds: a mod written for 0.12 sees the same answers, but for the `PlanSwap` change above.
+
 ## 0.12.1
 
 - **A route that finds no route says why it stopped.** The new fact `stopped` names, for each side of the nearest cell

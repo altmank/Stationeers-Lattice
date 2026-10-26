@@ -20,7 +20,7 @@ internal static class SwapCodes
 /// tick (<c>Atmosphere.ReactWithStructures</c>).
 /// Main thread.
 /// </summary>
-internal sealed class SwapPlanner(ICatalogue catalogue, Shapes shapes, IWorldView world) : ISwaps
+internal sealed class SwapPlanner(ICatalogue catalogue, Shapes shapes, IWorldView world) : ISwaps, IPieceSwaps
 {
     private readonly SwapShapes _fits = new(catalogue, shapes);
 
@@ -32,7 +32,7 @@ internal sealed class SwapPlanner(ICatalogue catalogue, Shapes shapes, IWorldVie
     public Result<ValueList<SwapOption>, Reason> Options(StructureInfo structure)
     {
         if (catalogue.Piece(structure.Ref.Piece).IsError)
-            return Result<ValueList<SwapOption>, Reason>.Error(Unknown(structure.Ref.Piece));
+            return Result<ValueList<SwapOption>, Reason>.Error(UnknownPiece(structure.Ref.Piece));
 
         var fits = _fits.FitsFor(structure.Ref.Piece, structure.Turn);
         var options = new SwapOption[fits.Count];
@@ -63,20 +63,48 @@ internal sealed class SwapPlanner(ICatalogue catalogue, Shapes shapes, IWorldVie
     /// nothing fits, <see cref="ReasonCodes.UnknownPiece"/> for a piece the catalogue does not hold, the catalogue's
     /// reason for an unknown kit, <see cref="ReasonCodes.UnknownKind"/> for a kind of swap this version does not know.
     /// </summary>
-    public Result<Placement, Reason> Target(StructureInfo structure, SwapTo to)
+    public Result<Placement, Reason> Target(StructureInfo structure, SwapTo to) =>
+        Target(new Placement(structure.Ref.Piece, structure.Ref.At, structure.Turn), to);
+
+    /// <summary>
+    /// What a planned piece becomes under <paramref name="to"/>, as <see cref="Target(StructureInfo, SwapTo)"/> for a
+    /// structure of that piece in that turn. For a swap ghost, <paramref name="old"/> is the structure it swaps: a
+    /// result that is that structure as it stands (same piece in the same turn, or the same piece once it is gone) is
+    /// refused <see cref="ReasonCodes.InvalidValue"/> (<c>problem=own-structure</c>). One world read for a swap ghost,
+    /// else catalogue facts and cached fits.
+    /// </summary>
+    public Result<Placement, Reason> Target(Placement placement, Option<StructureRef> old, SwapTo to)
     {
-        var old = structure.Ref.Piece;
-        if (catalogue.Piece(old).IsError)
-            return Result<Placement, Reason>.Error(Unknown(old));
+        var target = Target(placement, to);
+        if (old.TryGet(out var structure) && target.TryGet(out var found) && IsOwn(structure, found))
+            return Result<Placement, Reason>.Error(Reason.Of(
+                ReasonCodes.InvalidValue, SwapCodes.Swaps, ValueMap.Of("piece", found.Piece.Hash.ToString())
+                    .With("structure", structure.Id.Value.ToString()).With("problem", "own-structure")));
+        return target;
+    }
+
+    private Result<Placement, Reason> Target(Placement placement, SwapTo to)
+    {
+        if (catalogue.Piece(placement.Piece).IsError)
+            return Result<Placement, Reason>.Error(UnknownPiece(placement.Piece));
 
         return to switch
         {
-            SwapTo.Exactly exactly => Exactly(structure, exactly.Piece),
-            SwapTo.SameShapeFrom same => SameShape(structure, same.Kit),
-            _ => Result<Placement, Reason>.Error(Reason.Of(
-                ReasonCodes.UnknownKind, SwapCodes.Swaps, ValueMap.Of("kind", to.GetType().Name))),
+            SwapTo.Exactly exactly => Exactly(placement, exactly.Piece),
+            SwapTo.SameShapeFrom same => SameShape(placement, same.Kit),
+            _ => Result<Placement, Reason>.Error(UnknownKind(to)),
         };
     }
+
+    public Option<Reason> Unknown(SwapTo to) =>
+        to is SwapTo.Exactly or SwapTo.SameShapeFrom ? Option<Reason>.None : Option.Some(UnknownKind(to));
+
+    private static Reason UnknownKind(SwapTo to) =>
+        Reason.Of(ReasonCodes.UnknownKind, SwapCodes.Swaps, ValueMap.Of("kind", to.GetType().Name));
+
+    private bool IsOwn(StructureRef structure, Placement placement) =>
+        placement.Piece == structure.Piece && placement.At == structure.At &&
+        (!world.Structure(structure.Id).TryGet(out var standing) || standing.Turn == placement.Turn);
 
     /// <summary>The face load of a placement whose piece closes a face and has a face rating; none otherwise. Linear in its spots.</summary>
     public Option<FaceLoad> FaceLoadOf(Placement placement)
@@ -94,35 +122,38 @@ internal sealed class SwapPlanner(ICatalogue catalogue, Shapes shapes, IWorldVie
         return Option<FaceLoad>.None;
     }
 
-    private Result<Placement, Reason> Exactly(StructureInfo structure, PrefabKey piece)
+    private Result<Placement, Reason> Exactly(Placement old, PrefabKey piece)
     {
-        if (piece == structure.Ref.Piece)
-            return Result<Placement, Reason>.Ok(new Placement(piece, structure.Ref.At, structure.Turn));
+        if (piece == old.Piece)
+            return Result<Placement, Reason>.Ok(old);
         if (catalogue.Piece(piece).IsError)
-            return Result<Placement, Reason>.Error(Unknown(piece));
-        return _fits.FitOf(structure.Ref.Piece, structure.Turn, piece).TryGet(out var turn)
-            ? Result<Placement, Reason>.Ok(new Placement(piece, structure.Ref.At, turn))
-            : Result<Placement, Reason>.Error(NoPiece(structure.Ref.Piece, "with", piece.Hash.ToString()));
+            return Result<Placement, Reason>.Error(UnknownPiece(piece));
+        return _fits.FitOf(old.Piece, old.Turn, piece).TryGet(out var turn)
+            ? Result<Placement, Reason>.Ok(old with { Piece = piece, Turn = turn })
+            : Result<Placement, Reason>.Error(NoPiece(old.Piece, "with", piece.Hash.ToString()));
     }
 
-    private Result<Placement, Reason> SameShape(StructureInfo structure, KitKey kit) =>
-        catalogue.Kit(kit).Bind(facts => SameShapeIn(structure, facts));
+    private Result<Placement, Reason> SameShape(Placement old, KitKey kit)
+    {
+        var facts = catalogue.Kit(kit);
+        return facts.TryGet(out var found) ? SameShapeIn(old, found) : Result<Placement, Reason>.Error(facts.ErrorOf());
+    }
 
-    private Result<Placement, Reason> SameShapeIn(StructureInfo structure, KitFacts facts)
+    private Result<Placement, Reason> SameShapeIn(Placement old, KitFacts facts)
     {
         foreach (var piece in facts.Pieces)
-            if (piece == structure.Ref.Piece)
-                return Result<Placement, Reason>.Ok(new Placement(piece, structure.Ref.At, structure.Turn));
+            if (piece == old.Piece)
+                return Result<Placement, Reason>.Ok(old);
         foreach (var piece in facts.Pieces)
-            if (_fits.FitOf(structure.Ref.Piece, structure.Turn, piece).TryGet(out var turn))
-                return Result<Placement, Reason>.Ok(new Placement(piece, structure.Ref.At, turn));
-        return Result<Placement, Reason>.Error(NoPiece(structure.Ref.Piece, "kit", facts.Key.Hash.ToString()));
+            if (_fits.FitOf(old.Piece, old.Turn, piece).TryGet(out var turn))
+                return Result<Placement, Reason>.Ok(old with { Piece = piece, Turn = turn });
+        return Result<Placement, Reason>.Error(NoPiece(old.Piece, "kit", facts.Key.Hash.ToString()));
     }
 
     private static Reason NoPiece(PrefabKey old, string key, string value) => Reason.Of(
         ReasonCodes.NoPiece, SwapCodes.Swaps, ValueMap.Of("piece", old.Hash.ToString()).With(key, value));
 
-    private static Reason Unknown(PrefabKey piece) => Reason.Of(
+    private static Reason UnknownPiece(PrefabKey piece) => Reason.Of(
         ReasonCodes.UnknownPiece, SwapCodes.Swaps, ValueMap.Of("piece", piece.Hash.ToString()));
 
     /// <summary>The axis a face slot lies across, from either side; none for a slot that is not a face.</summary>

@@ -82,7 +82,7 @@ reads through `Board.As(agent)` so the access policy filters for it. Reads on an
 
 | Command | Does |
 |---|---|
-| `Change(which, edit, unchangedSince)` | One `GhostEdit` on every ghost a selector picks: `SetLabel`, `SetTint`, `JoinGroup`, `LeaveGroup`, `SetFinish`, `SetVisibility`, `Attach`, `Detach`. |
+| `Change(which, edit, unchangedSince)` | One `GhostEdit` on every ghost a selector picks: `SetLabel`, `SetTint`, `JoinGroup`, `LeaveGroup`, `SetFinish`, `SetVisibility`, `Attach`, `Detach`, and from contract 0.13 `Swap` ([below](#swapping-planned-pieces)). |
 | `Move(to, unchangedSince)` | Moves build ghosts to new placements, keeping their ids, all at once. |
 | `MoveToPlan(which, plan)` | Moves ghosts into another plan. |
 | `Remove(which)` | Removes ghosts from the board. |
@@ -99,6 +99,44 @@ var label = new Command.Change(
 
 Keep the `ChangeSet.Id` of each applied change on an undo stack. `Command.Revert` with it is your undo.
 
+### Swapping planned pieces
+
+`GhostEdit.Swap(to)` (contract 0.13) changes the piece of build and swap ghosts in place, as `PlanSwap` changes a
+built structure's: `SwapTo.Exactly(piece)` if it fits, or `SwapTo.SameShapeFrom(kit)` for the kit's piece of the same
+shape. A planned cable run dragged with heavy cable becomes heavy cable.
+
+- Each changed ghost keeps its id, plan, label, tint, groups, attachments, finish, maker and placer, and a swap ghost
+  keeps the structure it swaps. What follows from the piece is worked out again: support and build order (so what it
+  waits for), its bill and steps, network effects and looks. A setting the new piece cannot take is a validation
+  finding, not a refusal.
+- A ghost it cannot change is left as it is: a removal or finish ghost, a part-built ghost (`Started`), one already
+  that piece in that turn, one with nothing of that shape, and a swap ghost that would become its own old structure. A
+  drag over mixed ghosts swaps what can swap. The change set's changed ghosts are the ones that swapped; a preview shows
+  them before you send.
+- Unlike the other edits, it is refused only when ghosts were picked and none could swap: with the first ghost's reason
+  (`no-piece`, `unknown-piece`, or the catalogue's reason for an unknown kit) and fact `picked`. A selector that picks
+  nothing changes nothing: it is applied as an empty change set, as is a swap where every ghost already is that piece.
+  `unchangedSince` guards every ghost picked, those left as they are too. A new piece that cannot share a small cell
+  with a ghost there refuses the command, naming both. With swaps off it is refused `module-missing` (`module=swaps`);
+  a kind of `SwapTo` this version does not know is refused `unknown-kind`.
+- One change set; `Revert` puts every piece back. To cancel a planned swap, remove its ghost.
+
+To swap built and planned pieces in one drag, send both as one batch: one change set, one undo.
+
+```csharp
+var to = new SwapTo.SameShapeFrom(heavyCable);
+var drag = new Command.Batch(ValueList.From(new Command[]
+{
+    new Command.PlanSwap(new StructureSelector.Box(corner, opposite), to, Option<PlanId>.None, madeBy),
+    new Command.Change(new Selector.Box(corner, opposite), new GhostEdit.Swap(to), Option.Some(seen)),
+}));
+```
+
+`PlanSwap` leaves a built structure's existing swap ghost in place and changes it (from Lattice 0.13), so the
+`Change` step finds it already that piece and leaves it. A run selector follows one kind: `StructureSelector.RunThrough`
+follows built pieces and `Selector.RunThrough` planned ones, so over a run of both, pick each part with its own
+selector, or use a box.
+
 ## Commands Lattice expands
 
 These are worked out by a module into primitive commands. With the module off they are refused `module-missing`.
@@ -107,7 +145,7 @@ These are worked out by a module into primitive commands. With the module off th
 |---|---|---|
 | `MarkRemoval(structures, into, madeBy)` | `selectors` | A remove ghost per structure. |
 | `PlanFinish(structures, finish, into, madeBy)` | `selectors` | A finish ghost per structure. |
-| `PlanSwap(structures, to, into, madeBy)` | `swaps` | "Swap all": a swap ghost per structure. `SwapTo.Exactly(piece)`, or `SwapTo.SameShapeFrom(kit)` for the piece of the same shape that kit places (every cable shape to its heavy cable shape). |
+| `PlanSwap(structures, to, into, madeBy)` | `swaps` | "Swap all": a swap ghost per structure. `SwapTo.Exactly(piece)`, or `SwapTo.SameShapeFrom(kit)` for the piece of the same shape that kit places (every cable shape to its heavy cable shape). A structure that already has a swap ghost you may see keeps it, changed in place as `GhostEdit.Swap` changes it, in its own plan (from Lattice 0.13; send `MoveToPlan` to move it into `into`). |
 | `PlanRun(RunRequest)` | `runs` | A drawn run of cable, pipe or chute from a kit, from one cell through bend cells to another. `FromPort` and `ToPort` name an end as a ghost's port (contract 0.8) or a built structure's (contract 0.12): the end piece joins that port. `Lay` chooses the pieces (contract 0.9, [below](#choosing-the-pieces)). |
 | `PlanRoute(RouteRequest)` | `routes` | A run found between two ends, under `RouteToggles`: on frames only, fewest bends, doors and windows clear, ports free, no bridging; and from contract 0.9 which leg first and hugging frames and walls ([below](#route-choices)). `SearchBound` caps the search. `FromPort` and `ToPort` as for a run; with ports free, a named port's own cell stays open to the route. `Branches` and `Lay` from contract 0.9; `Via`, cells the route passes through, from contract 0.12 ([below](#pinned-points)). |
 | `PlanSplit(which, into, madeBy)` | `runs` | Long straights planned as single pieces (contract 0.9, [below](#splitting-long-straights)). |

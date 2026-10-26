@@ -181,6 +181,7 @@ internal sealed class ClientChecks(CommandLimits limits, ICatalogue catalogue, A
         private Reason? Edit(GhostEdit edit) => edit switch
         {
             GhostEdit.Attach attach => Text(attach.Key, attach.Value),
+            GhostEdit.Swap swap => SwapTo(swap.To),
             _ => null,
         };
 

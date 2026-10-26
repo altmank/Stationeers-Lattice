@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 12 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 13 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -673,6 +673,10 @@ Lattice.Api.GhostEdit.Detach
 Lattice.Api.GhostEdit.Detach.Detach(Lattice.Api.AttachmentKey Key) -> void
 Lattice.Api.GhostEdit.Detach.Key.get -> Lattice.Api.AttachmentKey
 Lattice.Api.GhostEdit.Detach.Key.init -> void
+Lattice.Api.GhostEdit.Swap
+Lattice.Api.GhostEdit.Swap.Swap(Lattice.Api.SwapTo! To) -> void
+Lattice.Api.GhostEdit.Swap.To.get -> Lattice.Api.SwapTo!
+Lattice.Api.GhostEdit.Swap.To.init -> void
 Lattice.Api.GhostEdit.JoinGroup
 Lattice.Api.GhostEdit.JoinGroup.Group.get -> Lattice.Api.GroupName
 Lattice.Api.GhostEdit.JoinGroup.Group.init -> void

@@ -368,6 +368,7 @@ internal sealed class LatticeWorld : IGhostSystem
         {
             _starting = LatticeModules.Swaps;
             swaps = new SwapPlanner(catalogue, shapes, view);
+            Ghosts.InstallSwaps(swaps);
             Must(expanders.RegisterSliced(new SwapExpander(swaps).Descriptor));
         }
 

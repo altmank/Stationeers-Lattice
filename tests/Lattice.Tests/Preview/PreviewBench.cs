@@ -37,9 +37,10 @@ internal sealed class PreviewBench
 {
     public static readonly AgentId Agent = TestKitIds.Must(AgentId.Create("swapper"));
 
-    public PreviewBench()
+    /// <param name="moreText">More pieces in the catalogue file format without its header, for benches built on this one.</param>
+    public PreviewBench(string? moreText = null)
     {
-        Runs = new RunBench(SwapBench.ExtraText);
+        Runs = new RunBench(moreText is null ? SwapBench.ExtraText : SwapBench.ExtraText + "\n\n" + moreText);
         Shapes = new Shapes(Runs.Catalogue, Runs.Grid);
         Mirror = new WorldMirror(Shapes, Runs.World);
         Scheduler = new FrameScheduler(Clock, FrameBudgets.Default);

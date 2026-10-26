@@ -9,13 +9,6 @@ namespace Lattice.Tests.Contract;
 public sealed class ContractTwelveHighlightTests
 {
     [Fact]
-    public void The_contract_is_zero_twelve()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(12, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void Picked_and_built_says_it_was_added_in_zero_twelve()
     {
         var docs = XDocument.Load(Path.ChangeExtension(typeof(ApiVersion).Assembly.Location, ".xml"));
