@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1
+
+- **A route that finds no route says why it stopped.** The new fact `stopped` names, for each side of the nearest cell
+  the route could not enter, what kept it out: what stands there, no frame, a door or window, a free port, another
+  network, an earlier leg, or the edge of the search box. It is set for routes and for each leg of a pinned route.
+
 ## 0.12.0
 
 - **Runs and routes can end on a built device's port.** Name the port with `PortEnd.OnStructure`, as a ghost's port

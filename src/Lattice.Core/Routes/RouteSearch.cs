@@ -1,16 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Lattice.Api;
+using Lattice.Core.Catalogue;
 using Lattice.Core.Grid;
 using Lattice.Core.Ports;
 using Lattice.Core.Slices;
 
 namespace Lattice.Core.Routes;
 
-/// <summary>Whether a route may step into a cell travelling one way. The search's only question about the world.</summary>
+/// <summary>Whether a route may step into a cell travelling one way, and why not. The search's only question about the world.</summary>
 internal interface IRouteCells
 {
     bool Enters(Cell cell, Direction heading);
+
+    /// <summary>Why the route may not step into the cell travelling this way; <see cref="Refusal.None"/> when it may.</summary>
+    Refusal Why(Cell cell, Direction heading);
 }
 
 /// <summary>What a route search found: the cells end to end and the bends among them, or why it found none.</summary>
@@ -283,6 +288,7 @@ internal sealed class RouteSearch : ISlicedWork
     private RouteOutcome NotFound(ReasonCode code)
     {
         var nearest = _states[_nearest].Cell;
+        var stopped = Stopped(nearest);
         var why = Reason.Of(code, RouteCodes.Routes, ValueMap
             .Of("from", Written(_from))
             .With("to", Written(_to))
@@ -290,9 +296,53 @@ internal sealed class RouteSearch : ISlicedWork
             .With("cells-left", Distance(nearest).ToString(System.Globalization.CultureInfo.InvariantCulture))
             .With("expanded", _expanded.ToString(System.Globalization.CultureInfo.InvariantCulture))
             .With("bound", _bound.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            .With("margin", _margin.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            .With("margin", _margin.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .With("stopped", stopped));
         return new RouteOutcome.NotFound(why, nearest, _expanded);
     }
+
+    /// <summary>
+    /// Why the route went no further from the nearest cell: for each neighbour it never reached that it could not
+    /// enter, <c>&lt;direction&gt;:&lt;cause&gt;</c>, comma-separated, in direction order. At most six cells asked, each
+    /// judged already.
+    /// </summary>
+    private string Stopped(Cell nearest)
+    {
+        var text = new StringBuilder();
+        for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
+        {
+            var next = _grid.Neighbour(nearest, direction, _size);
+            if (IsEnd(next) || Reached(next))
+                continue;
+            var cause = !Inside(next) ? "outside-box" : Cause(_cells.Why(next, direction));
+            if (cause is null)
+                continue;
+            if (text.Length > 0)
+                text.Append(',');
+            text.Append(CatalogueText.Direction(direction)).Append(':').Append(cause);
+        }
+
+        return text.ToString();
+    }
+
+    private bool Reached(Cell cell)
+    {
+        for (var heading = 0; heading <= (int)Direction.ZMinus; heading++)
+            if (_index.ContainsKey((cell, heading, false)) || _index.ContainsKey((cell, heading, true)))
+                return true;
+        return false;
+    }
+
+    private static string? Cause(Refusal why) => why switch
+    {
+        Refusal.Collides => "collides",
+        Refusal.OffFrame => "off-frame",
+        Refusal.Opening => "opening",
+        Refusal.Port => "port",
+        Refusal.Join => "join",
+        Refusal.Crosses => "crosses",
+        _ => null,
+    };
 
     private static string Written(Cell cell) => $"{cell.X},{cell.Y},{cell.Z}";
 

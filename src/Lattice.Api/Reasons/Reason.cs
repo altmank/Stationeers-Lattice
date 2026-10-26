@@ -203,8 +203,13 @@ public static class ReasonCodes
     /// No route exists inside the search box under the request's toggles; facts <c>from</c>, <c>to</c>, <c>nearest</c>
     /// (the reached cell closest to the far end, "x,y,z"), <c>cells-left</c>, <c>expanded</c>, <c>bound</c>, <c>margin</c>;
     /// <c>branch</c> for a branch, and <c>leg</c> for a leg of a route with <see cref="RouteRequest.Via"/> cells, whose
-    /// <c>from</c>, <c>to</c>, <c>nearest</c> and <c>cells-left</c> are that leg's.
-    /// Moving an end or relaxing a toggle may help; a bigger bound does not.
+    /// <c>from</c>, <c>to</c>, <c>nearest</c> and <c>cells-left</c> are that leg's. Fact <c>stopped</c> says why the route
+    /// went no further from <c>nearest</c>: for each neighbour it never reached and could not enter,
+    /// <c>&lt;direction&gt;:&lt;cause&gt;</c> (directions as the catalogue writes them, <c>x+</c>), comma-separated, in
+    /// direction order; empty when there is none. Causes: <c>collides</c> (what stands there), <c>off-frame</c>,
+    /// <c>opening</c> (a door or window keep-out), <c>port</c> (a free device port), <c>join</c> (another network),
+    /// <c>crosses</c> (an earlier leg, or an end or via cell not this leg's), <c>outside-box</c> (past the search box); a
+    /// later version may add causes. Moving an end or relaxing a toggle may help; a bigger bound does not.
     /// </summary>
     public static readonly ReasonCode NoRoute = ReasonCode.Known("no-route");
 

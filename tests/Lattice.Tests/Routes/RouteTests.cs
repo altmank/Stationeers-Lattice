@@ -82,6 +82,9 @@ public sealed class RouteTests(ITestOutputHelper output)
         }
 
         public bool Enters(Cell cell, Direction heading) => _open.Contains(cell);
+
+        public Lattice.Core.Routes.Refusal Why(Cell cell, Direction heading) =>
+            Enters(cell, heading) ? Lattice.Core.Routes.Refusal.None : Lattice.Core.Routes.Refusal.Collides;
     }
 
     [Theory]

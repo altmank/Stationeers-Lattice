@@ -189,6 +189,13 @@ they are not bends: the route may run straight through one.
 | `invalid-value`, `problem=via-repeats`, fact `via` | A via cell equal to `From`, `To` or an earlier via cell. |
 | `no-route`, `search-limit`, fact `leg` | A leg found no route: 0 from `From`, the last from the last via cell to `To`. `from`, `to`, `nearest` and `cells-left` are that leg's. A request without via cells has no `leg`. |
 
+A route or leg that finds no route says where it stopped and why. `nearest` is the reached cell closest to the far
+end: the cell to mark. `stopped` (from Lattice 0.12.1) lists, for each neighbour of `nearest` the route never reached
+and could not enter, `<direction>:<cause>` in direction order, such as `x+:opening,z-:outside-box`; it is empty when
+there is none. The causes are `collides`, `off-frame`, `opening`, `port`, `join`, `crosses` (an earlier leg, or an end
+or via cell not this leg's) and `outside-box`; a later version may add more. `outside-box` means a bigger margin may
+help; the others mean moving an end or relaxing that toggle.
+
 ### Choosing the pieces
 
 `LayOptions(SinglePiecesOnly, MatchGrade)` (contract 0.9) is `Lay` on both `RunRequest` and `RouteRequest`, so a run
