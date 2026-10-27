@@ -115,10 +115,10 @@ var submission = lattice.Commands.Submit(CommandId.New(), new Command.Place(draf
 
 ## Selectors
 
-A `Selector` describes a set of ghosts: by ids, a box of cells, a run through a cell, a network, a room, a group, an
-owner, a maker, a plan, attached data, a piece, or `All` / `Any` of other selectors. The same value reads the board
-(`Board.Select`) and drives bulk commands (`Command.Remove`, `Command.Change`, `Command.Transform`), validation,
-bills and analysis.
+A `Selector` describes a set of ghosts: by ids, a box of cells, a run through a cell, the planned network joined to a
+piece (contract 0.15), a network, a room, a group, an owner, a maker, a plan, attached data, a piece, or `All` / `Any`
+of other selectors. The same value reads the board (`Board.Select`) and drives bulk commands (`Command.Remove`,
+`Command.Change`, `Command.Transform`), validation, bills and analysis.
 
 `StructureSelector` is the same idea for built structures. It drives `MarkRemoval`, `PlanSwap` and `PlanFinish`.
 

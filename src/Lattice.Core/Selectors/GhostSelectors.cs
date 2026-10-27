@@ -16,8 +16,8 @@ internal static class SelectorRules
 }
 
 /// <summary>
-/// The selectors module on ghosts: box, run, network, room and tag selectors, installed into the board
-/// (<see cref="GhostBoard.InstallSelectors"/>). Runs follow the board's cell index; networks and rooms read the world
+/// The selectors module on ghosts: box, run, joined, network, room and tag selectors, installed into the board
+/// (<see cref="GhostBoard.InstallSelectors"/>). Runs and joined pieces follow the board's cell index; networks and rooms read the world
 /// view for the network's pieces and the room's cells, and the mirror for the structures; nothing scans the world.
 /// Its <see cref="Revision"/> is the mirror's, so views drop cached network and room answers when the world changes.
 /// Main thread.
@@ -34,6 +34,7 @@ internal sealed class GhostSelectors(Shapes shapes, IGrid grid, WorldMirror mirr
     {
         Selector.Box box => Ok(InBox(index, CellBox.Between(box.Corner, box.Opposite))),
         Selector.RunThrough run => Ok(Walks.Run(new GhostPieces(index), run.Cell, grid)),
+        Selector.Joined joined => Ok(Walks.RunNetwork(new GhostPieces(index), joined.Cell, grid)),
         Selector.Network network => Ok(OnNetwork(index, network.Of)),
         Selector.Room room => Ok(InRoom(index, room.Of)),
         Selector.Tagged tagged => Ok(Tagged(index, tagged.Key, tagged.Value)),

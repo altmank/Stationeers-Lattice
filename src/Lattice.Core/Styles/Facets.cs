@@ -8,7 +8,7 @@ namespace Lattice.Core.Styles;
 
 /// <summary>
 /// Judges facets of drawn things. Local cases read the thing's own facts; relational selectors (network, room, run
-/// through, or an and/or holding one) read the ghosts the board picked as a whole. Ghost-only cases (state, finding,
+/// through, joined, or an and/or holding one) read the ghosts the board picked as a whole. Ghost-only cases (state, finding,
 /// status, intent, mine, tinted, draft, pending, selectors) are false for a structure. Findings read the cached
 /// validation answer the styles keep from verdict changes: drawing never starts a check, and plan state's background
 /// checks cover every plan. Allocates nothing.
@@ -23,10 +23,10 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
         or StyleMatch.Mine or StyleMatch.Tinted or StyleMatch.Finishes or StyleMatch.Draft or StyleMatch.Pending or StyleMatch.Structure
         or StyleMatch.Facing;
 
-    /// <summary>A selector the board answers as a whole: network, room, run through, or an and/or holding one.</summary>
+    /// <summary>A selector the board answers as a whole: network, room, run through, joined, or an and/or holding one.</summary>
     public static bool IsRelational(Selector selector) => selector switch
     {
-        Selector.Network or Selector.Room or Selector.RunThrough => true,
+        Selector.Network or Selector.Room or Selector.RunThrough or Selector.Joined => true,
         Selector.All all => AnyRelational(all.Of),
         Selector.Any any => AnyRelational(any.Of),
         _ => false,

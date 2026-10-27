@@ -68,7 +68,41 @@ internal static class Walks
         where TId : notnull
     {
         var taken = new HashSet<TId>();
-        var next = new Queue<PlacedShape>(seeds);
+        Spread(pieces, new Queue<PlacedShape>(seeds), kinds, grid, taken, runOnly: false);
+        return taken;
+    }
+
+    /// <summary>
+    /// The joined run pieces from a cell: each run piece in the cell, and the run pieces joined end to end to it and
+    /// through each other by ends that carry one of its own ends' kinds, through junctions (any number of ends). A
+    /// piece with a device port is not taken and the walk does not pass it. Linear in the starts and what each reaches.
+    /// </summary>
+    public static HashSet<TId> RunNetwork<TId>(IHeldPieces<TId> pieces, Cell cell, IGrid grid) where TId : notnull
+    {
+        var picked = new HashSet<TId>();
+        var found = new List<Held<TId>>(4);
+        pieces.At(cell, found);
+        foreach (var start in found)
+        {
+            if (!start.Shape.TryGet(out var shape) || !IsRunPiece(shape))
+                continue;
+            var taken = new HashSet<TId> { start.Id };
+            var next = new Queue<PlacedShape>();
+            next.Enqueue(shape);
+            Spread(pieces, next, KindsOf(shape), grid, taken, runOnly: true);
+            picked.UnionWith(taken);
+        }
+
+        return picked;
+    }
+
+    /// <summary>
+    /// Takes the holders joined end to end to the queued shapes, and through each other, by ends that carry one of the
+    /// kinds; with <paramref name="runOnly"/>, run pieces only. A holder already taken is not taken again.
+    /// </summary>
+    private static void Spread<TId>(IHeldPieces<TId> pieces, Queue<PlacedShape> next, ValueSet<NetworkType> kinds, IGrid grid,
+        HashSet<TId> taken, bool runOnly) where TId : notnull
+    {
         var found = new List<Held<TId>>(4);
         while (next.Count > 0)
         {
@@ -81,15 +115,23 @@ internal static class Walks
                 var there = grid.Neighbour(piece.Ends[end].Cell, piece.Ends[end].Facing, GridSize.Small);
                 pieces.At(there, found);
                 foreach (var held in found)
-                    if (!taken.Contains(held.Id) && held.Shape.TryGet(out var other) && Joins(piece, end, other, there, kinds))
+                    if (!taken.Contains(held.Id) && held.Shape.TryGet(out var other) && (!runOnly || IsRunPiece(other)) &&
+                        Joins(piece, end, other, there, kinds))
                     {
                         taken.Add(held.Id);
                         next.Enqueue(other);
                     }
             }
         }
+    }
 
-        return taken;
+    /// <summary>Every kind any of the piece's ends carries.</summary>
+    private static ValueSet<NetworkType> KindsOf(PlacedShape shape)
+    {
+        var kinds = new HashSet<NetworkType>();
+        foreach (var end in shape.Piece.Ends)
+            kinds.UnionWith(end.Kinds);
+        return ValueSet.From(kinds);
     }
 
     /// <summary>A small piece with ends, none of them a device port.</summary>

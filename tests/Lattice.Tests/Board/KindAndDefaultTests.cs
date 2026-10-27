@@ -171,6 +171,7 @@ public sealed class KindAndDefaultTests
             [typeof(Selector.Ids)] = () => Pick(ids),
             [typeof(Selector.Box)] = () => Pick(new Selector.Box(At, At)),
             [typeof(Selector.RunThrough)] = () => Pick(new Selector.RunThrough(At)),
+            [typeof(Selector.Joined)] = () => Pick(new Selector.Joined(At)),
             [typeof(Selector.Network)] = () => Pick(new Selector.Network(default)),
             [typeof(Selector.Room)] = () => Pick(new Selector.Room(default)),
             [typeof(Selector.Group)] = () => Pick(new Selector.Group(group)),

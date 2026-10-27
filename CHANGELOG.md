@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+
+- **A planned network from one of its pieces.** `Selector.Joined(cell)` picks the build and swap ghosts of cable, pipe
+  and chute pieces joined end to end to the planned run piece at the cell, through junctions, by that piece's network
+  kinds. It stops at devices and at built pieces, and reads ghosts only. A planner can widen a planned run to its whole
+  network before any of it is built, where `Selector.Network` needs a built piece and `Selector.RunThrough` stops at
+  junctions. Written form `s.joined`; Lattice 0.14 refuses a command holding it as an unknown kind.
+- Contract 0.15, which only adds: a mod written for 0.14 sees the same answers.
+
 ## 0.14.1
 
 - **A run that leaves a line's end turns it.** Starting or ending a run on the last piece of a cable, pipe or chute

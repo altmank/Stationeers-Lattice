@@ -11,14 +11,14 @@ internal interface IGhostSelectors
     /// <summary>Rises whenever an answer of <see cref="Pick"/> may change without a board commit (the built world changed).</summary>
     long Revision { get; }
 
-    /// <summary>The ghosts a box, run, network, room or tag selector picks; refused for any other kind.</summary>
+    /// <summary>The ghosts a box, run, joined, network, room or tag selector picks; refused for any other kind.</summary>
     Result<HashSet<GhostId>, Reason> Pick(BoardIndex index, Selector selector);
 }
 
 /// <summary>
 /// The selectors the board answers from its own indices: everything, ids, plan, group, piece, owner, maker, and
 /// their and/or.
-/// Box, run, network, room and tag selectors go to the installed selectors module, refused
+/// Box, run, joined, network, room and tag selectors go to the installed selectors module, refused
 /// <see cref="ReasonCodes.ModuleMissing"/> while none is. Cost: linear in the indexed sets it reads.
 /// </summary>
 internal static class BoardSelect
@@ -37,7 +37,7 @@ internal static class BoardSelect
         Selector.MadeBy madeBy => Ok(new HashSet<GhostId>(index.MadeBy(madeBy.Maker))),
         Selector.All all => Combine(index, all.Of, intersect: true, module),
         Selector.Any any => Combine(index, any.Of, intersect: false, module),
-        Selector.Box or Selector.RunThrough or Selector.Network or Selector.Room or Selector.Tagged => module is null
+        Selector.Box or Selector.RunThrough or Selector.Joined or Selector.Network or Selector.Room or Selector.Tagged => module is null
             ? Result<HashSet<GhostId>, Reason>.Error(Reason.Of(
                 ReasonCodes.ModuleMissing, LatticeIdentity.Board, ValueMap.Of("module", Selectors.Value)))
             : module.Pick(index, selector),

@@ -60,6 +60,22 @@ public sealed class RelationalTests
         Assert.Equal(high.Id, hit.Ghost);
     }
 
+    [Fact]
+    public void A_joined_rule_is_picked_by_the_board_as_a_whole()
+    {
+        var bench = new StyleBench();
+        var selectors = new FakeSelectors();
+        bench.T.Board.InstallSelectors(selectors);
+        var ghosts = bench.Place(bench.Draft("StructureFrame", new Cell(10, 10, 10)), bench.Draft("StructureFrame", new Cell(30, 10, 10))).Added;
+        selectors.Picked = new HashSet<GhostId> { ghosts[1].Id };
+        var joined = new Selector.Any(ValueList.Of<Selector>(new Selector.Joined(new Cell(10, 10, 10))));
+        bench.Add(LayerOf("joined", StyleBand.View, 0, Rule(new StyleMatch.Picks(joined), Edge(LineStyle.Solid, LibraryPalette.Next))));
+        bench.Settle();
+
+        Assert.IsType<EdgeLook.None>(bench.Story(ghosts[0].Id).Resolved.Edge.Reduce(new EdgeLook.None()));
+        Assert.IsType<EdgeLook.Line>(bench.Story(ghosts[1].Id).Resolved.Edge.Reduce(new EdgeLook.None()));
+    }
+
     private sealed class FakeSelectors : IGhostSelectors
     {
         public long Revision { get; set; }

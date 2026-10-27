@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.15.0
+- Mods can select a whole planned cable, pipe or chute network from one of its pieces, through junctions.
+
 v0.14.1
 - A run that leaves the end of a line turns the end piece into a corner instead of a tee with an open stub; chute runs no longer fail there.
 

@@ -30,8 +30,12 @@ internal sealed class TestSelect
         var shapes = new Shapes(T.Catalogue, T.Grid);
         Mirror = new WorldMirror(shapes, Reads);
         Structures = new StructureSelection(shapes, T.Grid, Mirror, Reads);
-        T.Board.InstallSelectors(new GhostSelectors(shapes, T.Grid, Mirror, Reads));
+        Selectors = new GhostSelectors(shapes, T.Grid, Mirror, Reads);
+        T.Board.InstallSelectors(Selectors);
     }
+
+    /// <summary>The selectors module the board calls, for asking it without the view's cache.</summary>
+    public GhostSelectors Selectors { get; }
 
     public TestBoard T { get; }
 

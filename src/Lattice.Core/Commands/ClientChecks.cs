@@ -204,6 +204,7 @@ internal sealed class ClientChecks(CommandLimits limits, ICatalogue catalogue, A
                 Api.Selector.Ids ids => Count(ids.Values.Count),
                 Api.Selector.Box box => Cell(box.Corner) ?? Cell(box.Opposite),
                 Api.Selector.RunThrough run => Cell(run.Cell),
+                Api.Selector.Joined joined => Cell(joined.Cell),
                 Api.Selector.Tagged tagged => tagged.Value.TryGet(out var value) ? Text(tagged.Key, value) : null,
                 Api.Selector.All all => Selectors(all.Of, depth + 1),
                 Api.Selector.Any any => Selectors(any.Of, depth + 1),

@@ -387,6 +387,8 @@ internal static class CommandForm
                     return Node("s.box", new FieldList().Add("corner", WrittenValues.Cell(box.Corner)).Add("opposite", WrittenValues.Cell(box.Opposite)));
                 case Api.Selector.RunThrough run:
                     return Node("s.run", new FieldList().Add("cell", WrittenValues.Cell(run.Cell)));
+                case Api.Selector.Joined joined:
+                    return Node("s.joined", new FieldList().Add("cell", WrittenValues.Cell(joined.Cell)));
                 case Api.Selector.Network network:
                     return Node("s.network", new FieldList().Add("of", network.Of.Value));
                 case Api.Selector.Room room:
@@ -605,6 +607,7 @@ internal static class CommandForm
             "s.ids" => Ids(read),
             "s.box" => Need(read, "corner", WrittenValues.Cell).Bind(c => Need(read, "opposite", WrittenValues.Cell).Map(o => (object)new Selector.Box(c, o))),
             "s.run" => Need(read, "cell", WrittenValues.Cell).Map(static c => (object)new Selector.RunThrough(c)),
+            "s.joined" => Need(read, "cell", WrittenValues.Cell).Map(static c => (object)new Selector.Joined(c)),
             "s.network" => Need(read, "of", WrittenValues.Long).Map(static v => (object)new Selector.Network(new NetworkRef(v))),
             "s.room" => Need(read, "of", WrittenValues.Long).Map(static v => (object)new Selector.Room(new RoomRef(v))),
             "s.group" => Need(read, "name", GroupOf).Map(static g => (object)new Selector.Group(g)),

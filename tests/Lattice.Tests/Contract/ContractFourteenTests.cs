@@ -18,13 +18,6 @@ public sealed class ContractFourteenTests
         return string.Join(" ", entry.Value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
     }
 
-    [Fact]
-    public void The_contract_is_zero_fourteen()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(14, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("P:Lattice.Api.RouteToggles.KeepOffLines")]
     [InlineData("P:Lattice.Api.RunRequest.Rules")]

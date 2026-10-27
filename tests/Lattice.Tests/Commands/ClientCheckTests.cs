@@ -160,6 +160,7 @@ public sealed class ClientCheckTests
 
         Assert.Equal(ReasonCodes.OutOfRange, Code(c.FromClient(Place(c, new Cell(1005, 0, 0)))));
         Assert.Equal(ReasonCodes.OutOfRange, Code(c.FromClient(new Command.Remove(new Selector.Box(At, new Cell(0, -2000, 0))))));
+        Assert.Equal(ReasonCodes.OutOfRange, Code(c.FromClient(new Command.Remove(new Selector.Joined(new Cell(0, 2000, 0))))));
         Assert.Equal(ReasonCodes.OutOfRange, Code(c.FromClient(new Command.PlanRun(
             new RunRequest(default, At, ValueList.Of(new Cell(0, 0, 5000)), At, Option<PlanId>.None, TestMaker)))));
     }

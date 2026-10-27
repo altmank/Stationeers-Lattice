@@ -78,6 +78,31 @@ reads through `Board.As(agent)` so the access policy filters for it. Reads on an
 `lattice.World` reads the built world the same way: `Structure(id)`, `At(cell)`, `Select(structureSelector)`,
 `NetworkOf(id)`, `RoomAt(cell)`.
 
+### Runs and planned networks
+
+Three selectors follow cable, pipe and chute pieces end to end. A run piece is a small piece with ends and no device
+port.
+
+| Selector | Picks |
+|---|---|
+| `Selector.RunThrough(cell)` | The planned run through the cell, between junctions: a junction stops it and is picked only when the walk starts on it. |
+| `Selector.Joined(cell)` (contract 0.15) | The planned network joined to the run ghost at the cell: build and swap ghosts of run pieces joined end to end to it and through each other, by the network kinds of its ends, through junctions. |
+| `Selector.Network(network)` | Ghosts on a built network: those pointing at its pieces, and build and swap ghosts joined to them. |
+
+`Joined` widens a planned run to its whole network, which has no `NetworkRef` until a piece of it is built. It picks
+the piece at the cell. It keeps to that piece's kinds, so a planned pipe crossing a planned cable in the same cells is
+not picked, while a piece of another kit whose end shares a kind with the end it meets is. It stops at a device piece (not picked, nor anything past
+it) and at a built piece: it reads the board's ghosts through its cell index, never the world. Removal and finish
+ghosts have no shape and are never picked; a cell with only those, or with no ghost, picks nothing, as `RunThrough`
+does. A cable and a pipe in the same cell both start a walk, each by its own kinds. To select built pieces, use the
+`StructureSelector` cases. Cost: linear in the pieces picked.
+
+```csharp
+// The player clicked a planned cable: upgrade the whole planned network to heavy cable.
+var widen = new Command.Change(new Selector.Joined(clicked), new GhostEdit.Swap(new SwapTo.SameShapeFrom(heavyCable)),
+    Option.Some(lattice.Board.Revision));
+```
+
 ## Edit ghosts
 
 | Command | Does |

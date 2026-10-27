@@ -24,6 +24,18 @@ public abstract record Selector
     /// <param name="Cell">A cell on the run.</param>
     public sealed record RunThrough(Cell Cell) : Selector;
 
+    /// <summary>
+    /// The planned network joined to a run piece at a cell: the build and swap ghosts of run pieces (cable, pipe or
+    /// chute: no end with a port role) joined end to end to the run piece at the cell, and through each other, by the
+    /// network kinds of that piece's ends, through junctions. It includes the piece at the cell; when the cell holds
+    /// several run ghosts (a cable and a pipe), each starts a walk by its own kinds. It stops at device pieces and at
+    /// built pieces: it reads ghosts only, through the board's index, and never scans the world. A cell with no run
+    /// ghost picks nothing, as <see cref="RunThrough"/>. Removal and finish ghosts have no shape and are never picked;
+    /// to select a built run use the <see cref="StructureSelector"/> cases. Added in contract 0.15.
+    /// </summary>
+    /// <param name="Cell">A cell holding a planned run piece.</param>
+    public sealed record Joined(Cell Cell) : Selector;
+
     /// <summary>Ghosts on a network.</summary>
     /// <param name="Of">The network.</param>
     public sealed record Network(NetworkRef Of) : Selector;
