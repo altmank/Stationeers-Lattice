@@ -293,6 +293,13 @@ bar's piece toggles mean the same for a drawn run and a found one. `LayOptions.D
   neighbour's end pointing into it. Then the to end. The `RunReport` names the kit in `LaidWith` when it is not the
   request's.
 
+Where a run meets a one-cell piece of its kit, built or planned, that piece becomes the shape that leaves the cell both
+its own ways and the run's: a straight crossed becomes a cross, a straight left side-on mid-line a tee. From Lattice
+0.14.1, a run that leaves a line's end turns it: the end's open face, which no neighbour's end points into and the run
+does not lay, is dropped, so the end becomes a corner rather than a tee with an open stub, and a chute (which has no
+tee) no longer fails `no-piece` there. A face that joins something is kept, and a piece that joins nothing at all is
+merged as before.
+
 ### Splitting long straights
 
 `PlanSplit(which, into, madeBy)` (contract 0.9) plans the long straights among its targets as single pieces, with the

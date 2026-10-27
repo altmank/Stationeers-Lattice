@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.1
+
+- **A run that leaves a line's end turns it.** Starting or ending a run on the last piece of a cable, pipe or chute
+  line and leaving it side-on now makes that piece a corner. Before, the line's open end was kept, so cable and pipe
+  got a tee with an open stub, and a chute run failed `no-piece` there because chutes have no tee. A face that joins
+  a neighbour is never dropped: leaving mid-line is still a tee.
+- No API change.
+
 ## 0.14.0
 
 - **Routes can keep off lines.** With `RouteToggles.KeepOffLines`, a route joins existing cables, pipes and chutes

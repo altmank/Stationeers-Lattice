@@ -277,6 +277,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         private readonly List<Placement> _pieces = [];
         private readonly List<Placement> _singles = [];
         private readonly HashSet<Cell> _done = [];
+        private HashSet<Cell>? _path;
         private Option<CellFailure> _failure;
 
         public RunPlan Lay()
@@ -355,8 +356,8 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         {
             _done.Add(cell);
             var had = PieceCells.At(occupant, cell, grid);
-            var needed = had.Union(path.WaysAt(cell));
-            var chosen = Pick(cell, needed);
+            var run = path.WaysAt(cell);
+            var chosen = Turned(cell, had, run) ?? Pick(cell, had.Union(run));
             if (chosen is null || chosen.Ways == had)
                 return;
 
@@ -370,6 +371,26 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
 
             _singles.Add(chosen.Placement);
         }
+
+        /// <summary>
+        /// The piece for a line's end the run leaves: the occupant's faces that join nothing (no neighbour's end points
+        /// in and the run lays no cell there) are dropped, so the run turns the end instead of leaving an open stub.
+        /// Null when nothing is dropped, when the occupant joins no neighbour (it is no line's end), or when the kit has
+        /// no piece for what is left.
+        /// </summary>
+        private Choice? Turned(Cell cell, Directions had, Directions run)
+        {
+            var into = around.EndsInto(cell, kit);
+            if (had.Intersect(into).IsEmpty)
+                return null;
+            var kept = run;
+            for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
+                if (had.Contains(direction) && (into.Contains(direction) || OnPath(grid.Neighbour(cell, direction, kit.Grid))))
+                    kept = kept.With(direction);
+            return !kept.Covers(had) && PieceChooser.Choose(kit, cell, kept, around).TryGet(out var choice) ? choice : null;
+        }
+
+        private bool OnPath(Cell cell) => (_path ??= [.. path.Cells]).Contains(cell);
 
         /// <summary>Lays the free cells from visit <paramref name="start"/> on; returns the index of the first visit not laid.</summary>
         private int LayFree(int start)
