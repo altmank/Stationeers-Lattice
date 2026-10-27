@@ -1,8 +1,8 @@
 # Lattice
 
-**Status:** version 0.6.0, contract 0.6. Early: the first public release. The API grows in minor versions, which
-only add; check the running version before you use a newer member
-([versions and features](docs/consumer-guide.md#4-versions-and-features)).
+**Status:** early; the API grows in minor versions, which only add. Check the running version before you use a newer
+member ([versions and features](docs/consumer-guide.md#4-versions-and-features)); what each version adds is in the
+[changelog](CHANGELOG.md).
 
 The ghost core library other Stationeers mods build on. Lattice holds planned structures, called ghosts: see-through
 outlines of frames, walls, pipes and anything else, placed where someone means to build them. It owns every plan
