@@ -86,7 +86,14 @@ internal sealed class RouteBench
 
     public Result<RoutePlan, Reason> Try(RouteRequest request) => Planner.Plan(request, Runs.Boards.View, Runs.Query);
 
-    public RoutePlan Plan(RouteRequest request) => TestKitIds.Must(Try(request));
+    /// <summary>The route; a route's own run never carries rules, so its report never has a break.</summary>
+    public RoutePlan Plan(RouteRequest request)
+    {
+        var plan = TestKitIds.Must(Try(request));
+        if (plan.AsRun.Rules.IsSome || plan.Run.FirstBreak.IsSome)
+            throw new System.InvalidOperationException("a route's run has a rule break");
+        return plan;
+    }
 
     public Reason Refusal(RouteRequest request) =>
         Try(request).TryGetError(out var why) ? why : throw new System.InvalidOperationException("routed");

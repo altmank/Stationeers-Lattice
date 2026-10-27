@@ -45,6 +45,10 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.14.0
+- Routes can keep off existing lines, joining them only at their ends.
+- A drawn run can be checked against the route rules and shows the first cell that breaks one.
+
 v0.13.1
 - Lattice enabled twice, Workshop and local, now runs once and says which copy.
 

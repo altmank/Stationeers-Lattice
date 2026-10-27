@@ -4,7 +4,10 @@ using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Catalogue;
 using Lattice.Core.Grid;
+using Lattice.Core.Openings;
 using Lattice.Core.Ports;
+using Lattice.Core.Routes;
+using Lattice.Core.Support;
 
 namespace Lattice.Core.Runs;
 
@@ -25,6 +28,9 @@ internal sealed record RunPlan(
     /// <summary>The kit the run was laid with when matching the grade chose another than the request's.</summary>
     public Option<KitKey> LaidWith { get; init; }
 
+    /// <summary>The first cell that breaks the request's rules (<see cref="RunRequest.Rules"/>); the run lays there all the same.</summary>
+    public Option<CellFailure> FirstBreak { get; init; }
+
     /// <summary>The command that places the run's ghosts into the request's plan, made by its maker, seen by everyone.</summary>
     public Command ToCommand(RunRequest request)
     {
@@ -39,7 +45,7 @@ internal sealed record RunPlan(
     /// <summary>
     /// Runs laid one after another as one plan: each run's changes and pieces in order, an earlier run's new piece left
     /// out where a later one takes a spot of it (as placing the later run would replace it), the cells of all of them
-    /// once each, the first failure of the first run that has one, every port end, and the first run's kit.
+    /// once each, the first failure and the first break of the first run that has one, every port end, and the first run's kit.
     /// </summary>
     public static RunPlan Joined(IReadOnlyList<RunPlan> runs, Shapes shapes)
     {
@@ -52,6 +58,7 @@ internal sealed record RunPlan(
         var seen = new HashSet<Cell>();
         var ports = new List<PortJoin>();
         var failure = Option<CellFailure>.None;
+        var broken = Option<CellFailure>.None;
         foreach (var run in runs)
         {
             var spots = new HashSet<SpotKey>();
@@ -70,12 +77,15 @@ internal sealed record RunPlan(
             ports.AddRange(run.PortEnds);
             if (failure.IsNone)
                 failure = run.FirstFailure;
+            if (broken.IsNone)
+                broken = run.FirstBreak;
         }
 
         return new RunPlan(ValueList.From(cells), ValueList.From(changes), ValueList.From(pieces), ValueList.From(singles), failure)
         {
             PortEnds = ValueList.From(ports),
             LaidWith = runs[0].LaidWith,
+            FirstBreak = broken,
         };
     }
 
@@ -105,7 +115,7 @@ internal sealed record RunPlan(
 
     /// <summary>The run's report, its costs from the given bill (the bills module's).</summary>
     public RunReport Report(Func<ValueList<Placement>, Bill> bill) =>
-        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds, LaidWith = LaidWith };
+        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds, LaidWith = LaidWith, FirstBreak = FirstBreak };
 }
 
 /// <summary>
@@ -120,9 +130,13 @@ internal sealed record RunPlan(
 /// <item>With <see cref="LayOptions.MatchGrade"/>, the run is laid with the kit of a run piece it joins at its from end,
 /// else at its to end (a piece in the end cell, or a neighbour's end pointing into it), when that kit lays the same
 /// network kinds on the same grid (<see cref="KitShapes.LaysTheSameNetworks"/>).</item>
+/// <item>With <see cref="RunRequest.Rules"/>, each drawn cell but the two ends is judged by the route's cell rules
+/// (<see cref="CellRules.Breaks"/>) on the world as planned before the run, in run order; the first that breaks one is
+/// <see cref="RunPlan.FirstBreak"/>, and the run is laid as drawn. Openings are read from <c>openings</c>; without it,
+/// no cell is in an opening's keep-out. Cost: one judgement per cell, each reading the cell and its six neighbours.</item>
 /// </list>
 /// </summary>
-internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementCheck placementCheck)
+internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementCheck placementCheck, IOpeningFacts? openings = null)
 {
     private readonly Shapes _shapes = new(catalogue, grid);
     private readonly PieceChooser _chooser = new(catalogue, grid);
@@ -150,7 +164,48 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         var plan = new Laying(kit, path, around, grid, placementCheck, request.Lay.SinglePiecesOnly).Lay();
         if (kit != asked)
             plan = plan with { LaidWith = Option.Some(kit.Kit) };
+        if (request.Rules.TryGet(out var rules))
+            plan = plan with { FirstBreak = FirstBreak(request, rules, kit, path, ports, board, world) };
         return Result<RunPlan, Reason>.Ok(ports.Count == 0 ? plan : plan with { PortEnds = Joined(plan, ports, around, kit) });
+    }
+
+    /// <summary>The first drawn cell, ends left out, that breaks a rule.</summary>
+    private Option<CellFailure> FirstBreak(
+        RunRequest request, RouteToggles rules, KitShapes kit, RunPath path, IReadOnlyList<PortTarget> ports, IGhostBoard board, IWorldQuery world)
+    {
+        var planned = new PlannedWorld(board, world);
+        var (min, max) = (path.Cells[0], path.Cells[0]);
+        foreach (var cell in path.Cells)
+        {
+            min = new Cell(Math.Min(min.X, cell.X), Math.Min(min.Y, cell.Y), Math.Min(min.Z, cell.Z));
+            max = new Cell(Math.Max(max.X, cell.X), Math.Max(max.Y, cell.Y), Math.Max(max.Z, cell.Z));
+        }
+
+        var reach = kit.Step;
+        var networks = new RouteNetworks(
+            planned, _shapes, grid, kit.Grid, new Cell(min.X - reach, min.Y - reach, min.Z - reach), new Cell(max.X + reach, max.Y + reach, max.Z + reach));
+        var judge = new CellRules(
+            kit, grid, _shapes, planned, rules with { OnFrames = false }, request.From, request.To,
+            new OpeningKeepOuts(planned, _shapes, openings ?? NoOpenings.Instance, OpeningBands.Default), new CatalogueSupportFacts(catalogue),
+            networks, ports);
+        foreach (var cell in path.Cells)
+        {
+            if (cell == request.From || cell == request.To)
+                continue;
+            if (judge.Breaks(cell).Word() is { } rule)
+                return Option.Some(new CellFailure(cell, Reason.Of(ReasonCodes.RuleBroken, RunCodes.Runs, ValueMap
+                    .Of("cell", $"{cell.X},{cell.Y},{cell.Z}")
+                    .With("rule", rule))));
+        }
+
+        return Option<CellFailure>.None;
+    }
+
+    private sealed class NoOpenings : IOpeningFacts
+    {
+        public static NoOpenings Instance { get; } = new();
+
+        public Option<OpeningKind> Of(PrefabKey piece) => Option<OpeningKind>.None;
     }
 
     /// <summary>The kit of the run the request joins at its from end, else its to end, when it lays the asked kit's networks; else the asked kit.</summary>

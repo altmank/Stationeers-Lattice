@@ -352,7 +352,7 @@ internal sealed class LatticeWorld : IGhostSystem
         if (on.IsOn(LatticeModules.Runs) && game is not null)
         {
             _starting = LatticeModules.Runs;
-            Must(expanders.Register(new RunExpander(new RunPlanner(catalogue, grid, game.Placement), book).Descriptor));
+            Must(expanders.Register(new RunExpander(new RunPlanner(catalogue, grid, game.Placement, openings), book).Descriptor));
             Must(expanders.Register(new SplitExpander(catalogue, grid).Descriptor));
         }
 

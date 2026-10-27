@@ -208,8 +208,9 @@ public static class ReasonCodes
     /// <c>&lt;direction&gt;:&lt;cause&gt;</c> (directions as the catalogue writes them, <c>x+</c>), comma-separated, in
     /// direction order; empty when there is none. Causes: <c>collides</c> (what stands there), <c>off-frame</c>,
     /// <c>opening</c> (a door or window keep-out), <c>port</c> (a free device port), <c>join</c> (another network),
-    /// <c>crosses</c> (an earlier leg, or an end or via cell not this leg's), <c>outside-box</c> (past the search box); a
-    /// later version may add causes. Moving an end or relaxing a toggle may help; a bigger bound does not.
+    /// <c>crosses</c> (an earlier leg, or an end or via cell not this leg's), <c>along-line</c> (an existing line, with
+    /// <see cref="RouteToggles.KeepOffLines"/>; from contract 0.14), <c>outside-box</c> (past the search box); a later
+    /// version may add causes. Moving an end or relaxing a toggle may help; a bigger bound does not.
     /// </summary>
     public static readonly ReasonCode NoRoute = ReasonCode.Known("no-route");
 
@@ -224,6 +225,13 @@ public static class ReasonCodes
     /// a liquid port); facts <c>ghost</c> or <c>structure</c>, <c>port</c> and <c>kit</c>. Added in contract 0.8.
     /// </summary>
     public static readonly ReasonCode PortMismatch = ReasonCode.Known("port-mismatch");
+
+    /// <summary>
+    /// A drawn run's cell breaks a rule the request asked for (<see cref="RunRequest.Rules"/>); facts <c>cell</c>
+    /// ("x,y,z") and <c>rule</c>: <c>opening</c>, <c>port</c>, <c>join</c> or <c>along-line</c>, the words a route's
+    /// <c>stopped</c> uses. A later version may add rules. Added in contract 0.14.
+    /// </summary>
+    public static readonly ReasonCode RuleBroken = ReasonCode.Known("rule-broken");
 
     /// <summary>
     /// The catalogue names no tool for a step; facts <c>piece</c> (prefab hash), <c>way</c> (<c>build</c>,

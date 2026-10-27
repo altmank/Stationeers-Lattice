@@ -209,7 +209,7 @@ internal sealed class RoutePlanner(
 {
     private readonly Shapes _shapes = new(catalogue, grid);
     private readonly PieceChooser _chooser = new(catalogue, grid);
-    private readonly RunPlanner _runs = new(catalogue, grid, placementCheck);
+    private readonly RunPlanner _runs = new(catalogue, grid, placementCheck, openings);
     private readonly PortEnds _ports = new(new PiecePorts(catalogue, new Shapes(catalogue, grid)), RouteCodes.Routes);
 
     /// <summary>The route as a job to step; refused when it cannot be searched at all.</summary>

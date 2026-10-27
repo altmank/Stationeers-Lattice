@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.0
+
+- **Routes can keep off lines.** With `RouteToggles.KeepOffLines`, a route joins existing cables, pipes and chutes
+  only at its ends: it never runs along or across a line between them, so its start no longer slides along a line
+  beside it. A route that cannot keep off answers `no-route` with the new cause `along-line` in `stopped`.
+- **Drawn runs can be judged.** `RunRequest.Rules` judges a drawn run's cells by a route's rules (doors and windows
+  clear, ports free, no unsafe joins, keep off lines), its two ends exempt. The run is still laid as drawn; the first
+  cell that breaks a rule is the new `RunReport.FirstBreak`, reason `rule-broken` with facts `cell` and `rule`, beside
+  `FirstFailure`, which keeps meaning that the run cannot be laid there.
+- Contract 0.14, which only adds: a mod written for 0.13 sees the same answers.
+
 ## 0.13.1
 
 - **Lattice enabled twice runs once.** With two copies in the mod list (the Workshop item and a local copy), both

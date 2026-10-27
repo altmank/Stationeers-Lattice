@@ -314,7 +314,7 @@ internal sealed class RouteSearch : ISlicedWork
             var next = _grid.Neighbour(nearest, direction, _size);
             if (IsEnd(next) || Reached(next))
                 continue;
-            var cause = !Inside(next) ? "outside-box" : Cause(_cells.Why(next, direction));
+            var cause = !Inside(next) ? "outside-box" : _cells.Why(next, direction).Word();
             if (cause is null)
                 continue;
             if (text.Length > 0)
@@ -332,17 +332,6 @@ internal sealed class RouteSearch : ISlicedWork
                 return true;
         return false;
     }
-
-    private static string? Cause(Refusal why) => why switch
-    {
-        Refusal.Collides => "collides",
-        Refusal.OffFrame => "off-frame",
-        Refusal.Opening => "opening",
-        Refusal.Port => "port",
-        Refusal.Join => "join",
-        Refusal.Crosses => "crosses",
-        _ => null,
-    };
 
     private static string Written(Cell cell) => $"{cell.X},{cell.Y},{cell.Z}";
 

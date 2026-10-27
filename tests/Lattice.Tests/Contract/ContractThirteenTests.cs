@@ -16,13 +16,6 @@ public sealed class ContractThirteenTests
     }
 
     [Fact]
-    public void The_contract_is_zero_thirteen()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(13, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void The_swap_edit_says_it_was_added_in_zero_thirteen() =>
         Assert.Contains("Added in contract 0.13.", Doc("T:Lattice.Api.GhostEdit.Swap"));
 

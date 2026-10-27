@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 13 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 14 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2664,3 +2664,10 @@ Lattice.Api.PortEnd.OnStructure.Structure.get -> Lattice.Api.StructureRef
 Lattice.Api.PortEnd.OnStructure.Structure.init -> void
 Lattice.Api.RouteRequest.Via.get -> Lattice.Api.ValueList<Lattice.Api.Cell>!
 Lattice.Api.RouteRequest.Via.init -> void
+Lattice.Api.RouteToggles.KeepOffLines.get -> bool
+Lattice.Api.RouteToggles.KeepOffLines.init -> void
+Lattice.Api.RunRequest.Rules.get -> Lattice.Api.Option<Lattice.Api.RouteToggles!>
+Lattice.Api.RunRequest.Rules.init -> void
+Lattice.Api.RunReport.FirstBreak.get -> Lattice.Api.Option<Lattice.Api.CellFailure!>
+Lattice.Api.RunReport.FirstBreak.init -> void
+static readonly Lattice.Api.ReasonCodes.RuleBroken -> Lattice.Api.ReasonCode

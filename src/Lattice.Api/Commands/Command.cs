@@ -344,6 +344,18 @@ public sealed record RunRequest(KitKey Kit, Cell From, ValueList<Cell> Via, Cell
 
     /// <summary>How the run's pieces are chosen. Added in contract 0.9.</summary>
     public LayOptions Lay { get; init; } = LayOptions.Default;
+
+    /// <summary>
+    /// Rules the drawn cells are judged by, the route's own: <see cref="RouteToggles.KeepDoorsAndWindowsClear"/>,
+    /// <see cref="RouteToggles.KeepPortsFree"/>, <see cref="RouteToggles.NoBridging"/> and
+    /// <see cref="RouteToggles.KeepOffLines"/>, as a route judges a cell; the toggles that shape a search
+    /// (<see cref="RouteToggles.OnFrames"/>, <see cref="RouteToggles.FewestBends"/>, <see cref="RouteToggles.First"/>,
+    /// <see cref="RouteToggles.HugFramesAndWalls"/>) do nothing here. The run's ends are exempt, as a route's are; its
+    /// <see cref="Via"/> cells are bends and are judged. A break never stops the run: it is laid as drawn, in the
+    /// preview and when submitted, and the first break is <see cref="RunReport.FirstBreak"/>. None (the default)
+    /// judges nothing. Added in contract 0.14.
+    /// </summary>
+    public Option<RouteToggles> Rules { get; init; }
 }
 
 /// <summary>How a run's or route's pieces are chosen. Added in contract 0.9.</summary>
@@ -450,4 +462,13 @@ public sealed record RouteToggles(
     /// <see cref="OnFrames"/>. Added in contract 0.9.
     /// </summary>
     public bool HugFramesAndWalls { get; init; }
+
+    /// <summary>
+    /// The route joins existing lines only at its ends: it never enters a cell holding a run piece (cable, pipe or chute,
+    /// built or planned) whose ends the kit joins, nor a cell such a piece's end points into, other than its own ends,
+    /// its <see cref="RouteRequest.Via"/> cells and a branch's goal. A route that cannot keep off is refused
+    /// <see cref="ReasonCodes.NoRoute"/>, cause <c>along-line</c> in <c>stopped</c>. Device ports are
+    /// <see cref="KeepPortsFree"/>'s, not this toggle's. Added in contract 0.14.
+    /// </summary>
+    public bool KeepOffLines { get; init; }
 }

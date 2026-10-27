@@ -399,9 +399,11 @@ public sealed class RouteTests(ITestOutputHelper output)
         Assert.Equal(7, (RouteLimits.Default with { Expansions = Option.Some(7) }).ExpansionsFor(500));
     }
 
-    [Fact]
+    [Theory]
     [Trait(Perf.Trait, Perf.Value)]
-    public void Each_step_of_a_long_search_fits_the_checking_slice()
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Each_step_of_a_long_search_fits_the_checking_slice(bool keepOffLines)
     {
         var goal = At(30, 2, 2);
         var budget = FrameBudgets.Default.Checking.Length;
@@ -410,7 +412,8 @@ public sealed class RouteTests(ITestOutputHelper output)
         for (var run = 0; run < 3; run++)
         {
             var bench = WalledIn(goal);
-            var job = TestKitIds.Must(bench.Planner.Start(bench.Route(bench.Runs.Cable, Start, goal), bench.Runs.Boards.View, bench.Runs.Query));
+            var toggles = RouteBench.Off with { KeepOffLines = keepOffLines };
+            var job = TestKitIds.Must(bench.Planner.Start(bench.Route(bench.Runs.Cable, Start, goal, toggles), bench.Runs.Boards.View, bench.Runs.Query));
             var steps = new List<TimeSpan>();
             var watch = new Stopwatch();
             Perf.Collect();

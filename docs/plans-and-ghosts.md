@@ -231,8 +231,55 @@ A route or leg that finds no route says where it stopped and why. `nearest` is t
 end: the cell to mark. `stopped` (from Lattice 0.12.1) lists, for each neighbour of `nearest` the route never reached
 and could not enter, `<direction>:<cause>` in direction order, such as `x+:opening,z-:outside-box`; it is empty when
 there is none. The causes are `collides`, `off-frame`, `opening`, `port`, `join`, `crosses` (an earlier leg, or an end
-or via cell not this leg's) and `outside-box`; a later version may add more. `outside-box` means a bigger margin may
-help; the others mean moving an end or relaxing that toggle.
+or via cell not this leg's), `along-line` (from contract 0.14, with `KeepOffLines`) and `outside-box`; a later version
+may add more. `outside-box` means a bigger margin may help; the others mean moving an end or relaxing that toggle.
+
+### Keeping off lines
+
+`RouteToggles.KeepOffLines` (contract 0.14, off by default) makes a route join existing lines only at its ends. A line
+is a run piece (a cable, pipe or chute: two or more ends, none of them a device port), built or planned, of any kit
+that shares a network kind with the route's kit. The route never enters a cell that holds a line piece or that a line
+piece's end points into, other than its own ends, its via cells and a branch's goal.
+
+- **An end on a line, or at a line's open end, joins it there**, as without the toggle. The route never steps from
+  that end along the line, so its start does not slide along an existing line.
+- **A line across the way is gone round**, over or under, not crossed: two pieces of one kit in a cell always join.
+  With the toggle off, the route runs along and across lines of its kit at no extra cost, as before.
+- **A via cell on a line merges there**, and the next leg leaves off the line.
+- **Device ports are not lines**: a cell a port faces is `KeepPortsFree`'s to judge.
+- With `NoBridging` on as well, a cell on another network's line answers `join`; a line of the ends' own networks
+  answers `along-line`.
+
+A route that cannot keep off is refused `no-route`, cause `along-line` in `stopped` on the sides that hold a line.
+Turn the toggle off to run along lines, or end the route elsewhere.
+
+### Judging a drawn run
+
+`RunRequest.Rules` (contract 0.14) judges a drawn run's cells by a route's cell rules: `KeepDoorsAndWindowsClear`,
+`KeepPortsFree`, `NoBridging` and `KeepOffLines`. The toggles that shape a search (`OnFrames`, `FewestBends`,
+`First`, `HugFramesAndWalls`) do nothing on a run. None, the default, judges nothing.
+
+- `From` and `To` are exempt, as a route's ends are. A run's `Via` cells are bends, not pins, so they are judged.
+- A break never stops the run: it is laid as drawn, in the preview and when submitted. Refusing to place a run that
+  breaks a rule is the caller's choice, made on the report.
+- The first cell, in run order, that breaks a rule is the report's `FirstBreak`: `rule-broken`, facts `cell`
+  (`x,y,z`) and `rule` (`opening`, `port`, `join` or `along-line`, the words of `stopped`; a later version may add
+  more). It sits beside `FirstFailure`, which still means only that the run cannot be laid there; a run can have both.
+  Mark `FirstBreak` when there is one, else `FirstFailure`, or each in its own colour.
+- A route's own report never has a break: its cells keep its rules by construction.
+- Rules are checked once, when the run is laid; validation does not check them again later.
+
+```csharp
+var drag = new RunRequest(kit, from, ValueList<Cell>.Empty, to, Option<PlanId>.None, maker)
+{
+    Rules = Option.Some(new RouteToggles(false, false, true, true, true) { KeepOffLines = true }),
+};
+if (lattice.Preview.Of(new Command.PlanRun(drag), actor) is Answer<Result<Preview, ValueList<Refusal>>>.Ready ready
+    && ready.Value.TryGet(out var preview) && preview.Run.TryGet(out var report))
+    Mark(report.FirstBreak.IsSome ? report.FirstBreak : report.FirstFailure);
+```
+
+Judging costs one look at each drawn cell and its six neighbours, well under laying the run.
 
 ### Choosing the pieces
 

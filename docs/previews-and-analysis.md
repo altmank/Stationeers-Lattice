@@ -25,7 +25,7 @@ A `Preview` holds:
 | `Findings` | Validation of the new and changed ghosts in context. |
 | `Bill` | Materials and tools for the new and changed ghosts. |
 | `Effects` | What they would do to networks, rooms and gas (below). |
-| `Run` | For `PlanRun` and `PlanRoute`: a `RunReport` with the cells, the pieces placed (longest first), the first cell that fails and why, the cost, and the cost if every cell were a single piece. `PortEnds` (contract 0.8) names, for each port end, the port and the piece that joins it; none when no piece of the kit can join it there, and then `FirstFailure` names that cell. For a route with branches, the cells and pieces of the main route and every branch. `LaidWith` (contract 0.9) names the kit the run was laid with when matching the grade chose another. |
+| `Run` | For `PlanRun` and `PlanRoute`: a `RunReport` with the cells, the pieces placed (longest first), the first cell that fails and why, the cost, and the cost if every cell were a single piece. `PortEnds` (contract 0.8) names, for each port end, the port and the piece that joins it; none when no piece of the kit can join it there, and then `FirstFailure` names that cell. For a route with branches, the cells and pieces of the main route and every branch. `LaidWith` (contract 0.9) names the kit the run was laid with when matching the grade chose another. `FirstBreak` (contract 0.14) names the first drawn cell that breaks the request's `Rules` (`rule-broken`, facts `cell` and `rule`); the run lays there all the same, and a route's report has none. |
 
 The refusals sit inside the answer because a command's refusals are known only once it is expanded, which can take
 several frames.

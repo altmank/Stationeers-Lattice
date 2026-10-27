@@ -38,6 +38,14 @@ public sealed record RunReport(
     /// Added in contract 0.9.
     /// </summary>
     public Option<KitKey> LaidWith { get; init; }
+
+    /// <summary>
+    /// The first cell, in run order, that breaks the request's <see cref="RunRequest.Rules"/>:
+    /// <see cref="ReasonCodes.RuleBroken"/> with facts <c>cell</c> and <c>rule</c>. Unlike
+    /// <see cref="FirstFailure"/>, the run lays there. None without rules, and for a route, whose cells keep its rules by
+    /// construction. Added in contract 0.14.
+    /// </summary>
+    public Option<CellFailure> FirstBreak { get; init; }
 }
 
 /// <summary>A port end of a run, the port it resolved to, and the piece that joins it. Added in contract 0.8.</summary>

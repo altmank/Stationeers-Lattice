@@ -75,6 +75,29 @@ internal static class CommandForm
 
     private static string Flag(bool on) => on ? "1" : "0";
 
+    /// <summary>A run's rules: the names of the toggles set, comma-separated, in a fixed order; <c>none</c> when none is.</summary>
+    private static string RulesText(RouteToggles rules)
+    {
+        var names = new List<string>(8);
+        if (rules.OnFrames)
+            names.Add("frames");
+        if (rules.FewestBends)
+            names.Add("bends");
+        if (rules.KeepDoorsAndWindowsClear)
+            names.Add("doors");
+        if (rules.KeepPortsFree)
+            names.Add("ports");
+        if (rules.NoBridging)
+            names.Add("no-bridge");
+        if (rules.KeepOffLines)
+            names.Add("lines");
+        if (rules.HugFramesAndWalls)
+            names.Add("hug");
+        if (rules.First.TryGet(out var first))
+            names.Add(first == FirstLeg.Vertical ? "first-vertical" : "first-level");
+        return names.Count == 0 ? "none" : string.Join(",", names);
+    }
+
     /// <summary>Writes nodes children first; each method returns its node's number, or -1 for a kind it does not know.</summary>
     private sealed class Writer
     {
@@ -176,6 +199,8 @@ internal static class CommandForm
                     foreach (var via in request.Via)
                         fields.Add("via", WrittenValues.Cell(via));
                     fields.Add("to", WrittenValues.Cell(request.To)).Add("made", request.MadeBy.Value);
+                    if (request.Rules.TryGet(out var rules))
+                        fields.Add("rules", RulesText(rules));
                     return Node("plan-run", Into(LayFields(PortFields(fields, request.FromPort, request.ToPort), request.Lay), request.Into));
                 }
                 case Api.Command.PlanRoute route:
@@ -193,6 +218,8 @@ internal static class CommandForm
                         fields.Add("first", first == FirstLeg.Vertical ? "vertical" : "level");
                     if (toggles.HugFramesAndWalls)
                         fields.Add("hug", Flag(true));
+                    if (toggles.KeepOffLines)
+                        fields.Add("lines", Flag(true));
                     PortFields(fields, request.FromPort, request.ToPort);
                     foreach (var via in request.Via)
                         fields.Add("via", WrittenValues.Cell(via));
@@ -658,13 +685,15 @@ internal static class CommandForm
                 !Common.Get(Into(read), out var into, ref problem) ||
                 !Common.Get(Optional(read, "from-port", PortEndOf), out var fromPort, ref problem) ||
                 !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem) ||
-                !Common.Get(Lay(read), out var lay, ref problem))
+                !Common.Get(Lay(read), out var lay, ref problem) ||
+                !Common.Get(Optional(read, "rules", RulesOf), out var rules, ref problem))
                 return Result<object, string>.Error(problem);
             return Result<object, string>.Ok(new Command.PlanRun(new RunRequest(kit, from, ValueList.From(via), to, into, made)
             {
                 FromPort = fromPort,
                 ToPort = toPort,
                 Lay = lay,
+                Rules = rules,
             }));
         }
 
@@ -703,6 +732,34 @@ internal static class CommandForm
                 .Bind(cell => PortEndOf(text.Substring(at + 1)).Map(port => new RouteBranch(cell, Option.Some(port))));
         }
 
+        /// <summary>A run's rules as the writer writes them: toggle names, comma-separated, or <c>none</c>.</summary>
+        private static Result<RouteToggles, string> RulesOf(string text)
+        {
+            var rules = new RouteToggles(false, false, false, false, false);
+            if (text == "none")
+                return Result<RouteToggles, string>.Ok(rules);
+            foreach (var name in text.Split(','))
+            {
+                rules = name switch
+                {
+                    "frames" => rules with { OnFrames = true },
+                    "bends" => rules with { FewestBends = true },
+                    "doors" => rules with { KeepDoorsAndWindowsClear = true },
+                    "ports" => rules with { KeepPortsFree = true },
+                    "no-bridge" => rules with { NoBridging = true },
+                    "lines" => rules with { KeepOffLines = true },
+                    "hug" => rules with { HugFramesAndWalls = true },
+                    "first-vertical" => rules with { First = Option.Some(FirstLeg.Vertical) },
+                    "first-level" => rules with { First = Option.Some(FirstLeg.Level) },
+                    _ => null,
+                };
+                if (rules is null)
+                    return Result<RouteToggles, string>.Error($"bad rules '{text}'");
+            }
+
+            return Result<RouteToggles, string>.Ok(rules);
+        }
+
         private static Result<FirstLeg, string> FirstOf(string text) => text switch
         {
             "vertical" => Result<FirstLeg, string>.Ok(FirstLeg.Vertical),
@@ -728,6 +785,7 @@ internal static class CommandForm
                 !Common.Get(Optional(read, "to-port", PortEndOf), out var toPort, ref problem) ||
                 !Common.Get(Optional(read, "first", FirstOf), out var first, ref problem) ||
                 !Common.Get(Optional(read, "hug", FlagOf), out var hug, ref problem) ||
+                !Common.Get(Optional(read, "lines", FlagOf), out var lines, ref problem) ||
                 !Common.Get(Lay(read), out var lay, ref problem))
                 return Result<object, string>.Error(problem);
             var pins = new List<Cell>();
@@ -747,7 +805,12 @@ internal static class CommandForm
             }
 
             return Result<object, string>.Ok(new Command.PlanRoute(
-                new RouteRequest(kit, from, to, new RouteToggles(frames, bends, doors, ports, noBridge) { First = first, HugFramesAndWalls = hug.Reduce(false) }, into, made)
+                new RouteRequest(kit, from, to, new RouteToggles(frames, bends, doors, ports, noBridge)
+                {
+                    First = first,
+                    HugFramesAndWalls = hug.Reduce(false),
+                    KeepOffLines = lines.Reduce(false),
+                }, into, made)
                 {
                     SearchBound = bound,
                     FromPort = fromPort,
