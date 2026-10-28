@@ -5,13 +5,24 @@ namespace Lattice.Api;
 /// <param name="Findings">Validation of the new and changed ghosts in context.</param>
 /// <param name="Bill">The bill for the new and changed ghosts.</param>
 /// <param name="Effects">What they would do to networks, rooms and gas.</param>
-/// <param name="Run">For a run or route: its cells, pieces, first failing cell and cost.</param>
+/// <param name="Run">
+/// For a run or route: its cells, pieces, first failing cell and cost. For a batch: the report of its first run or
+/// route step, nested batches included, in step order (from contract 0.16). None for anything else.
+/// </param>
 public sealed record Preview(
     ChangeSet WouldChange,
     ValueList<Finding> Findings,
     Bill Bill,
     AnalysisReport Effects,
-    Option<RunReport> Run);
+    Option<RunReport> Run)
+{
+    /// <summary>
+    /// One report per run or route step, in step order with nested batches flattened; a lone run or route gives a list
+    /// of one, anything else an empty list. Each is that step's report as the batch lays it, against the earlier steps'
+    /// ghosts, with its costs for that step's pieces alone. Added in contract 0.16.
+    /// </summary>
+    public ValueList<RunReport> Runs { get; init; } = ValueList<RunReport>.Empty;
+}
 
 /// <summary>A planned run: cells, pieces (longest first), the first cell that fails, and its cost against single pieces.</summary>
 /// <param name="Cells">The cells, in order.</param>

@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 15 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 16 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -1369,6 +1369,8 @@ Lattice.Api.Preview.Findings.init -> void
 Lattice.Api.Preview.Preview(Lattice.Api.ChangeSet! WouldChange, Lattice.Api.ValueList<Lattice.Api.Finding!>! Findings, Lattice.Api.Bill! Bill, Lattice.Api.AnalysisReport! Effects, Lattice.Api.Option<Lattice.Api.RunReport!> Run) -> void
 Lattice.Api.Preview.Run.get -> Lattice.Api.Option<Lattice.Api.RunReport!>
 Lattice.Api.Preview.Run.init -> void
+Lattice.Api.Preview.Runs.get -> Lattice.Api.ValueList<Lattice.Api.RunReport!>!
+Lattice.Api.Preview.Runs.init -> void
 Lattice.Api.Preview.WouldChange.get -> Lattice.Api.ChangeSet!
 Lattice.Api.Preview.WouldChange.init -> void
 Lattice.Api.Progress

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.0
+
+- **A batch's preview carries its run reports.** A planner that sends a run with another step in one `Command.Batch`
+  (a run and a paint step, say) got no `Preview.Run`, so it had no counts, no mark for the first failing or
+  rule-breaking cell, and no cells. Now `Preview.Run` is the report of the batch's first run or route step, and the
+  new `Preview.Runs` holds one report per run or route step in step order, nested batches flattened. Each is the
+  report that step gives as the batch lays it, against the earlier steps' ghosts, with its costs for its own pieces.
+- Contract 0.16, which only adds: a mod written for 0.15 sees the same answers for everything but a batch, whose
+  `Run` was none before.
+
 ## 0.15.0
 
 - **A planned network from one of its pieces.** `Selector.Joined(cell)` picks the build and swap ghosts of cable, pipe

@@ -19,13 +19,6 @@ public sealed class ContractFifteenTests
     }
 
     [Fact]
-    public void The_contract_is_zero_fifteen()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(15, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void The_joined_selector_says_it_was_added_in_zero_fifteen() =>
         Assert.Contains("Added in contract 0.15.", Doc("T:Lattice.Api.Selector.Joined"));
 

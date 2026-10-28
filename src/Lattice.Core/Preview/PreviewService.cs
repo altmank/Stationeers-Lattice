@@ -130,9 +130,26 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         entry.Warnings = warnings;
         entry.Effects = effects;
         entry.Bill = Bill(ghosts);
-        entry.Run = parts.Runs.Find(entry.Command).Map(plan => plan.Report(pieces => Bill(Builds(pieces, ghosts))));
+        var runs = new List<RunReport>(1);
+        Reports(entry.Command, ghosts, runs);
+        entry.Runs = ValueList.From(runs);
+        entry.Run = runs.Count > 0 ? Option.Some(runs[0]) : Option<RunReport>.None;
         entry.Done = true;
         parts.Board.Events.Queue(new AnswersReadyEvent(entry.Pending.At));
+    }
+
+    // The report of each run or route step the expanders laid, in step order with nested batches flattened; each billed for its own pieces.
+    private void Reports(Command command, ValueList<Ghost> ghosts, List<RunReport> reports)
+    {
+        if (command is Command.Batch batch)
+        {
+            foreach (var step in batch.Steps)
+                Reports(step, ghosts, reports);
+            return;
+        }
+
+        if (command is Command.PlanRun or Command.PlanRoute && parts.Runs.Find(command).TryGet(out var plan))
+            reports.Add(plan.Report(pieces => Bill(Builds(pieces, ghosts))));
     }
 
     private Bill Bill(IReadOnlyList<Ghost> ghosts)
@@ -176,7 +193,7 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
             effects = effects with { Facts = ValueList.From(facts) };
         }
 
-        return new Lattice.Api.Preview(entry.Trial!.Changes, ValueList.From(findings), entry.Bill!, effects, entry.Run);
+        return new Lattice.Api.Preview(entry.Trial!.Changes, ValueList.From(findings), entry.Bill!, effects, entry.Run) { Runs = entry.Runs };
     }
 
     private Revision Revision => parts.Board.Revision;
@@ -231,6 +248,8 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         public Bill? Bill { get; set; }
 
         public Option<RunReport> Run { get; set; }
+
+        public ValueList<RunReport> Runs { get; set; } = ValueList<RunReport>.Empty;
     }
 
     /// <summary>The preview's main-thread work: one step in the checking budget, skipped when the board has moved since.</summary>

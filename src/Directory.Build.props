@@ -17,7 +17,7 @@
   -->
   <PropertyGroup>
     <LatticeMajor>0</LatticeMajor>
-    <LatticeMinor>15</LatticeMinor>
+    <LatticeMinor>16</LatticeMinor>
     <LatticePatch>0</LatticePatch>
     <Version>$(LatticeMajor).$(LatticeMinor).$(LatticePatch)</Version>
     <AssemblyVersion>$(LatticeMajor).0.0.0</AssemblyVersion>
