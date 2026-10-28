@@ -56,6 +56,11 @@ Two clashes are refused when the ghost is placed, not found later: `cannot-share
 share a small cell, a cable with a chute for example) and `ends-collide` (ends within 0.1 m of each other in the same
 small cells).
 
+A run or route judges built pieces by the same rule. A route goes round them. A drawn run through one fails at the
+first cell that clashes: the run's `FirstFailure` is `cannot-share` or `ends-collide`, with facts `piece` (the run's
+piece), `with` (the built piece) and `structure` (its id). The run is laid as drawn, as at any failing cell. A run that
+ends in the cell a device's port faces does not enter the device and still joins the port.
+
 **Build safety** warnings never refuse anything: `swap-on-air-room`, `cuts-power`, `gas-indoors`,
 `oxidiser-outside`, `hot-gas`, `controls-unreachable`, `run-through-door`, `on-window`, `paint-indoors` and
 `terrain-in-the-way`. Lattice warns and never digs terrain.

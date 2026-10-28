@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.17.1
+
+Fixed:
+- **A drawn run through a built device fails there.** A run judged built pieces only through the game's placement
+  check, so where that check accepts everything (a `Lattice.Testing` world), a cable run straight through a built
+  battery fit. A run now judges the built pieces in its cells by the small-cell clash rule, as it judges ghosts. The
+  first cell that clashes is the run's `FirstFailure`, `cannot-share` or `ends-collide`, naming the built piece in
+  `with` and its id in `structure`. Routes already went round them; a run ending on a device's port still joins it.
+- `Lattice.Testing`: `TestPiece.WithCollision` and the consumer guide give the game's collision bits. A test device
+  with only the devices bit (4) lets a cable through its cell; the game's small devices are 23.
+
 ## 0.17.0
 
 Added:

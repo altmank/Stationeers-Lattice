@@ -161,7 +161,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         var walked = RunPath.Walk(request, kit, grid, ports);
         if (!walked.TryGet(out var path))
             return Result<RunPlan, Reason>.Error(walked.TryGetError(out var bad) ? bad : Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs));
-        var plan = new Laying(kit, path, around, grid, placementCheck, request.Lay.SinglePiecesOnly).Lay();
+        var plan = new Laying(kit, path, around, grid, _shapes, placementCheck, request.Lay.SinglePiecesOnly).Lay();
         if (kit != asked)
             plan = plan with { LaidWith = Option.Some(kit.Kit) };
         if (request.Rules.TryGet(out var rules))
@@ -271,7 +271,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         return false;
     }
 
-    private sealed class Laying(KitShapes kit, RunPath path, Neighbourhood around, IGrid grid, IPlacementCheck check, bool singlesOnly)
+    private sealed class Laying(KitShapes kit, RunPath path, Neighbourhood around, IGrid grid, Shapes shapes, IPlacementCheck check, bool singlesOnly)
     {
         private readonly List<Intent> _changes = [];
         private readonly List<Placement> _pieces = [];
@@ -433,7 +433,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
                 {
                     if (line.Cells > stretch.Count - at
                         || !kit.Lay(line, stretch[at], stretch[at + line.Cells - 1], heading).TryGet(out var placement)
-                        || !check.Check(placement).IsOk)
+                        || !Judge(placement).IsOk)
                         continue;
                     _changes.Add(new Intent.Build(placement, Option<Finish>.None));
                     _pieces.Add(placement);
@@ -462,10 +462,33 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
 
         private void Build(Placement placement, bool checkIt)
         {
-            if (checkIt && check.Check(placement).TryGetError(out var refused))
+            if (checkIt && Judge(placement).TryGetError(out var refused))
                 Fail(placement.At, refused);
             _changes.Add(new Intent.Build(placement, Option<Finish>.None));
             _pieces.Add(placement);
+        }
+
+        /// <summary>
+        /// Whether the piece may stand here: first the built pieces in its cells, judged by the small-cell clash rule
+        /// (<see cref="Shapes.Conflict"/>) as a ghost's are, then the game's placement check.
+        /// </summary>
+        private Result<Unit, Reason> Judge(Placement placement) =>
+            BuiltClash(placement) is { } clash ? Result<Unit, Reason>.Error(clash) : check.Check(placement);
+
+        /// <summary>The first built piece of another kit the piece may not share a small cell with, as a reason naming it.</summary>
+        private Reason? BuiltClash(Placement placement)
+        {
+            if (!shapes.Of(placement).TryGet(out var mine))
+                return null;
+            foreach (var cell in PieceCells.Of(mine, grid))
+                foreach (var occupant in around.At(cell))
+                    if (occupant.Holder is Holder.Real built && !kit.Places(occupant.Shape.Piece)
+                        && Shapes.Conflict(mine, occupant.Shape).TryGet(out var code))
+                        return Reason.Of(code, RunCodes.Runs, ValueMap
+                            .Of("piece", placement.Piece.Hash.ToString())
+                            .With("with", built.Structure.Piece.Hash.ToString())
+                            .With("structure", built.Structure.Id.Value.ToString()));
+            return null;
         }
 
         /// <summary>The ways a free cell must leave: the run's, plus the neighbours pointing in when the kit has that shape.</summary>

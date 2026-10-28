@@ -208,7 +208,11 @@ public sealed record TestPiece
     /// <summary>This piece held up by a support rule group (a <see cref="SupportRuleDescriptor"/>'s group).</summary>
     public TestPiece SupportedBy(RuleId group) => this with { SupportGroup = Option.Some(group) };
 
-    /// <summary>This piece with small-grid collision bits (0 to 31): two pieces sharing a small cell clash when their bits meet.</summary>
+    /// <summary>
+    /// This piece with small-grid collision bits (0 to 31): two pieces sharing a small cell clash when their bits meet.
+    /// The game's bits: pipes 1, cables 2, devices 4, covers 8, rails 16; its small devices are 23, so no cable or pipe
+    /// shares their cells.
+    /// </summary>
     public TestPiece WithCollision(int bits) => this with { Collision = bits };
 
     /// <summary>

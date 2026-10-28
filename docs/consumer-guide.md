@@ -268,6 +268,12 @@ scenario's catalogue. A piece takes its kit's next option unless `AtOption(n)` n
 second kit and `Named(text)` gives it a display name. Lattice treats it as any piece the game holds, and
 `TestWorld.System.Catalogue` lists it (`TestCatalogue.View` lists a catalogue without a world).
 
+Give a test piece the collision bits of the game piece it stands for: two pieces in one small cell clash when their
+bits meet (pipes 1, cables 2, devices 4, covers 8, rails 16). The game's small devices (batteries, transformers,
+switches) are 23 and share a cell with no cable or pipe; a piece with only the devices bit (4) lets a cable through its
+cell, and runs and routes treat it so. The world's placement check accepts every placement, so a clash with a built
+piece is found only by Lattice's own rule.
+
 **Allocations.** `Allocations.Measure(call)` gives the bytes a repeated call allocates on your thread;
 `Allocations.AssertNone(call, "what")` throws `AllocationException` naming the call and the bytes. Lattice's board
 reads on an unchanged board allocate nothing.
