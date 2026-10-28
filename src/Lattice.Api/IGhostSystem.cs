@@ -113,7 +113,7 @@ public readonly record struct ApiVersion(int Major, int Minor)
     public const int ContractMajor = 0;
 
     /// <summary>The minor of this contract. A constant, so a consumer's build keeps the value it compiled against.</summary>
-    public const int ContractMinor = 16;
+    public const int ContractMinor = 17;
 
     /// <summary>The running contract's version.</summary>
     public static ApiVersion Current => new(ContractMajor, ContractMinor);

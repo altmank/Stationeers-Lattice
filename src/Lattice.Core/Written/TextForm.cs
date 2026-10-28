@@ -14,26 +14,7 @@ namespace Lattice.Core.Written;
 /// </summary>
 internal static class TextForm
 {
-    public static string Escape(string text, bool key)
-    {
-        var plain = true;
-        foreach (var c in text)
-            if (MustEscape(c, key))
-            {
-                plain = false;
-                break;
-            }
-
-        if (plain)
-            return text;
-        var escaped = new StringBuilder(text.Length + 8);
-        foreach (var c in text)
-            if (MustEscape(c, key))
-                escaped.Append('%').Append(((int)c).ToString("X2"));
-            else
-                escaped.Append(c);
-        return escaped.ToString();
-    }
+    public static string Escape(string text, bool key) => TextEscape.Escape(text, key);
 
     public static Result<string, string> Unescape(string text)
     {
@@ -139,9 +120,6 @@ internal static class TextForm
             groups.Add(new Group(word, ValueList.From(groupFields)));
         return Result<Entry, string>.Ok(new Entry(ValueList.From(fields), ValueList.From(groups)));
     }
-
-    private static bool MustEscape(char c, bool key) =>
-        c < ' ' || c == '\u007f' || c == ' ' || c == '%' || (key && (c == '=' || c == '#'));
 
     private static int Hex(char c) => c switch
     {

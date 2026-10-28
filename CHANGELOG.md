@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.17.0
+
+Added:
+- **Reasons print their facts.** `Reason.ToString()` gives one line, for example
+  `invalid-value from lattice.sync: problem=not-the-host-board revision=12`, with the facts sorted by key and escaped
+  as the written forms escape them, and the game's message last. Before, a logged reason showed only how many facts it
+  had.
+- `ReasonCodes.OutcomeLost` (`outcome-lost`): a client's command whose outcome the host no longer has after a resync
+  (fact `command`).
+
+Fixed:
+- **A client resyncs after a change set it cannot take.** One refused change set left a client's board behind the
+  host's for the rest of the session: it refused every later set, so pieces built on the host kept their ghosts on
+  the client. Now the client logs the drop once, with its facts, and asks the host for the whole board again.
+  Commands still waiting get their answers after the new board, an applied one with its full change set, so every
+  ticket gets exactly one `Answered`.
+- **One event handler that throws no longer skips the others.** A throwing `Changed` handler skipped every handler
+  after it for that change set, sync's included, so the change never reached the clients. Each handler now runs on
+  its own; one that throws is logged with its exception and skipped.
+- A change set that removes a ghost and adds it again under the same id now reaches a client with both changes.
+- A host-only module on a client is off with the reason `host-only` and logs `host-only; off on a client`, instead
+  of reading as a missing module. A drawing module on a dedicated server logs `drawing-only; off in batch mode`.
+- Contract 0.17, which only adds: a mod written for 0.16 sees the same answers, except that a host-only module's
+  commands on a client are refused `host-only` instead of `module-missing`.
+
 ## 0.16.0
 
 - **A batch's preview carries its run reports.** A planner that sends a run with another step in one `Command.Batch`

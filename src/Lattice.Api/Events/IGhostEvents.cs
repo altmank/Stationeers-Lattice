@@ -11,7 +11,8 @@ public sealed record BlockedGhost(GhostId Ghost, Reason Why);
 /// What happened on the board. Every event is raised on the main thread, in revision order, batched to at most one
 /// burst per frame, to each subscriber in subscription order. A command submitted from a handler is queued and applied
 /// after the current burst, never nested; reads in a handler see the board as of the event. Handlers receive immutable
-/// values. Subscriptions end with the world. A handler's failure is its own mod's to handle. Lattice implements this;
+/// values. Subscriptions end with the world. A handler's failure is its own mod's to handle: one that throws is logged
+/// and skipped, and every other handler of that event still runs. Lattice implements this;
 /// consumers call it. A minor may add members: to fake it in a test, inherit
 /// <c>Lattice.Testing.Stubs.StubGhostEvents</c>, which gains every added member in the same release.
 /// </summary>
@@ -30,7 +31,10 @@ public interface IGhostEvents
     /// <summary>An executor's status on a ghost changed.</summary>
     event Action<GhostId> StatusChanged;
 
-    /// <summary>A command this client sent was applied or refused by the host.</summary>
+    /// <summary>
+    /// A command this client sent was applied or refused by the host. Raised once for every command sent, also across a
+    /// resync; a command whose outcome the host no longer has is refused <see cref="ReasonCodes.OutcomeLost"/>.
+    /// </summary>
     event Action<Ticket, Outcome> Answered;
 
     /// <summary>A plan's state changed.</summary>

@@ -152,9 +152,10 @@ internal sealed class ModuleTable
 /// <summary>
 /// Decides which modules run in a world (architecture section 12, "Game updates"): a module is off when the game lacks
 /// a member its manifest names, when a module it needs is off, when it is host only and this seat is a client, or when
-/// it draws and this seat runs in batch mode. The rest run. Off reasons are <see cref="ReasonCodes.ModuleMissing"/>
-/// from <see cref="EntryCodes.Rule"/> with the fact <c>module</c> and one of <c>missing</c> (up to eight member names,
-/// and <c>missing-count</c>), <c>needs</c> (the module that is off) or <c>seat</c> (<c>client</c>, <c>batch-mode</c>).
+/// it draws and this seat runs in batch mode. The rest run. Off reasons come from <see cref="EntryCodes.Rule"/> with the
+/// fact <c>module</c>: a host-only module on a client is <see cref="ReasonCodes.HostOnly"/> (<c>seat=client</c>); every
+/// other is <see cref="ReasonCodes.ModuleMissing"/> with one of <c>missing</c> (up to eight member names, and
+/// <c>missing-count</c>), <c>needs</c> (the module that is off) or <c>seat=batch-mode</c>.
 /// Linear in the manifests and their members.
 /// </summary>
 internal static class ModuleSwitches
@@ -182,7 +183,7 @@ internal static class ModuleSwitches
     private static ModuleState StateOf(ModuleEntry module, IGameMembers members, WorldSeat seat, bool drawing, Dictionary<ModuleName, ModuleState> decided)
     {
         if (module.Seats == ModuleSeats.HostOnly && seat != WorldSeat.Host)
-            return Off(module.Name, ValueMap.Of("seat", "client"));
+            return Off(module.Name, ValueMap.Of("seat", "client"), ReasonCodes.HostOnly);
         if (module.Seats == ModuleSeats.Drawing && !drawing)
             return Off(module.Name, ValueMap.Of("seat", "batch-mode"));
 
@@ -220,12 +221,14 @@ internal static class ModuleSwitches
         return ValueMap.Of("missing", names.ToString()).With("missing-count", missing.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    private static ModuleState Off(ModuleName module, ValueMap<string, string> facts)
+    private static ModuleState Off(ModuleName module, ValueMap<string, string> facts) => Off(module, facts, ReasonCodes.ModuleMissing);
+
+    private static ModuleState Off(ModuleName module, ValueMap<string, string> facts, ReasonCode code)
     {
         var all = ValueMap.Of("module", module.Value);
         foreach (var fact in facts)
             all = all.With(fact.Key, fact.Value);
-        return new ModuleState.Off(Reason.Of(ReasonCodes.ModuleMissing, EntryCodes.Rule, all));
+        return new ModuleState.Off(Reason.Of(code, EntryCodes.Rule, all));
     }
 }
 
@@ -233,4 +236,19 @@ internal static class ModuleSwitches
 internal static class EntryCodes
 {
     public static RuleId Rule => RuleId.Known("lattice.entry");
+}
+
+/// <summary>How the log names a module that is off.</summary>
+internal static class ModuleLines
+{
+    /// <summary>
+    /// The line for a module that is off: a host-only module on a client and a drawing module in batch mode say so in
+    /// words (off by design, not a broken install), with the reason after; any other says why.
+    /// </summary>
+    public static string Off(ModuleName module, Reason why) =>
+        why.Facts.TryGetValue("seat", out var seat) && seat == "client"
+            ? $"Lattice: module {module.Value} is host-only; off on a client ({why})."
+            : why.Facts.TryGetValue("seat", out var drawing) && drawing == "batch-mode"
+                ? $"Lattice: module {module.Value} is drawing-only; off in batch mode ({why})."
+                : $"Lattice: module {module.Value} is off: {why}";
 }

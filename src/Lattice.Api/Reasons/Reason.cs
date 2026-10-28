@@ -23,6 +23,33 @@ public sealed record Reason(
             ValueMap<string, string>.Empty.With("type", type).With("value", value).With("rule", rule),
             Option<string>.None,
             RuleId.Contract);
+
+    /// <summary>
+    /// One line for a log: <c>&lt;code&gt; from &lt;rule&gt;: k1=v1 k2=v2 (game: "&lt;message&gt;")</c>. Facts are
+    /// sorted by key and escaped as the written forms escape them (space, '%' and control characters as <c>%XX</c>);
+    /// the part after the colon is left out when there are no facts, the game part when there is no game message.
+    /// Linear in the facts. Added in contract 0.17.
+    /// </summary>
+    public override string ToString()
+    {
+        var text = new System.Text.StringBuilder(32 + 24 * Facts.Count);
+        text.Append(Code.Value).Append(" from ").Append(From.Value);
+        if (Facts.Count > 0)
+        {
+            var keys = new string[Facts.Count];
+            var at = 0;
+            foreach (var fact in Facts)
+                keys[at++] = fact.Key;
+            System.Array.Sort(keys, System.StringComparer.Ordinal);
+            text.Append(':');
+            foreach (var key in keys)
+                text.Append(' ').Append(TextEscape.Escape(key, key: true)).Append('=').Append(TextEscape.Escape(Facts[key], key: false));
+        }
+
+        if (GameMessage.TryGet(out var message))
+            text.Append(" (game: \"").Append(message).Append("\")");
+        return text.ToString();
+    }
 }
 
 /// <summary>
@@ -156,6 +183,13 @@ public static class ReasonCodes
 
     /// <summary>Only the host may do this.</summary>
     public static readonly ReasonCode HostOnly = ReasonCode.Known("host-only");
+
+    /// <summary>
+    /// A client's command whose outcome the host no longer has, when the client asked for the board again after it
+    /// dropped a change set: the command may or may not have applied; the board after the join is the host's. Fact
+    /// <c>command</c>. Added in contract 0.17.
+    /// </summary>
+    public static readonly ReasonCode OutcomeLost = ReasonCode.Known("outcome-lost");
 
     /// <summary>Something is already registered under that id.</summary>
     public static readonly ReasonCode AlreadyRegistered = ReasonCode.Known("already-registered");

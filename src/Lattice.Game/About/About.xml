@@ -45,6 +45,12 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.17.0
+- Added: logged reasons now show their details.
+- Fixed: a multiplayer client that missed one change from the host fell out of step for the rest of the session, so built pieces kept their ghosts. It now asks the host for the whole plan again and catches up.
+- Fixed: one mod's failing event handler no longer keeps the others, and multiplayer sync, from a change.
+- Fixed: on a client, modules that only run on the host now say so in the log instead of looking missing.
+
 v0.16.0
 - A preview of several commands sent together now shows the run reports of the runs and routes among them.
 

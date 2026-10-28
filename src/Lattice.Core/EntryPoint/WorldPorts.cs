@@ -75,7 +75,9 @@ internal sealed record WorldRuntime(
 
 /// <summary>
 /// Faults of Lattice's own modules and jobs (architecture section 12, "caught per module and logged once"): the first
-/// of each source is logged in full, later ones are counted. Consumer code never comes here. Main thread.
+/// of each source is logged in full, later ones are counted. Board event handlers come here too, a consumer's
+/// included (source <c>event handler &lt;type&gt;</c>), so one that throws never keeps the others from running. Main
+/// thread.
 /// </summary>
 internal sealed class ModuleFaults(Action<string> log)
 {

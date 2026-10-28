@@ -11,10 +11,10 @@ namespace Lattice.Core.Board;
 /// </summary>
 internal sealed partial class GhostBoard : IReplicaBoard
 {
-    Option<Ghost> IReplicaBoard.Ghost(GhostId id) =>
+    Option<Ghost> IBoardStates.Ghost(GhostId id) =>
         Index.Ghosts.TryGetValue(id, out var entry) ? Option.Some(entry.Ghost) : Option<Ghost>.None;
 
-    Option<Plan> IReplicaBoard.Plan(PlanId id) =>
+    Option<Plan> IBoardStates.Plan(PlanId id) =>
         Index.Plans.TryGetValue(id, out var entry) ? Option.Some(entry.Plan) : Option<Plan>.None;
 
     /// <summary>

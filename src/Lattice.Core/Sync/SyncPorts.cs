@@ -23,6 +23,12 @@ internal enum SyncKind
 
     /// <summary>Executors' claims and status on some ghosts, host to every joined client (<see cref="StatusForm"/>).</summary>
     Status = 5,
+
+    /// <summary>
+    /// A joined client asks for the board again after it dropped a change set it could not take, client to host
+    /// (<see cref="RejoinForm"/>); the host answers with a join, as for a new client.
+    /// </summary>
+    Rejoin = 6,
 }
 
 /// <summary>
@@ -36,22 +42,26 @@ internal interface ISyncLink
     void ToClient(ConnectionId to, SyncKind kind, string text);
 }
 
-/// <summary>
-/// A client's board as sync drives it: it takes the host's change sets as they are and the host's ghosts at join.
-/// Main thread.
-/// </summary>
-internal interface IReplicaBoard
+/// <summary>The ghosts and plans a board holds, as change lines are read against them. Main thread.</summary>
+internal interface IBoardStates
 {
-    Revision Revision { get; }
-
-    /// <summary>The board's events: changes, answers and resets are raised through them.</summary>
-    BoardEvents Events { get; }
-
     /// <summary>The ghost as the board holds it now; none when it holds no ghost with that id.</summary>
     Option<Ghost> Ghost(GhostId id);
 
     /// <summary>The plan as the board holds it now; none when it holds no active plan with that id.</summary>
     Option<Plan> Plan(PlanId id);
+}
+
+/// <summary>
+/// A client's board as sync drives it: it takes the host's change sets as they are and the host's ghosts at join.
+/// Main thread.
+/// </summary>
+internal interface IReplicaBoard : IBoardStates
+{
+    Revision Revision { get; }
+
+    /// <summary>The board's events: changes, answers and resets are raised through them.</summary>
+    BoardEvents Events { get; }
 
     /// <summary>
     /// Commits a change set the host made, as it is: its ids, revision, ghosts and plans. One revision, one queued

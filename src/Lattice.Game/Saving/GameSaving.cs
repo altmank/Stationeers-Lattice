@@ -53,7 +53,7 @@ internal sealed class GameSaving
             fingerprint => Option.Some(new SaveKey(Path.GetFullPath(path), fingerprint)),
             why =>
             {
-                log($"Lattice saving: the loaded save has no fingerprint ({why.Facts}); plans open at their newest lines.");
+                log($"Lattice saving: the loaded save has no fingerprint ({why}); plans open at their newest lines.");
                 return Option.Some(new SaveKey(Path.GetFullPath(path), ""));
             });
         return new GameSaving(saving, saving.Open(key), newWorld: false, log);
@@ -68,7 +68,7 @@ internal sealed class GameSaving
         {
             var named = new WorldFolder(SaveFiles.LatticeFolderFor(SaveFiles.WorldFolderOf(path)));
             if (Saving.MoveTo(named).TryGetError(out var why))
-                _log($"Lattice saving: the new world's plans stay in {Saving.Folder.Root}: {why.Facts}");
+                _log($"Lattice saving: the new world's plans stay in {Saving.Folder.Root}: {why}");
             _newWorld = false;
         }
 

@@ -149,7 +149,7 @@ internal sealed class LatticeWorld : IGhostSystem
     {
         foreach (var status in ports.Modules.Statuses)
             if (status.State is ModuleState.Off off)
-                runtime.Log($"Lattice: module {status.Name.Value} is off: {off.Why}");
+                runtime.Log(ModuleLines.Off(status.Name, off.Why));
         if (ports.Modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
         {
             runtime.Log("Lattice does not start for this world: the catalogue cannot be read.");
@@ -287,7 +287,7 @@ internal sealed class LatticeWorld : IGhostSystem
         var shapes = new Shapes(catalogue, grid);
         var policies = new AccessPolicies();
         var sizeLimit = new PlanSizeLimit();
-        BoardEvents = new BoardEvents();
+        BoardEvents = new BoardEvents { Faulted = Faults.Report };
         Ghosts = new GhostBoard(shapes, runtime.Time, policies, sizeLimit, BoardEvents,
             saved is null ? Option<BoardSeed>.None : Option.Some(saved.Opened.Seed));
         Scheduler = new FrameScheduler(runtime.Clock, runtime.Budgets, (work, error) => Faults.Report(work.GetType().Name, error));

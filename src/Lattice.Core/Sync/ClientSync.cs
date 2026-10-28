@@ -14,7 +14,21 @@ namespace Lattice.Core.Sync;
 /// text over the size limit) is answered refused the same way, never sent. The board holds nothing until the host's
 /// join arrives; from then on it takes the host's change sets in revision order. The host's status messages (its
 /// executors' claims and status) go to the client seat's <see cref="ExecutorMirror"/>, after the change sets they
-/// follow; a join clears the mirror and the join's own status message rebuilds it. Main thread.
+/// follow; a join clears the mirror and the join's own status message rebuilds it.
+/// <para>
+/// A change set the board cannot take (its lines do not read against the board, or the board refuses it) stops the
+/// mirroring: the drop is reported once, with its facts and <c>then=rejoin</c>, and the client asks the host for the
+/// board again (<see cref="SyncKind.Rejoin"/>). Until that join arrives every change set and status message is skipped
+/// without a report; the join resets the board and mirroring goes on from it. A host that never answers leaves the
+/// board as it was at the drop, said once.
+/// </para>
+/// <para>
+/// Every submitted command is answered once through <see cref="IGhostEvents.Answered"/>, a resync included: the rejoin
+/// names the commands still pending, and the host sends their outcomes again after the join (an applied one with its
+/// change set whole), answers later those it has not finished, and answers <see cref="ReasonCodes.OutcomeLost"/> for
+/// one it no longer has. An answer for a command already settled is skipped.
+/// </para>
+/// Main thread.
 /// </summary>
 internal sealed class ClientSync : ICommands
 {
@@ -31,6 +45,7 @@ internal sealed class ClientSync : ICommands
     private readonly HashSet<CommandId> _pending = new();
     private readonly Dictionary<CommandId, ChangeSet> _applied = new();
     private readonly Dictionary<CommandId, Answer.Applied> _early = new();
+    private bool _dropped;
 
     /// <summary>
     /// Sync for a client's board, and for the executors' mirror when <paramref name="executors"/> is given;
@@ -47,6 +62,9 @@ internal sealed class ClientSync : ICommands
 
     /// <summary>Whether the host's join has arrived.</summary>
     public bool Joined { get; private set; }
+
+    /// <summary>Whether a change set was dropped and the client waits for the host's join to mirror again.</summary>
+    public bool Rejoining => _dropped;
 
     /// <summary>Sends the command to the host. The actor is not sent: the host acts as the player of this connection.</summary>
     public Submission Submit(CommandId id, Command command, Actor actor)
@@ -116,12 +134,12 @@ internal sealed class ClientSync : ICommands
 
     private void Lines(string text)
     {
-        if (!Joined)
+        if (!Joined || _dropped)
             return;
         var read = SetLines.Read(text, _board);
         if (!read.TryGet(out var set))
         {
-            Report(read);
+            Drop(read);
             return;
         }
 
@@ -130,7 +148,7 @@ internal sealed class ClientSync : ICommands
         var mirrored = _board.Mirror(set);
         if (!mirrored.TryGet(out var changes))
         {
-            Report(mirrored);
+            Drop(mirrored);
             return;
         }
 
@@ -164,11 +182,22 @@ internal sealed class ClientSync : ICommands
         _executors?.Clear();
         _applied.Clear();
         Joined = true;
+        _dropped = false;
+    }
+
+    // The board missed a change set: stop mirroring, say so once, and ask the host for the board again.
+    private void Drop<T>(Result<T, Reason> failed)
+        where T : notnull
+    {
+        _dropped = true;
+        if (failed.TryGetError(out var why))
+            _report(why with { Facts = why.Facts.With("then", "rejoin") });
+        _link.ToHost(SyncKind.Rejoin, RejoinForm.Write(_pending));
     }
 
     private void Status(string text)
     {
-        if (!Joined)
+        if (!Joined || _dropped)
             return;
         var read = StatusForm.Read(text);
         if (!read.TryGet(out var update))
@@ -182,6 +211,12 @@ internal sealed class ClientSync : ICommands
 
     private void Answered(string text)
     {
+        if (AppliedForm.Is(text))
+        {
+            Whole(text);
+            return;
+        }
+
         var read = AnswerForm.Read(text);
         if (!read.TryGet(out var answer))
         {
@@ -191,8 +226,12 @@ internal sealed class ClientSync : ICommands
 
         switch (answer.Answer)
         {
-            case Answer.Refused refused:
+            case Answer.Refused refused when _pending.Contains(answer.Id):
+                _early.Remove(answer.Id);
+                _applied.Remove(answer.Id);
                 Settle(answer.Id, new Outcome.Refused(refused.Why));
+                break;
+            case Answer.Refused:
                 break;
             case Answer.Applied when _applied.Remove(answer.Id, out var changes):
                 Settle(answer.Id, new Outcome.Applied(changes));
@@ -202,6 +241,23 @@ internal sealed class ClientSync : ICommands
                 _early[answer.Id] = applied;
                 break;
         }
+    }
+
+    // An applied outcome sent whole after a resync join: it settles a command still pending, once.
+    private void Whole(string text)
+    {
+        var read = AppliedForm.Read(text);
+        if (!read.TryGet(out var whole))
+        {
+            Report(read);
+            return;
+        }
+
+        if (!_pending.Contains(whole.Id))
+            return;
+        _early.Remove(whole.Id);
+        _applied.Remove(whole.Id);
+        Settle(whole.Id, new Outcome.Applied(whole.Set));
     }
 
     private void Settle(CommandId id, Outcome outcome)

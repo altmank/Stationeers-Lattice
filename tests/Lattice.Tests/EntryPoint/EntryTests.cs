@@ -175,18 +175,19 @@ public sealed class EntryTests : IDisposable
     }
 
     [Fact]
-    public void A_consumer_changed_handler_that_throws_does_not_keep_the_change_from_saving()
+    public void A_consumer_changed_handler_that_throws_is_logged_and_does_not_keep_the_change_from_saving()
     {
         var world = _bench.Start();
         Action<ChangeSet> throwing = _ => throw new InvalidOperationException("mod bug");
         world.Events.Changed += throwing;
         var ghost = PlaceConduit(RunBench.At(0, 0, 0));
 
-        Assert.Throws<InvalidOperationException>(world.Frame);
+        world.Frame();
         world.Events.Changed -= throwing;
         world.Frame();
 
         Assert.Contains("ghost=" + ghost.Id.Value, _bench.PlanText(world.Plans.Default));
+        Assert.Single(_bench.Log, line => line.Contains("event handler") && line.Contains("mod bug"));
     }
 
     [Fact]
@@ -309,7 +310,7 @@ public sealed class EntryTests : IDisposable
         Assert.True(world.Validation.Check(new Selector.InPlan(world.Plans.Default)).TryGet(out _));
         Assert.True(world.Board.Select(new Selector.Box(RunBench.At(0, 0, 0), RunBench.At(1, 1, 1))).TryGet(out _));
         Assert.False(world.Match.TryGet(out _));
-        Assert.Equal(ReasonCodes.ModuleMissing, Refused(world.Inspector.Story(new GhostId(1))).Code);
+        Assert.Equal(ReasonCodes.HostOnly, Refused(world.Inspector.Story(new GhostId(1))).Code);
 
         var sent = world.Commands.Submit(new CommandId(Guid.NewGuid()), new Command.Place(ValueList.Of(_bench.Draft("ModConduitLine", RunBench.At(0, 0, 0)))), WorldBench.Viewer);
 

@@ -201,8 +201,12 @@ internal static class SetLines
         return LiveMessageForm.Write(ValueList.From(lines));
     }
 
-    /// <summary>The change set the lines describe, against the board's current state; refused if they do not fit it.</summary>
-    public static Result<ChangeSet, Reason> Read(string text, IReplicaBoard board)
+    /// <summary>
+    /// The change set the lines describe, against the board's current state; refused if they do not fit it. An op
+    /// written into two plan parts (a ghost moved between plans) is taken once per kind, so a set that removes a ghost
+    /// and adds it again under the same id keeps both.
+    /// </summary>
+    public static Result<ChangeSet, Reason> Read(string text, IBoardStates board)
     {
         var read = LiveMessageForm.Read(text);
         if (read.Problems.Count > 0 || read.Lines.Count == 0)
@@ -214,7 +218,9 @@ internal static class SetLines
         var opened = new List<Plan>();
         var planChanges = new List<PlanChange>();
         var finished = new List<PlanId>();
-        var seen = new HashSet<GhostId>();
+        var seenAdded = new HashSet<GhostId>();
+        var seenChanged = new HashSet<GhostId>();
+        var seenRemoved = new HashSet<GhostId>();
         foreach (var fileLine in read.Lines)
         {
             if (fileLine is not FileLine.Read { Line: var line })
@@ -227,18 +233,18 @@ internal static class SetLines
                 switch (op)
                 {
                     case ChangeOp.AddGhost { Ghost: GhostRecord.Known add }:
-                        if (seen.Add(add.Ghost.Id))
+                        if (seenAdded.Add(add.Ghost.Id))
                             added.Add(add.Ghost);
                         break;
                     case ChangeOp.ChangeGhost { Ghost: GhostRecord.Known change }:
-                        if (!seen.Add(change.Ghost.Id))
+                        if (!seenChanged.Add(change.Ghost.Id))
                             break;
                         if (!board.Ghost(change.Ghost.Id).TryGet(out var before))
                             return Fail($"ghost {change.Ghost.Id.Value} is not on the board");
                         changed.Add(new GhostChange(before, change.Ghost));
                         break;
                     case ChangeOp.RemoveGhost remove:
-                        if (!seen.Add(remove.Ghost))
+                        if (!seenRemoved.Add(remove.Ghost))
                             break;
                         if (!board.Ghost(remove.Ghost).TryGet(out var gone))
                             return Fail($"ghost {remove.Ghost.Value} is not on the board");
@@ -276,6 +282,130 @@ internal static class SetLines
     }
 
     private static Result<ChangeSet, Reason> Fail(string problem) => Result<ChangeSet, Reason>.Error(SyncRules.Problem(problem));
+}
+
+/// <summary>
+/// The rejoin form: <c>lattice-rejoin &lt;schema&gt;</c>, then one <c>pending id=</c> line per command the client
+/// still waits on. A client that dropped a change set sends it to ask the host for the board again and for the
+/// outcomes of those commands.
+/// </summary>
+internal static class RejoinForm
+{
+    public const string Form = "lattice-rejoin";
+
+    public static string Write(IEnumerable<CommandId> pending)
+    {
+        var text = new StringBuilder(64);
+        text.Append(Headers.Text(Form, WrittenForms.Schema, ValueList<Field>.Empty)).Append('\n');
+        foreach (var id in pending)
+            text.Append(TextForm.Write(Entry.Of(new FieldList().Add("n", "pending").Add("id", WrittenValues.Command(id)).ToList()), 1)).Append('\n');
+        return text.ToString();
+    }
+
+    /// <summary>The pending commands the client names; refused, whole, when any line is not the form.</summary>
+    public static Result<ValueList<CommandId>, Reason> Read(string text)
+    {
+        var lines = text.Split('\n');
+        var count = lines.Length;
+        while (count > 0 && lines[count - 1].Length == 0)
+            count--;
+        if (count < 1 || !Headers.Read(lines[0], Form).TryGet(out var header) || header.Schema != WrittenForms.Schema || header.Extra.Count > 0)
+            return Fail("not a rejoin message");
+        var pending = new List<CommandId>(count - 1);
+        for (var i = 1; i < count; i++)
+        {
+            if (!TextForm.Read(lines[i], ["n"]).TryGet(out var entry))
+                return Fail($"line {i + 1}: unreadable");
+            var read = new FieldReader(entry.Fields);
+            if (read.Take("n").Reduce("") != "pending" || !read.Need("id").Bind(WrittenValues.Command).TryGet(out var id))
+                return Fail($"line {i + 1}: not a pending command");
+            pending.Add(id);
+        }
+
+        return Result<ValueList<CommandId>, Reason>.Ok(ValueList.From(pending));
+    }
+
+    private static Result<ValueList<CommandId>, Reason> Fail(string problem) =>
+        Result<ValueList<CommandId>, Reason>.Error(SyncRules.Problem(problem));
+}
+
+/// <summary>
+/// A command's applied outcome whole, for a client whose board has moved past its change set (a resync join):
+/// <c>lattice-applied &lt;schema&gt; id= plans= ghosts=</c>, then the plans and ghosts as they were before the set (one
+/// per line, the plan and ghost forms), then the set's lines. The client reads the lines against those before states,
+/// so the change set is the one it would have mirrored.
+/// </summary>
+internal static class AppliedForm
+{
+    public const string Form = "lattice-applied";
+
+    public static bool Is(string text) => text.StartsWith(Form + " ", System.StringComparison.Ordinal);
+
+    public static string Write(CommandId id, ChangeSet set)
+    {
+        var plans = new List<Plan>(set.PlansChanged.Count);
+        foreach (var change in set.PlansChanged)
+            plans.Add(change.Before);
+        var ghosts = new Dictionary<GhostId, Ghost>(set.Changed.Count + set.Removed.Count);
+        foreach (var change in set.Changed)
+            ghosts[change.Before.Id] = change.Before;
+        foreach (var removal in set.Removed)
+            ghosts[removal.Ghost.Id] = removal.Ghost;
+
+        var text = new StringBuilder(256);
+        var header = new FieldList().Add("id", WrittenValues.Command(id)).Add("plans", plans.Count).Add("ghosts", ghosts.Count).ToList();
+        text.Append(Headers.Text(Form, WrittenForms.Schema, header)).Append('\n');
+        foreach (var plan in plans)
+            text.Append(TextForm.Write(Entry.Of(PlanForm.Write(plan, ValueList<Field>.Empty, LineContext.None)), 0)).Append('\n');
+        foreach (var ghost in ghosts.Values)
+            text.Append(TextForm.Write(Entry.Of(GhostForm.Write(ghost, ValueList<Field>.Empty, LineContext.None)), 0)).Append('\n');
+        return text.Append(SetLines.Write(set)).ToString();
+    }
+
+    public static Result<(CommandId Id, ChangeSet Set), Reason> Read(string text)
+    {
+        var lines = text.Split('\n');
+        if (!Headers.Read(lines[0], Form).TryGet(out var header) || header.Schema != WrittenForms.Schema)
+            return Fail("not an applied outcome");
+        var fields = new FieldReader(header.Extra);
+        if (!fields.Need("id").Bind(WrittenValues.Command).TryGet(out var id)
+            || !fields.Need("plans").Bind(WrittenValues.Long).TryGet(out var planCount)
+            || !fields.Need("ghosts").Bind(WrittenValues.Long).TryGet(out var ghostCount)
+            || planCount < 0 || ghostCount < 0 || 1 + planCount + ghostCount > lines.Length)
+            return Fail("bad applied header");
+
+        var before = new BeforeStates();
+        var at = 1;
+        for (var i = 0; i < planCount; i++, at++)
+        {
+            if (!TextForm.Read(lines[at], []).TryGet(out var entry) || PlanForm.Read(entry.Fields, LineContext.None) is not PlanRecord.Known plan)
+                return Fail($"line {at + 1}: not a plan");
+            before.Plans[plan.Plan.Id] = plan.Plan;
+        }
+
+        for (var i = 0; i < ghostCount; i++, at++)
+        {
+            if (!TextForm.Read(lines[at], []).TryGet(out var entry) || GhostForm.Read(entry.Fields, LineContext.None) is not GhostRecord.Known ghost)
+                return Fail($"line {at + 1}: not a ghost");
+            before.Ghosts[ghost.Ghost.Id] = ghost.Ghost;
+        }
+
+        return SetLines.Read(string.Join("\n", lines, at, lines.Length - at), before).Map(set => (id, set));
+    }
+
+    private static Result<(CommandId, ChangeSet), Reason> Fail(string problem) =>
+        Result<(CommandId, ChangeSet), Reason>.Error(SyncRules.Problem(problem));
+
+    private sealed class BeforeStates : IBoardStates
+    {
+        public Dictionary<GhostId, Ghost> Ghosts { get; } = new();
+
+        public Dictionary<PlanId, Plan> Plans { get; } = new();
+
+        public Option<Ghost> Ghost(GhostId id) => Ghosts.TryGetValue(id, out var ghost) ? Option.Some(ghost) : Option<Ghost>.None;
+
+        public Option<Plan> Plan(PlanId id) => Plans.TryGetValue(id, out var plan) ? Option.Some(plan) : Option<Plan>.None;
+    }
 }
 
 /// <summary>A join's parts gathered until the last arrives, then the seed a client's board resets to.</summary>

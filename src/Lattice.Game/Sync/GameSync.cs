@@ -88,6 +88,12 @@ internal sealed class StatusMessage : SyncMessage
     public override SyncKind Kind => SyncKind.Status;
 }
 
+/// <summary>A client that dropped a change set asks for the board again, client to host.</summary>
+internal sealed class RejoinMessage : SyncMessage
+{
+    public override SyncKind Kind => SyncKind.Rejoin;
+}
+
 /// <summary>
 /// <see cref="ISyncLink"/> over LaunchPadBooster: one message type per kind, to the host or to a client by its
 /// connection (a connection the game no longer lists is skipped). Main thread.
@@ -109,6 +115,7 @@ internal sealed class LaunchPadLink : ISyncLink
         SyncKind.Lines => new LinesMessage { Text = text },
         SyncKind.Join => new JoinMessage { Text = text },
         SyncKind.Status => new StatusMessage { Text = text },
+        SyncKind.Rejoin => new RejoinMessage { Text = text },
         _ => new AnswerMessage { Text = text },
     };
 }
@@ -142,7 +149,7 @@ internal sealed class GameSync
     /// <summary>The running world's sync; set when a world runs, cleared when it ends.</summary>
     public static GameSync? Current { get; set; }
 
-    /// <summary>Registers the five message types with Lattice's LaunchPadBooster mod.</summary>
+    /// <summary>Registers the six message types with Lattice's LaunchPadBooster mod.</summary>
     public static void Register(IModNetworking networking)
     {
         networking.RegisterMessage<CommandMessage>();
@@ -150,6 +157,7 @@ internal sealed class GameSync
         networking.RegisterMessage<JoinMessage>();
         networking.RegisterMessage<AnswerMessage>();
         networking.RegisterMessage<StatusMessage>();
+        networking.RegisterMessage<RejoinMessage>();
     }
 
     public static GameSync ForHost(HostSync host, Action<Reason> report) => new(Option.Some(host), Option<ClientSync>.None, report);
@@ -180,7 +188,7 @@ internal sealed class GameSync
         }
     }
 
-    /// <summary>A message LaunchPadBooster read: a command on the host, anything else on a client; the rest is reported.</summary>
+    /// <summary>A message LaunchPadBooster read: a command or a rejoin on the host, anything else on a client; the rest is reported.</summary>
     public void Received(ConnectionId from, SyncMessage message)
     {
         if (message.Dropped.TryGet(out var dropped))
@@ -199,7 +207,13 @@ internal sealed class GameSync
             return;
         }
 
-        if (_client.TryGet(out var sync) && message.Kind != SyncKind.Command)
+        if (_host.TryGet(out var rejoined) && message.Kind == SyncKind.Rejoin)
+        {
+            rejoined.Rejoin(from, message.Text);
+            return;
+        }
+
+        if (_client.TryGet(out var sync) && message.Kind is not (SyncKind.Command or SyncKind.Rejoin))
         {
             sync.Receive(message.Kind, message.Text);
             return;

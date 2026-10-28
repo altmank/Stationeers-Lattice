@@ -25,6 +25,14 @@ host's answer wins over a client's preview.
 
 The same `CommandId` sent twice applies once, so a client can resend after a dropped connection.
 
+If a client cannot take a change set from the host, it stops mirroring, logs the drop once with its facts, and asks
+the host for the whole board again. Until that board arrives, the client's copy stays as it was at the drop. Every
+ticket still gets exactly one `Events.Answered`, a resync included: an applied command comes with its full change set.
+A command whose outcome the host no longer has is refused `outcome-lost`.
+
+A handler that throws is logged and skipped. The other handlers of that event still run, so one mod's bug never
+keeps sync or saving from a change.
+
 ## What runs where
 
 - **Every seat:** the board, the catalogue, validation, steps, bills, previews, analysis, selectors, styles, and an
@@ -32,7 +40,8 @@ The same `CommandId` sent twice applies once, so a client can resend after a dro
   copy of the board and world, so they give what the host gives for the same board.
 - **Host only:** applying commands, matching built pieces to ghosts, saving, finished plans (`Plans.Finished` is
   empty on a client; finished-plan commands are submitted and worked out on the host), the inspector and executors.
-  Clients see their results as change sets and status events.
+  Clients see their results as change sets and status events. On a client these modules are off with the reason
+  `host-only`, and the log says `module <name> is host-only; off on a client`.
 - **Executors** run on the host. Clients read their claims and status (`IExecutors.ClaimOn`, `StatusOf`, and
   status looks), and get their `StatusChanged` and `Blocked` events, a message later.
 - **Drawing seats only:** the `render` module. On a dedicated server or a headless client, style registrations are

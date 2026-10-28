@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 16 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 17 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2215,6 +2215,7 @@ override Lattice.Api.PaletteId.ToString() -> string!
 override Lattice.Api.PaletteKey.ToString() -> string!
 override Lattice.Api.PieceFamily.ToString() -> string!
 override Lattice.Api.PlanName.ToString() -> string!
+override Lattice.Api.Reason.ToString() -> string!
 override Lattice.Api.ReasonCode.ToString() -> string!
 override Lattice.Api.Result<T, TError>.ToString() -> string!
 override Lattice.Api.RuleId.ToString() -> string!
@@ -2372,6 +2373,7 @@ static readonly Lattice.Api.ReasonCodes.FaceOverRating -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.GameRefused -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.GasIndoors -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.HostOnly -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.OutcomeLost -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.HotGas -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.InvalidValue -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.LeaseExpired -> Lattice.Api.ReasonCode

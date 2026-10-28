@@ -31,20 +31,29 @@ internal sealed class FakeReplica : IReplicaBoard
 
     public Option<Plan> Plan(PlanId id) => _plans.TryGetValue(id, out var plan) ? Option.Some(plan) : Option<Plan>.None;
 
+    /// <summary>A revision this board refuses once, as a board that does not fit the host's would.</summary>
+    public long RefuseOnce { get; set; } = -1;
+
     public Result<ChangeSet, Reason> Mirror(ChangeSet set)
     {
+        if (set.Revision.Value == RefuseOnce)
+        {
+            RefuseOnce = -1;
+            return Result<ChangeSet, Reason>.Error(SyncRules.Problem("refused for the test"));
+        }
+
         if (set.Revision.Value != Revision.Value + 1)
             return Result<ChangeSet, Reason>.Error(SyncRules.Problem("not the next revision"));
         foreach (var plan in set.PlansOpened)
             _plans[plan.Id] = plan;
         foreach (var change in set.PlansChanged)
             _plans[change.After.Id] = change.After;
+        foreach (var removal in set.Removed)
+            _ghosts.Remove(removal.Ghost.Id);
         foreach (var ghost in set.Added)
             _ghosts[ghost.Id] = ghost;
         foreach (var change in set.Changed)
             _ghosts[change.After.Id] = change.After;
-        foreach (var removal in set.Removed)
-            _ghosts.Remove(removal.Ghost.Id);
         foreach (var plan in set.PlansFinished)
             _plans.Remove(plan);
         Revision = set.Revision;
@@ -71,6 +80,12 @@ internal sealed class FakeReplica : IReplicaBoard
 internal sealed class Wire
 {
     public Queue<(ConnectionId From, string Text)> ToHost { get; } = new();
+
+    /// <summary>Rejoin requests on their way to the host.</summary>
+    public Queue<(ConnectionId From, string Text)> Rejoins { get; } = new();
+
+    /// <summary>Whether client commands are lost on the way (the host never sees them).</summary>
+    public bool LoseCommands { get; set; }
 
     public Dictionary<ConnectionId, Queue<(SyncKind Kind, string Text)>> ToClients { get; } = new();
 
@@ -101,8 +116,15 @@ internal sealed class Wire
     {
         public void ToHost(SyncKind kind, string text)
         {
+            if (kind == SyncKind.Rejoin)
+            {
+                wire.Rejoins.Enqueue((connection, text));
+                return;
+            }
+
             Assert.Equal(SyncKind.Command, kind);
-            wire.ToHost.Enqueue((connection, text));
+            if (!wire.LoseCommands)
+                wire.ToHost.Enqueue((connection, text));
         }
 
         public void ToClient(ConnectionId to, SyncKind kind, string text) => throw new InvalidOperationException("a client sends to the host");
@@ -114,10 +136,16 @@ internal sealed class SyncBench
 {
     private readonly Dictionary<ConnectionId, (ClientSync Sync, IReplicaBoard Board, ClientId Player)> _clients = new();
 
-    public SyncBench(SyncLimits? limits = null, NamedPiece? modded = null)
+    public SyncBench(SyncLimits? limits = null, NamedPiece? modded = null, Action<ChangeSet>? before = null)
     {
         Limits = limits ?? SyncLimits.Default;
         Host = modded is null ? new TestCommands() : new TestCommands(null, modded);
+        if (before is not null)
+        {
+            Host.T.Events.Faulted = (source, error) => HostFaults.Add((source, error));
+            Host.T.Events.Changed += before;
+        }
+
         HostSync = new HostSync(Host.Service, Host.T.Board, Host.Scheduler, Wire.Host, Limits, HostReports.Add);
     }
 
@@ -130,6 +158,12 @@ internal sealed class SyncBench
     public Wire Wire { get; } = new();
 
     public List<Reason> HostReports { get; } = new();
+
+    /// <summary>Faults of the host board's event handlers (only with a handler given before sync).</summary>
+    public List<(string Source, Exception Error)> HostFaults { get; } = new();
+
+    /// <summary>Whether rejoin requests reach the host (a host that never answers when false).</summary>
+    public bool HostTakesRejoins { get; set; } = true;
 
     public List<Reason> ClientReports { get; } = new();
 
@@ -161,6 +195,13 @@ internal sealed class SyncBench
         {
             var (from, text) = Wire.ToHost.Dequeue();
             HostSync.Receive(from, _clients[from].Player, text);
+        }
+
+        while (Wire.Rejoins.Count > 0)
+        {
+            var (from, text) = Wire.Rejoins.Dequeue();
+            if (HostTakesRejoins)
+                HostSync.Rejoin(from, text);
         }
 
         foreach (var (connection, queue) in Wire.ToClients)

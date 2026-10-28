@@ -101,6 +101,26 @@ public sealed class ModuleSwitchTests
             Assert.False(table.IsOn(Name(module)), module);
         Assert.Equal("client", Why(table, "matching").Facts["seat"]);
         Assert.Equal("client", Why(table, "saving").Facts["seat"]);
+        Assert.Equal(ReasonCodes.HostOnly, Why(table, "matching").Code);
+    }
+
+    [Fact]
+    public void A_host_only_module_on_a_client_logs_that_it_is_host_only_not_missing()
+    {
+        var table = Decide(WorldSeat.Client);
+
+        var line = ModuleLines.Off(Name("matching"), Why(table, "matching"));
+
+        Assert.StartsWith("Lattice: module matching is host-only; off on a client (host-only from lattice.entry: module=matching seat=client)", line);
+        Assert.DoesNotContain("module-missing", line);
+    }
+
+    [Fact]
+    public void A_module_off_for_missing_members_logs_its_facts()
+    {
+        var line = ModuleLines.Off(Name("world"), Reason.Of(ReasonCodes.ModuleMissing, RuleId.Contract, ValueMap.Of("module", "world").With("missing", "A.B")));
+
+        Assert.Equal("Lattice: module world is off: module-missing from lattice.contract: missing=A.B module=world", line);
     }
 
     [Fact]
