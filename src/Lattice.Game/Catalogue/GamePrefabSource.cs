@@ -108,8 +108,31 @@ internal sealed class GamePrefabSource : IPrefabSource
             Placement = (int)structure.PlacementType,
             BlockingPoints = BlockingPointsOf(structure),
             BoundsCentre = BoundsCentreOf(structure),
+            Snap = Option.Some(SnapOf(structure)),
         });
     }
+
+    // How the game snaps the prefab's position (decompile Assets.Scripts.Objects/Structure.cs GetWorldGrid, the fields
+    // GridSize, GridOffset, _useAxisIndependentGridSnapping, _gridSize3d, _gridOffset3d): the axis-independent size and
+    // offset when the prefab sets them, else its own GridSize and GridOffset on every axis. The private fields are read
+    // on Structure, so a modded subclass gives its own values.
+    private static PieceSnap SnapOf(Structure structure)
+    {
+        if (AxisIndependentField?.GetValue(structure) is true &&
+            GridSize3dField?.GetValue(structure) is Vector3 size && GridOffset3dField?.GetValue(structure) is Vector3 offset)
+            return new PieceSnap(new AxisSnap(size.x, offset.x), new AxisSnap(size.y, offset.y), new AxisSnap(size.z, offset.z));
+        var axis = new AxisSnap(structure.GridSize, structure.GridOffset);
+        return new PieceSnap(axis, axis, axis);
+    }
+
+    private static readonly FieldInfo? AxisIndependentField =
+        typeof(Structure).GetField("_useAxisIndependentGridSnapping", BindingFlags.Instance | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? GridSize3dField =
+        typeof(Structure).GetField("_gridSize3d", BindingFlags.Instance | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? GridOffset3dField =
+        typeof(Structure).GetField("_gridOffset3d", BindingFlags.Instance | BindingFlags.NonPublic);
 
     // The prefab's blockingGrids, protected on Structure: the points a piece placed on a face registers by, in its own
     // space (decompile Assets.Scripts.Objects/Structure.cs, OnAssignedReference). Read as data, so a modded subclass
@@ -193,7 +216,10 @@ internal sealed class GamePrefabSource : IPrefabSource
         var listed = new List<ListedPiece>(_structures.Count);
         foreach (var structure in _structures)
             if (KitHomes.GridOf(structure.GridSize).TryGet(out var grid))
-                listed.Add(new ListedPiece(new PrefabKey(structure.PrefabHash), structure.PrefabName, NameOf(structure), grid, FirstStep(structure)));
+                listed.Add(new ListedPiece(new PrefabKey(structure.PrefabHash), structure.PrefabName, NameOf(structure), grid, FirstStep(structure))
+                {
+                    Snap = SnapOf(structure),
+                });
         return listed;
     }
 

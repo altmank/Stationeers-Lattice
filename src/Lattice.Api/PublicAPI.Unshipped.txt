@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 17 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 18 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2646,6 +2646,30 @@ Lattice.Api.SplitTargets.Structures.Structures(Lattice.Api.StructureSelector! Wh
 Lattice.Api.SplitTargets.Structures.Which.get -> Lattice.Api.StructureSelector!
 Lattice.Api.SplitTargets.Structures.Which.init -> void
 Lattice.Api.IPieceCatalogue.FacingOf(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.Option<Lattice.Api.Axis>, Lattice.Api.Reason!>
+Lattice.Api.IPieceCatalogue.CellsAt(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Cell>!, Lattice.Api.Reason!>
+Lattice.Api.PieceEntry.Snap.get -> Lattice.Api.PieceSnap
+Lattice.Api.PieceEntry.Snap.init -> void
+Lattice.Api.AxisSnap
+Lattice.Api.AxisSnap.AxisSnap() -> void
+Lattice.Api.AxisSnap.AxisSnap(float Size, float Offset) -> void
+Lattice.Api.AxisSnap.Holds(int decimetres) -> bool
+Lattice.Api.AxisSnap.Key(float metres) -> int
+Lattice.Api.AxisSnap.Offset.get -> float
+Lattice.Api.AxisSnap.Offset.init -> void
+Lattice.Api.AxisSnap.Size.get -> float
+Lattice.Api.AxisSnap.Size.init -> void
+Lattice.Api.PieceSnap
+Lattice.Api.PieceSnap.Holds(Lattice.Api.Cell at) -> bool
+Lattice.Api.PieceSnap.OffAxis(Lattice.Api.Cell at) -> Lattice.Api.Option<Lattice.Api.Axis>
+Lattice.Api.PieceSnap.PieceSnap() -> void
+Lattice.Api.PieceSnap.PieceSnap(Lattice.Api.AxisSnap X, Lattice.Api.AxisSnap Y, Lattice.Api.AxisSnap Z) -> void
+Lattice.Api.PieceSnap.X.get -> Lattice.Api.AxisSnap
+Lattice.Api.PieceSnap.X.init -> void
+Lattice.Api.PieceSnap.Y.get -> Lattice.Api.AxisSnap
+Lattice.Api.PieceSnap.Y.init -> void
+Lattice.Api.PieceSnap.Z.get -> Lattice.Api.AxisSnap
+Lattice.Api.PieceSnap.Z.init -> void
+static Lattice.Api.PieceSnap.Of(Lattice.Api.PieceGrid grid) -> Lattice.Api.PieceSnap
 Lattice.Api.AccessRequest.PlanRecord.get -> Lattice.Api.Option<Lattice.Api.Plan!>
 Lattice.Api.AccessRequest.PlanRecord.init -> void
 Lattice.Api.IPlans.ReadTemplate(string! text) -> Lattice.Api.Result<Lattice.Api.Template!, Lattice.Api.Reason!>
@@ -2675,6 +2699,7 @@ Lattice.Api.RunRequest.Rules.init -> void
 Lattice.Api.RunReport.FirstBreak.get -> Lattice.Api.Option<Lattice.Api.CellFailure!>
 Lattice.Api.RunReport.FirstBreak.init -> void
 static readonly Lattice.Api.ReasonCodes.RuleBroken -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.OffSnap -> Lattice.Api.ReasonCode
 Lattice.Api.Selector.Joined
 Lattice.Api.Selector.Joined.Cell.get -> Lattice.Api.Cell
 Lattice.Api.Selector.Joined.Cell.init -> void

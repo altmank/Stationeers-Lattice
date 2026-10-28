@@ -100,6 +100,7 @@ internal static class PieceMapper
             ControlFace = ControlFaceOf(prefab.Controls),
             Family = TypeFamilies.Of(prefab.Types, prefab.States),
             Look = prefab.Look.Map(look => LookOf(look, prefab.GridMetres)),
+            Snap = prefab.Snap.Reduce(PieceSnap.Of(grid.Value.ToPiece())),
         });
     }
 

@@ -80,6 +80,17 @@ public interface IPieceCatalogue
     /// Added in contract 0.9.
     /// </summary>
     Result<Option<Axis>, Reason> FacingOf(Placement placement);
+
+    /// <summary>
+    /// The cells the piece fills at the placement, turn applied, in its grid: each footprint cell once, in the
+    /// footprint's order (the placement's own cell alone for a piece with no footprint); for a piece the game puts on a
+    /// face, the cells its face takes. A piece's body need not sit round its anchor: the small insulated in-line liquid
+    /// tank fills cells from 10 decimetres below its cell to 5 above, so the lowest cell's <see cref="Cell.Y"/> says how
+    /// far a piece hangs below the cell it is placed at, and what must stand beneath it. Refused
+    /// <see cref="ReasonCodes.UnknownPiece"/> for an unknown piece. Main thread; linear in the piece's footprint;
+    /// allocates the returned list. Added in contract 0.18.
+    /// </summary>
+    Result<ValueList<Cell>, Reason> CellsAt(Placement placement);
 }
 
 /// <summary>One structure prefab. Added in contract 0.3.</summary>
@@ -91,7 +102,16 @@ public interface IPieceCatalogue
 /// </param>
 /// <param name="Grid">The grid it sits on.</param>
 /// <param name="Kits">Every kit that places it, <see cref="IPieceCatalogue.KitOf"/>'s answer first, the rest in kit order; empty when no kit places it.</param>
-public sealed record PieceEntry(PrefabKey Key, string PrefabName, string Name, PieceGrid Grid, ValueList<KitPlace> Kits);
+public sealed record PieceEntry(PrefabKey Key, string PrefabName, string Name, PieceGrid Grid, ValueList<KitPlace> Kits)
+{
+    /// <summary>
+    /// How the game snaps the piece's position on each world axis, read from its prefab at load: the grid's own
+    /// (<see cref="PieceSnap.Of"/>, the default for an entry built without one) for most pieces, each axis its own for
+    /// an axis-independent piece such as a rocket engine. Place the piece where <see cref="PieceSnap.Holds"/> answers
+    /// true. Added in contract 0.18.
+    /// </summary>
+    public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid);
+}
 
 /// <summary>One kit. Added in contract 0.3.</summary>
 /// <param name="Key">The kit.</param>

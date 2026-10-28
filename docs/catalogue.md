@@ -26,9 +26,10 @@ added it: check `lattice.Version` before you read it.
 | `ParentOf(family)` | The family a family lies under: `wall` for `window`, none for the rest (contract 0.7) | never refused |
 | `PortsAt(placement)` | The piece's ports placed at a cell and turn, in the game's order ([ports](#ports), contract 0.8) | `unknown-piece` |
 | `FacingOf(placement)` | The axis a face piece's face is square to under the placement; none for a piece off the faces ([facing](#facing), contract 0.9) | `unknown-piece` |
+| `CellsAt(placement)` | The cells the piece fills at a cell and turn, from its footprint ([cells a piece fills](#cells-a-piece-fills), contract 0.18) | `unknown-piece` |
 
-Every lookup but `PortsAt` is constant cost and allocates nothing (after a piece's family is first read). `PortsAt`
-is linear in the piece's ports and allocates the list it returns.
+Every lookup but `PortsAt` and `CellsAt` is constant cost and allocates nothing (after a piece's family is first
+read). `PortsAt` is linear in the piece's ports, `CellsAt` in its footprint, and each allocates the list it returns.
 
 ```csharp
 var catalogue = lattice.Catalogue;
@@ -126,6 +127,46 @@ if (lattice.Catalogue.FacingOf(held).TryGet(out var facing) && facing.TryGet(out
     Span(normal == Axis.X ? (Axis.Y, Axis.Z) : normal == Axis.Y ? (Axis.X, Axis.Z) : (Axis.X, Axis.Y));
 ```
 
+## Cells a piece fills
+
+`CellsAt(placement)` gives the cells a piece fills placed at a cell and turn: each cell of its footprint once, turned
+with the placement, in its grid. A piece with no footprint fills its own cell; a piece the game puts on a face fills
+the cells its face takes. Contract 0.18 added it.
+
+A piece's body need not sit round the cell it is placed at. The small insulated in-line liquid tank fills cells from
+10 decimetres below its cell to 5 above, so to rest it on a frame a planner reads the lowest cell and places the tank
+that far above the frame's top:
+
+```csharp
+var cells = lattice.Catalogue.CellsAt(new Placement(tank, at, turn)).Match(static c => c, static _ => ValueList<Cell>.Empty);
+var hangs = 0;
+foreach (var cell in cells)
+    hangs = Math.Max(hangs, at.Y - cell.Y); // decimetres below the anchor
+```
+
+## Snap
+
+The game snaps most pieces to their grid: large pieces to odd metres, small pieces to every half metre. Some pieces
+snap each axis their own way: the gas and liquid rocket engines, the rocket umbilicals and the crew module cable
+connectors snap x and z to frame centres (odd metres) and y to every half metre, and the crew umbilical snaps all
+three to odd metres. An engine one small cell off a frame centre is a place the game will not build it. The small and
+tiny rocket engines snap to the small grid.
+
+`PieceEntry.Snap` (contract 0.18) holds each piece's snap, read from its prefab at load: an `AxisSnap(Size, Offset)`
+per world axis, in metres, as the game's `GridCenter` uses them. A turn does not change it. `PieceSnap.Holds(cell)`
+says whether a piece placed at the cell stands on its snap; `PieceSnap.OffAxis(cell)` names the first axis it does not.
+`PieceSnap.Of(grid)` is the grid's own, and the snap of an entry built without one.
+
+```csharp
+var entry = lattice.Catalogue.Piece(engine).Match(static e => e, static _ => null!);
+if (!entry.Snap.Holds(at))
+    Show("the game snaps this piece to frame centres");
+```
+
+Lattice keeps to the snap itself: a ghost placed off its piece's snap fails `off-snap` and is never built there
+([validation](validation.md#what-lattice-checks)), and a run, route or transform that would put a piece off its snap says so with
+the same code. A ghost off its snap stays where it is placed; Lattice never moves it.
+
 ## Modded pieces
 
 Lattice finds everything by type from the prefabs the game loads: a mod's kit is a kit with its options in its own
@@ -144,8 +185,8 @@ Where Lattice cannot read a fact from a modded piece, a mod tells it:
 
 - `PieceEntry.Grid` is `PieceGrid.Small` (0.5 m cells: cables, pipes, chutes, small devices) or `PieceGrid.Large`
   (2 m cells: frames, walls, large devices).
-- `Cell.FromWorld(point, grid)` gives the cell a piece takes at a world point, snapped as the game snaps it (contract
-  0.6).
+- `Cell.FromWorld(point, grid)` gives the cell a piece takes at a world point, snapped to the grid as the game snaps
+  most pieces (contract 0.6); for a piece with a snap of its own, check `PieceEntry.Snap` too ([snap](#snap)).
 - `cell.Neighbour(face, grid)` gives the cell across a face: one cell along its normal (contract 0.6).
 
 ## Testing with the catalogue

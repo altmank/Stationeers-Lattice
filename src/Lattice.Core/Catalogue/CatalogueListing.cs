@@ -19,10 +19,13 @@ internal enum KitKind
 
 /// <summary>
 /// A structure prefab as the catalogue lists it, without reading its build steps, ends or footprint: names, grid,
-/// and the items its first build step takes (<c>ToolEntry</c>, <c>ToolEntry2</c>), from which the kit the game uses
-/// for it is chosen.
+/// the items its first build step takes (<c>ToolEntry</c>, <c>ToolEntry2</c>), from which the kit the game uses
+/// for it is chosen, and how the game snaps it (<see cref="Snap"/>, the grid's own unless the source read another).
 /// </summary>
-internal sealed record ListedPiece(PrefabKey Key, string PrefabName, string Name, PieceGrid Grid, ValueList<ItemKey> FirstStep);
+internal sealed record ListedPiece(PrefabKey Key, string PrefabName, string Name, PieceGrid Grid, ValueList<ItemKey> FirstStep)
+{
+    public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid);
+}
 
 /// <summary>A kit prefab as the catalogue lists it: names, kind and the piece at each option, in the game's scroll order.</summary>
 internal sealed record ListedKit(KitKey Key, string PrefabName, string Name, KitKind Kind, ValueList<PrefabKey> Options);

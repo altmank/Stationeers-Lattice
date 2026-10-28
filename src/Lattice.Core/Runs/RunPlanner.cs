@@ -161,7 +161,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         var walked = RunPath.Walk(request, kit, grid, ports);
         if (!walked.TryGet(out var path))
             return Result<RunPlan, Reason>.Error(walked.TryGetError(out var bad) ? bad : Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs));
-        var plan = new Laying(kit, path, around, grid, _shapes, placementCheck, request.Lay.SinglePiecesOnly).Lay();
+        var plan = new Laying(kit, path, around, grid, _shapes, new SnapFirst(catalogue, placementCheck), request.Lay.SinglePiecesOnly).Lay();
         if (kit != asked)
             plan = plan with { LaidWith = Option.Some(kit.Kit) };
         if (request.Rules.TryGet(out var rules))

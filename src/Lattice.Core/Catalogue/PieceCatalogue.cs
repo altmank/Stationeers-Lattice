@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using Lattice.Api;
+using Lattice.Core.Board;
 
 namespace Lattice.Core.Catalogue;
 
@@ -58,7 +59,7 @@ internal sealed class PieceCatalogue : IPieceCatalogue
             if (_pieces.ContainsKey(piece.Key))
                 continue;
             var places = homes.TryGetValue(piece.Key, out var found) ? Ordered(found, piece.FirstStep, rank) : ValueList<KitPlace>.Empty;
-            var entry = new PieceEntry(piece.Key, piece.PrefabName, piece.Name, piece.Grid, places);
+            var entry = new PieceEntry(piece.Key, piece.PrefabName, piece.Name, piece.Grid, places) { Snap = piece.Snap };
             _pieces.Add(piece.Key, entry);
             pieceEntries.Add(entry);
             _kitOf.Add(piece.Key, places.Count > 0
@@ -133,6 +134,22 @@ internal sealed class PieceCatalogue : IPieceCatalogue
         _pieces.ContainsKey(placement.Piece)
             ? _ports.At(placement)
             : Result<ValueList<Port>, Reason>.Error(Unknown(placement.Piece));
+
+    /// <inheritdoc />
+    public Result<ValueList<Cell>, Reason> CellsAt(Placement placement)
+    {
+        if (!_pieces.ContainsKey(placement.Piece))
+            return Result<ValueList<Cell>, Reason>.Error(Unknown(placement.Piece));
+        var shape = _ports.Shapes.Of(placement);
+        if (!shape.TryGet(out var placed))
+            return Result<ValueList<Cell>, Reason>.Error(shape.ErrorOf());
+        var cells = new List<Cell>(placed.Spots.Count);
+        var seen = new HashSet<Cell>();
+        foreach (var spot in placed.Spots)
+            if (seen.Add(spot.Cell))
+                cells.Add(spot.Cell);
+        return Result<ValueList<Cell>, Reason>.Ok(ValueList.From(cells));
+    }
 
     // The game's choice first, then the others by the sorted kit order and option.
     private static ValueList<KitPlace> Ordered(List<KitPlace> homes, ValueList<ItemKey> firstStep, Dictionary<KitKey, int> rank)

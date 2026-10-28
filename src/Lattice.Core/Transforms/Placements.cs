@@ -24,6 +24,9 @@ internal enum TransformProblem
 
     /// <summary>A transformation or intent this version does not know.</summary>
     UnknownKind = 5,
+
+    /// <summary>It would land on a cell centre where the game does not snap its piece (<see cref="PieceFacts.Snap"/>).</summary>
+    OffSnap = 6,
 }
 
 /// <summary>The rule id and codes the transforms and templates modules give their reasons under.</summary>
@@ -35,9 +38,9 @@ internal static class TransformCodes
     /// <summary>
     /// The refusal for every ghost (or template draft, by index) a problem stops, ids ascending and comma separated in
     /// fact <c>ghosts</c> (<c>drafts</c>). Unknown pieces are <see cref="ReasonCodes.UnknownPiece"/>; unknown kinds
-    /// <see cref="ReasonCodes.UnknownKind"/>; a piece with no mirror image <see cref="ReasonCodes.NoMirrorImage"/> with fact
-    /// <c>pieces</c> (prefab hashes); the rest <see cref="ReasonCodes.InvalidValue"/> with fact <c>problem</c>
-    /// (<c>targets-a-structure</c>, <c>off-grid</c>).
+    /// <see cref="ReasonCodes.UnknownKind"/>; a piece with no mirror image <see cref="ReasonCodes.NoMirrorImage"/> and a
+    /// piece off its snap <see cref="ReasonCodes.OffSnap"/>, each with fact <c>pieces</c> (prefab hashes); the rest
+    /// <see cref="ReasonCodes.InvalidValue"/> with fact <c>problem</c> (<c>targets-a-structure</c>, <c>off-grid</c>).
     /// </summary>
     public static Reason Refusal(TransformProblem problem, string listName, List<long> which, List<PrefabKey> pieces)
     {
@@ -48,6 +51,7 @@ internal static class TransformCodes
             TransformProblem.UnknownPiece => Reason.Of(ReasonCodes.UnknownPiece, Transforms, facts),
             TransformProblem.UnknownKind => Reason.Of(ReasonCodes.UnknownKind, Transforms, facts),
             TransformProblem.NoMirrorImage => Reason.Of(ReasonCodes.NoMirrorImage, Transforms, facts.With("pieces", Hashes(pieces))),
+            TransformProblem.OffSnap => Reason.Of(ReasonCodes.OffSnap, Transforms, facts.With("pieces", Hashes(pieces))),
             TransformProblem.TargetsAStructure => Reason.Of(ReasonCodes.InvalidValue, Transforms, facts.With("problem", "targets-a-structure")),
             TransformProblem.OffGrid => Reason.Of(ReasonCodes.InvalidValue, Transforms, facts.With("problem", "off-grid")),
             _ => Reason.Of(ReasonCodes.UnknownKind, Transforms, facts.With("problem", problem.ToString())),
@@ -76,7 +80,8 @@ internal static class TransformCodes
 /// Moves, turns and mirrors single placements, and places template placements, from catalogue facts alone. Every
 /// result lands on a cell centre of its piece's grid or is refused <see cref="TransformProblem.OffGrid"/>: large cells
 /// centre on odd metres (keys 10 modulo 20), small cells on every half metre (keys multiples of 5), as
-/// <see cref="CubeGrid"/> snaps. A piece the game places on a face stands on a face point, not a centre: its result
+/// <see cref="CubeGrid"/> snaps; a centre where the game does not snap the piece (a rocket engine off a frame centre)
+/// is refused <see cref="TransformProblem.OffSnap"/>. A piece the game places on a face stands on a face point, not a centre: its result
 /// lands when it takes exactly the spots its original's spots are taken to (<see cref="Shapes"/>, <see cref="SpotMaps"/>),
 /// all on large cells, so a wall keeps its face and its side. Constant cost per placement once a piece's mirror turn is
 /// known. Main thread.
@@ -161,8 +166,14 @@ internal sealed class Placements(ICatalogue catalogue, IGrid grid, IMirrorPartne
     private Option<SpotKey[]> Target<TMap>(Placement original, TMap map) where TMap : ISpotMap =>
         _shapes.Of(original).TryGet(out var shape) ? SpotMaps.Target(shape.Spots, map) : Option<SpotKey[]>.None;
 
-    private static Result<Placement, TransformProblem> OnGrid(Placement placement, GridSize size) =>
-        IsCentre(placement.At, size) ? Ok(placement) : OffGrid();
+    private Result<Placement, TransformProblem> OnGrid(Placement placement, GridSize size)
+    {
+        if (!IsCentre(placement.At, size))
+            return OffGrid();
+        return catalogue.Piece(placement.Piece).TryGet(out var piece) && !piece.Snap.Holds(placement.At)
+            ? Result<Placement, TransformProblem>.Error(TransformProblem.OffSnap)
+            : Ok(placement);
+    }
 
     private static Result<Placement, TransformProblem> OffGrid() => Result<Placement, TransformProblem>.Error(TransformProblem.OffGrid);
 

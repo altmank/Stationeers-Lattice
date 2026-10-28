@@ -19,6 +19,9 @@ internal sealed class PiecePorts(ICatalogue catalogue, Shapes shapes)
     /// <summary>The ports of a catalogue's pieces on the game's grid.</summary>
     public static PiecePorts Over(ICatalogue catalogue) => new(catalogue, new Shapes(catalogue, new CubeGrid()));
 
+    /// <summary>The shapes the ports are placed with, which also give the cells a piece fills.</summary>
+    public Shapes Shapes => shapes;
+
     /// <summary>
     /// The ports in the piece's <c>OpenEnds</c> order; the catalogue's refusal for a piece it does not hold. Linear in
     /// the piece's ports; allocates the list and its ports.

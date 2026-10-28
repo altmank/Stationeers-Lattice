@@ -54,4 +54,8 @@ public class StubPieceCatalogue : IPieceCatalogue
     /// <inheritdoc />
     public virtual Result<Option<Axis>, Reason> FacingOf(Placement placement) =>
         throw Stub.NotSetUp("IPieceCatalogue", "FacingOf", "StubPieceCatalogue");
+
+    /// <inheritdoc />
+    public virtual Result<ValueList<Cell>, Reason> CellsAt(Placement placement) =>
+        throw Stub.NotSetUp("IPieceCatalogue", "CellsAt", "StubPieceCatalogue");
 }

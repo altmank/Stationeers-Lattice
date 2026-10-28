@@ -97,7 +97,10 @@ internal sealed class CountingSource(KitData[] kits, PrefabData[] pieces, ItemRe
         var listed = new List<ListedPiece>(pieces.Length);
         foreach (var prefab in pieces)
             if (KitHomes.GridOf(prefab.GridMetres).TryGet(out var grid))
-                listed.Add(new ListedPiece(prefab.Key, prefab.Name, displayNames?.GetValueOrDefault(prefab.Key) ?? prefab.Name, grid, PrefabCatalogue.FirstStep(prefab)));
+                listed.Add(new ListedPiece(prefab.Key, prefab.Name, displayNames?.GetValueOrDefault(prefab.Key) ?? prefab.Name, grid, PrefabCatalogue.FirstStep(prefab))
+                {
+                    Snap = prefab.Snap.Reduce(PieceSnap.Of(grid)),
+                });
         return listed;
     }
 

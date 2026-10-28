@@ -19,13 +19,6 @@ public sealed class ContractSeventeenTests
     }
 
     [Fact]
-    public void The_contract_is_zero_seventeen()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(17, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void Reason_to_string_says_it_was_added_in_zero_seventeen() =>
         Assert.Contains("Added in contract 0.17.", Doc("M:Lattice.Api.Reason.ToString"));
 

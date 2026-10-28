@@ -193,6 +193,32 @@ internal static class CatalogueText
         _ => null,
     };
 
+    /// <summary>A snap as the file writes it: the sizes on x, y and z, a slash, then the offsets, in metres (<c>2,0.5,2/0,0.25,0</c>).</summary>
+    public static string Snap(PieceSnap snap) =>
+        Metres(snap.X.Size) + "," + Metres(snap.Y.Size) + "," + Metres(snap.Z.Size) + "/" +
+        Metres(snap.X.Offset) + "," + Metres(snap.Y.Offset) + "," + Metres(snap.Z.Offset);
+
+    /// <summary>A snap read back from <see cref="Snap(PieceSnap)"/>'s text; none when it does not read.</summary>
+    public static Option<PieceSnap> ParseSnap(string text)
+    {
+        var halves = text.Split('/');
+        if (halves.Length != 2)
+            return Option<PieceSnap>.None;
+        var sizes = halves[0].Split(',');
+        var offsets = halves[1].Split(',');
+        if (sizes.Length != 3 || offsets.Length != 3)
+            return Option<PieceSnap>.None;
+        var values = new float[6];
+        for (var i = 0; i < 3; i++)
+            if (!float.TryParse(sizes[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) ||
+                !float.TryParse(offsets[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i + 3]))
+                return Option<PieceSnap>.None;
+        return Option.Some(new PieceSnap(
+            new AxisSnap(values[0], values[3]), new AxisSnap(values[1], values[4]), new AxisSnap(values[2], values[5])));
+    }
+
+    private static string Metres(float value) => value.ToString("R", CultureInfo.InvariantCulture);
+
     public static PipeContent? ParsePipe(string text) => text switch
     {
         "gas" => PipeContent.Gas,

@@ -268,6 +268,14 @@ public static class ReasonCodes
     public static readonly ReasonCode RuleBroken = ReasonCode.Known("rule-broken");
 
     /// <summary>
+    /// A piece placed where the game does not snap it (<see cref="PieceEntry.Snap"/>), so the game will not build it
+    /// there: a rocket engine or umbilical off a frame centre on x or z. Facts <c>piece</c> (prefab hash), <c>cell</c>
+    /// ("x,y,z") and <c>axis</c> (<c>x</c>, <c>y</c> or <c>z</c>, the first one off). A ghost there fails with it; a run,
+    /// route or transform that would put a piece there is refused with it. Added in contract 0.18.
+    /// </summary>
+    public static readonly ReasonCode OffSnap = ReasonCode.Known("off-snap");
+
+    /// <summary>
     /// The catalogue names no tool for a step; facts <c>piece</c> (prefab hash), <c>way</c> (<c>build</c>,
     /// <c>take-apart</c> or <c>broken</c>) and, for build and take-apart, <c>step</c> (the build state index).
     /// </summary>

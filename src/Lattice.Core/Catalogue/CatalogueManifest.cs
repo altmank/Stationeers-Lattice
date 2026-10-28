@@ -47,6 +47,7 @@ internal static class CatalogueManifest
             new GameMember.Method("Assets.Scripts.Objects.Thing", "CheckBounds", Params()),
             new GameMember.Field("Assets.Scripts.Objects.Structure", "GridBounds"),
             new GameMember.Field("Assets.Scripts.Objects.Structure", "GridSize"),
+            new GameMember.Field("Assets.Scripts.Objects.Structure", "GridOffset"),
             new GameMember.Field("Assets.Scripts.Objects.Structure", "maxPressureDelta"),
             new GameMember.Field("Assets.Scripts.Objects.Thing", "Interactables"),
             new GameMember.Field("Assets.Scripts.Objects.Thing", "PrefabHash"),

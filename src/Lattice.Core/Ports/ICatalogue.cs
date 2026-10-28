@@ -289,6 +289,9 @@ internal sealed record PieceFacts(
     /// </summary>
     public PieceFamily Family { get; init; } = PieceFamilies.Other;
 
+    /// <summary>How the game snaps the piece's position on each world axis; the grid's own unless the source read another.</summary>
+    public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid == GridSize.Large ? PieceGrid.Large : PieceGrid.Small);
+
     /// <summary>How the piece is drawn as a ghost; none when the catalogue did not read it (a file or fake without looks).</summary>
     public Option<LookFacts> Look { get; init; }
 }

@@ -220,6 +220,7 @@ virtual Lattice.Testing.Stubs.StubPieceCatalogue.FamiliesOf(Lattice.Api.PrefabKe
 virtual Lattice.Testing.Stubs.StubPieceCatalogue.ParentOf(Lattice.Api.PieceFamily family) -> Lattice.Api.Option<Lattice.Api.PieceFamily>
 virtual Lattice.Testing.Stubs.StubPieceCatalogue.PortsAt(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Port!>!, Lattice.Api.Reason!>
 virtual Lattice.Testing.Stubs.StubPieceCatalogue.FacingOf(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.Option<Lattice.Api.Axis>, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.CellsAt(Lattice.Api.Placement! placement) -> Lattice.Api.Result<Lattice.Api.ValueList<Lattice.Api.Cell>!, Lattice.Api.Reason!>
 Lattice.Testing.Stubs.StubCommands
 Lattice.Testing.Stubs.StubCommands.StubCommands() -> void
 virtual Lattice.Testing.Stubs.StubCommands.Submit(Lattice.Api.CommandId id, Lattice.Api.Command! command, Lattice.Api.Actor! actor) -> Lattice.Api.Submission!

@@ -54,9 +54,13 @@ internal sealed class TransformBench
           collision 4
         """;
 
-    public TransformBench()
+    /// <param name="extraText">More pieces in the catalogue file format (with its header).</param>
+    public TransformBench(string? extraText = null)
     {
-        C = new TestCommands(null, [.. TestSelect.Pieces(ModdedText), .. FaceSpotTests.Pieces()]);
+        NamedPiece[] extra = extraText is null
+            ? []
+            : [.. TestKitIds.MustRead(CatalogueFile.Read(new System.IO.StringReader(extraText), "extra.lcat")).Pieces];
+        C = new TestCommands(null, [.. TestSelect.Pieces(ModdedText), .. FaceSpotTests.Pieces(), .. extra]);
         Additions = new CatalogueAdditions(C.T.Catalogue);
         Placements = new Placements(C.T.Catalogue, C.T.Grid, Additions);
         Assert.True(C.Expanders.RegisterSliced(new TransformExpander(Placements).Descriptor).IsOk);

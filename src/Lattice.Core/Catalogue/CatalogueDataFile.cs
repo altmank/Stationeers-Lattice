@@ -119,6 +119,8 @@ internal static class CatalogueDataFile
             writer.Write(" family=" + facts.Family.Value);
         if (facts.Face.TryGet(out var onFace))
             writer.Write(" place=" + CatalogueText.Placement(onFace.Kind));
+        if (facts.Snap != PieceSnap.Of(facts.Grid.ToPiece()))
+            writer.Write(" snap=" + CatalogueText.Snap(facts.Snap));
         writer.Write("\n");
         foreach (var step in facts.Steps)
         {

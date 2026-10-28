@@ -66,12 +66,14 @@ internal sealed class ThrowingScan : IWorldScan
 /// </summary>
 internal sealed class WorldBench : IDisposable
 {
-    public WorldBench()
+    /// <param name="extraText">More pieces for the run bench's catalogue, in the catalogue file format (with its header).</param>
+    public WorldBench(string? extraText = null)
     {
         Root = Path.Combine(Path.GetTempPath(), "lattice-entry-" + Guid.NewGuid().ToString("N"));
+        Runs = new RunBench(extraText);
     }
 
-    public RunBench Runs { get; } = new();
+    public RunBench Runs { get; }
 
     public FakeClock Clock { get; } = new();
 

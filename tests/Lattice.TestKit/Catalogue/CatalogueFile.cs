@@ -15,7 +15,7 @@ namespace Lattice.TestKit.Catalogue;
 /// lattice-catalogue 3
 /// broken-tools &lt;Item&gt;,...                                              the tools that take a broken structure apart; at most once
 /// kit &lt;KitName&gt; kind=single|multi|merge [name=&lt;text&gt;] options=&lt;PrefabName&gt;,...   every option in scroll order; at most once per kit
-/// piece &lt;PrefabName&gt; [kit=&lt;KitName&gt; option=&lt;n&gt; [also=&lt;KitName&gt;:&lt;n&gt;,...]] grid=small|large [name=&lt;text&gt;] [support=&lt;group&gt;] [pipe=gas|liquid|any] [opening=door|window] [merge=&lt;Item&gt;] [keeps=air,heat,life] [supplies=yes] [control=&lt;direction&gt;] [vents=yes] [family=&lt;key&gt;] [place=face|face-mount]
+/// piece &lt;PrefabName&gt; [kit=&lt;KitName&gt; option=&lt;n&gt; [also=&lt;KitName&gt;:&lt;n&gt;,...]] grid=small|large [name=&lt;text&gt;] [support=&lt;group&gt;] [pipe=gas|liquid|any] [opening=door|window] [merge=&lt;Item&gt;] [keeps=air,heat,life] [supplies=yes] [control=&lt;direction&gt;] [vents=yes] [family=&lt;key&gt;] [place=face|face-mount] [snap=&lt;sx&gt;,&lt;sy&gt;,&lt;sz&gt;/&lt;ox&gt;,&lt;oy&gt;,&lt;oz&gt;]
 ///   step [entry=&lt;Item&gt;] [material=&lt;Item&gt;*&lt;n&gt;] [exit=&lt;Item&gt;] air=yes|no [gravity=yes|no]   one per build step, in order
 ///   end &lt;x&gt; &lt;y&gt; &lt;z&gt; x+|x-|y+|y-|z+|z- &lt;kinds&gt; [reach=&lt;mm&gt;] [role=input|input2|output|output2|waste] [index=&lt;n&gt;] [game=&lt;text&gt;]   index: in the game's OpenEnds; game: its ConnectionType name
 ///   cell &lt;x&gt; &lt;y&gt; &lt;z&gt; centre|face-x+|..|face-z-|cable|pipe|chute|device|rail|other  a footprint cell
@@ -354,10 +354,15 @@ internal static class CatalogueFile
         if (fields.TryGetValue("name", out var nameText) && !CatalogueText.ParseName(nameText).TryGet(out displayName))
             return $"bad name '{nameText}'";
 
+        var snap = PieceSnap.Of(grid.Value.ToPiece());
+        if (fields.TryGetValue("snap", out var snapText) && !CatalogueText.ParseSnap(snapText).TryGet(out snap))
+            return $"bad snap '{snapText}'";
+
         draft = new Draft(words[1], kits, grid.Value, supportGroup, pipeContent, openingKind, mergeTool, safety, family)
         {
             DisplayName = displayName,
             Placement = placement,
+            Snap = snap,
         };
         return null;
     }
@@ -414,6 +419,8 @@ internal static class CatalogueFile
         public string? DisplayName { get; init; }
 
         public FacePlacement? Placement { get; init; }
+
+        public PieceSnap Snap { get; init; }
 
         private readonly List<CellOffset> _points = [];
         private Vector? _centre;
@@ -614,6 +621,7 @@ internal static class CatalogueFile
                     Vents = safety.Vents,
                     Family = family,
                     Look = _look,
+                    Snap = Snap,
                 },
                 ValueMap<ItemKey, string>.From(_items)) { DisplayName = DisplayName ?? name });
             return null;

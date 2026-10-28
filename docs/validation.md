@@ -41,6 +41,7 @@ The reason codes are in `ReasonCodes`. The main ones:
 | `game-refused` | The game's own placement check refused. Its message is in `Reason.GameMessage`. |
 | `needs-support` | Nothing holds the piece up. When its support is a ghost earlier in the order, it waits instead. |
 | `face-over-rating` | A swap's new face piece would sit under a pressure difference above its rating (a warning). |
+| `off-snap` | The piece stands where the game does not snap it ([snap](catalogue.md#snap)): a rocket engine or umbilical off a frame centre. Facts `piece`, `cell`, `axis`. |
 | `different` | Something other than the ghost's piece stands in its spot (the ghost turns stale). |
 | `target-gone` | The structure the ghost points at is gone. |
 | `cycle` | Ghosts wait for each other round a loop, so none can be built first. Fact `ghosts`: the ids. |

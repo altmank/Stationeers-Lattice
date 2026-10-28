@@ -145,6 +145,13 @@ internal sealed record PrefabData(
     /// position plus this turned (<c>Thing.CenterPosition</c>, <c>Wall.CenterPosition</c>).
     /// </summary>
     public Vector BoundsCentre { get; init; }
+
+    /// <summary>
+    /// How the game snaps the prefab's position on each world axis (<c>Structure.GetWorldGrid</c>): its own
+    /// <c>GridSize</c> and <c>GridOffset</c> on every axis, or <c>_gridSize3d</c> and <c>_gridOffset3d</c> when it sets
+    /// <c>_useAxisIndependentGridSnapping</c>; none when the source did not read it, and the grid's own stands in.
+    /// </summary>
+    public Option<PieceSnap> Snap { get; init; }
 }
 
 /// <summary>

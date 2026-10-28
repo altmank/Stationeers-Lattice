@@ -162,7 +162,7 @@ internal sealed class FakeCatalogue : ICatalogue
             var firstStep = piece.Facts.Kits.Count > 0
                 ? ValueList.Of(new ItemKey(piece.Facts.Kits[0].Kit.Hash))
                 : ValueList<ItemKey>.Empty;
-            pieces.Add(new ListedPiece(piece.Facts.Key, piece.Name, piece.DisplayName, piece.Facts.Grid.ToPiece(), firstStep));
+            pieces.Add(new ListedPiece(piece.Facts.Key, piece.Name, piece.DisplayName, piece.Facts.Grid.ToPiece(), firstStep) { Snap = piece.Facts.Snap });
         }
 
         var kits = new List<ListedKit>(Kits.Count + KitLines.Count);

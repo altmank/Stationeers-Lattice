@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.18.0
+
+Added:
+- **Each piece's snap.** `PieceEntry.Snap` holds how the game snaps a piece on each world axis, read from its prefab:
+  the grid's own for most pieces, and for the gas and liquid rocket engines and the umbilicals x and z on frame
+  centres only.
+  `PieceSnap.Holds(cell)` tells a planner whether the game will build the piece there.
+- **Off-snap ghosts fail.** A ghost placed off its piece's snap fails `off-snap` and is never built there; it stays
+  where it was placed. A run, route or transform that would put a piece off its snap says so with the same code.
+- **The cells a piece fills.** `IPieceCatalogue.CellsAt(placement)` gives the cells a piece fills at a cell and turn,
+  so a planner sees how far a piece such as the small insulated in-line tank hangs below its cell.
+- The catalogue reads each prefab's own grid offset, where it assumed the small grid's for every small piece.
+- Contract 0.18, which only adds: a mod written for 0.17 sees the same answers, except that a ghost off its piece's
+  snap now fails `off-snap`, and a run, route or transform that would put a piece off its snap says so.
+
 ## 0.17.1
 
 Fixed:
