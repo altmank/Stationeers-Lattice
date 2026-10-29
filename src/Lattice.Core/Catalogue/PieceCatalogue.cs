@@ -11,7 +11,8 @@ namespace Lattice.Core.Catalogue;
 /// <see cref="KitHomes.Primary"/> picks among the kits that place it in source order, the same kit
 /// <see cref="PrefabCatalogue"/> gives its facts; the rest follow in the sorted kit order. Families come from
 /// <see cref="IPieceFamilies"/>, the registry style rules read; ports from <see cref="PiecePorts"/>. A key listed twice
-/// keeps its first entry; a piece whose grid the listing could not tell is not listed.
+/// keeps its first entry; a piece whose grid the listing could not tell is not listed. Item names are the listing's
+/// items, then any kit the items leave out.
 /// </summary>
 internal sealed class PieceCatalogue : IPieceCatalogue
 {
@@ -21,6 +22,7 @@ internal sealed class PieceCatalogue : IPieceCatalogue
     private readonly Dictionary<PrefabKey, PieceEntry> _pieces;
     private readonly Dictionary<KitKey, KitEntry> _kits;
     private readonly Dictionary<PrefabKey, Result<KitPlace, Reason>> _kitOf;
+    private readonly Dictionary<ItemKey, Result<string, Reason>> _itemNames;
 
     public PieceCatalogue(CatalogueListing listing, IPieceFamilies families, PiecePorts ports, Lattice.Core.Styles.Facings facings)
     {
@@ -69,6 +71,12 @@ internal sealed class PieceCatalogue : IPieceCatalogue
 
         pieceEntries.Sort(static (a, b) => string.CompareOrdinal(a.PrefabName, b.PrefabName));
         Pieces = ValueList.From(pieceEntries);
+
+        _itemNames = new Dictionary<ItemKey, Result<string, Reason>>(listing.Items.Count + kitEntries.Count);
+        foreach (var item in listing.Items)
+            _itemNames.TryAdd(item.Key, Result<string, Reason>.Ok(item.Name));
+        foreach (var kit in kitEntries)
+            _itemNames.TryAdd(new ItemKey(kit.Key.Hash), Result<string, Reason>.Ok(kit.Name));
     }
 
     /// <inheritdoc />
@@ -134,6 +142,10 @@ internal sealed class PieceCatalogue : IPieceCatalogue
         _pieces.ContainsKey(placement.Piece)
             ? _ports.At(placement)
             : Result<ValueList<Port>, Reason>.Error(Unknown(placement.Piece));
+
+    /// <inheritdoc />
+    public Result<string, Reason> ItemName(ItemKey item) =>
+        _itemNames.TryGetValue(item, out var name) ? name : Result<string, Reason>.Error(CatalogueReasons.Item(item.Hash));
 
     /// <inheritdoc />
     public Result<ValueList<Cell>, Reason> CellsAt(Placement placement)

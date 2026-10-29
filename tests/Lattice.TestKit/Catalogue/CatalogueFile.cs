@@ -15,6 +15,7 @@ namespace Lattice.TestKit.Catalogue;
 /// lattice-catalogue 3
 /// broken-tools &lt;Item&gt;,...                                              the tools that take a broken structure apart; at most once
 /// kit &lt;KitName&gt; kind=single|multi|merge [name=&lt;text&gt;] options=&lt;PrefabName&gt;,...   every option in scroll order; at most once per kit
+/// item &lt;ItemName&gt; [name=&lt;text&gt;]                                      an item prefab (kit, tool, ingot, ...) and its display name; at most once per item
 /// piece &lt;PrefabName&gt; [kit=&lt;KitName&gt; option=&lt;n&gt; [also=&lt;KitName&gt;:&lt;n&gt;,...]] grid=small|large [name=&lt;text&gt;] [support=&lt;group&gt;] [pipe=gas|liquid|any] [opening=door|window] [merge=&lt;Item&gt;] [keeps=air,heat,life] [supplies=yes] [control=&lt;direction&gt;] [vents=yes] [family=&lt;key&gt;] [place=face|face-mount] [snap=&lt;sx&gt;,&lt;sy&gt;,&lt;sz&gt;/&lt;ox&gt;,&lt;oy&gt;,&lt;oz&gt;]
 ///   step [entry=&lt;Item&gt;] [material=&lt;Item&gt;*&lt;n&gt;] [exit=&lt;Item&gt;] air=yes|no [gravity=yes|no]   one per build step, in order
 ///   end &lt;x&gt; &lt;y&gt; &lt;z&gt; x+|x-|y+|y-|z+|z- &lt;kinds&gt; [reach=&lt;mm&gt;] [role=input|input2|output|output2|waste] [index=&lt;n&gt;] [game=&lt;text&gt;]   index: in the game's OpenEnds; game: its ConnectionType name
@@ -46,6 +47,8 @@ internal static class CatalogueFile
     {
         var pieces = new List<NamedPiece>();
         var kitLines = new List<KitLine>();
+        var itemLines = new List<ItemLine>();
+        var itemNames = new HashSet<string>(StringComparer.Ordinal);
         string[]? brokenTools = null;
         Draft? draft = null;
         var lineNumber = 0;
@@ -73,6 +76,7 @@ internal static class CatalogueFile
             {
                 "piece" => StartPiece(words, ref draft, pieces),
                 "kit" => AddKit(words, kitLines),
+                "item" => AddItem(words, itemLines, itemNames),
                 "broken-tools" => brokenTools is not null ? "broken-tools given twice"
                     : words.Length != 2 ? "broken-tools needs one comma-separated list of items"
                     : SetBrokenTools(words[1], out brokenTools),
@@ -106,7 +110,26 @@ internal static class CatalogueFile
                     return Fail(fileName, 0, $"{piece.Name}: option {piece.Facts.Kits[i].Option.Index} of {piece.KitNames[i]} given twice");
         if (KitsAgree(pieces, kitLines) is { } disagreement)
             return Fail(fileName, 0, disagreement);
-        return Result<FakeCatalogue, FileError>.Ok(new FakeCatalogue(pieces, brokenTools, kitLines));
+        return Result<FakeCatalogue, FileError>.Ok(new FakeCatalogue(pieces, brokenTools, kitLines, itemLines));
+    }
+
+    private static string? AddItem(string[] words, List<ItemLine> itemLines, HashSet<string> seen)
+    {
+        if (words.Length < 2)
+            return "item needs a name";
+        var fields = Fields(words, 2);
+        if (fields is null)
+            return "expected key=value fields";
+        foreach (var key in fields.Keys)
+            if (key != "name")
+                return $"unknown item field '{key}'";
+        if (!seen.Add(words[1]))
+            return $"item {words[1]} given twice";
+        var displayName = words[1];
+        if (fields.TryGetValue("name", out var nameText) && !CatalogueText.ParseName(nameText).TryGet(out displayName))
+            return $"bad name '{nameText}'";
+        itemLines.Add(new ItemLine(words[1], displayName));
+        return null;
     }
 
     private static string? AddKit(string[] words, List<KitLine> kitLines)
@@ -169,6 +192,8 @@ internal static class CatalogueFile
             writer.WriteLine($"kit {kit.Name} kind={CatalogueText.Kind(kit.Kind)}" +
                              (kit.DisplayName == kit.Name ? "" : $" name={CatalogueText.Name(kit.DisplayName)}") +
                              $" options={string.Join(",", kit.Options)}");
+        foreach (var item in catalogue.ItemLines)
+            writer.WriteLine($"item {item.Name}" + (item.DisplayName == item.Name ? "" : $" name={CatalogueText.Name(item.DisplayName)}"));
         foreach (var piece in catalogue.Pieces)
         {
             var f = piece.Facts;

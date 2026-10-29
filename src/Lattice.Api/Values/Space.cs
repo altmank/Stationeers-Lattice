@@ -28,6 +28,14 @@ public readonly record struct Cell(int X, int Y, int Z)
     }
 
     /// <summary>
+    /// The cell's point in the game's world space, in metres: each decimetre key over ten. A cell is the point a piece
+    /// snaps to, so this is the inverse of <see cref="FromWorld"/> for a point already snapped, and exact for every
+    /// piece's snap (<see cref="PieceSnap"/>; every snapped point is a whole number of half metres): a piece placed at
+    /// the cell stands at the point. Constant cost. Added in contract 0.19.
+    /// </summary>
+    public WorldPoint ToWorld() => new(X / 10f, Y / 10f, Z / 10f);
+
+    /// <summary>
     /// The cell across a face on the grid: one cell along the face's normal (20 decimetres on the large grid, 5 on the
     /// small). Added in contract 0.6.
     /// </summary>

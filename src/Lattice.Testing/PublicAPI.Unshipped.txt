@@ -385,3 +385,4 @@ virtual Lattice.Testing.Stubs.StubClip.Dispose() -> void
 Lattice.Testing.Stubs.StubValidation
 Lattice.Testing.Stubs.StubValidation.StubValidation() -> void
 virtual Lattice.Testing.Stubs.StubValidation.Check(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.ValidationReport!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPieceCatalogue.ItemName(Lattice.Api.ItemKey item) -> Lattice.Api.Result<string!, Lattice.Api.Reason!>

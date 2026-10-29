@@ -407,6 +407,10 @@ as a player's hands would:
 | `Merge(into, becomes, offhandTool, extra)` | Apply the kit, with the off-hand tool, to the standing structure so it becomes the new piece. |
 | `Paint`, `Rename`, `SetValue` | Paint the structure, name it, or set its labeller value. |
 
+To put a kit down where a `PlaceKit` says, `at.ToWorld()` gives the cell's point in metres and, from
+`Lattice.Api.Unity`, `turn.ToRotation()` the rotation the game gives the piece (contract 0.19): the position and
+rotation a player's cursor would have.
+
 A later step names a structure an earlier `PlaceKit` or `Merge` makes by `StepTarget.PlacedBy(index)`. Once that
 step is done, find the new structure where it stands: `lattice.World.At(placement.At)` lists the structures in the
 cell, and the one of the placed piece is it (`StructureInfo.Ref`). Use its `StructureRef` for the later steps.
@@ -417,9 +421,24 @@ What to watch for:
   with `ExecutorStatus.Waiting`.
 - **The world moves.** Steps are worked out from the world as it is now. Ask again after a change rather than keep an
   old plan.
-- **Waiting.** Report `Waiting(reason)` with your own reason code when you lack materials or a path, so players and
-  agents see why.
+- **Waiting.** Report `Waiting(reason)` so players and agents see why. For the reasons every builder meets, use
+  Lattice's codes, so every builder is worded the same; keep your own code for the rest.
 - **Bills.** `Bills.For(selector)` gives the materials for a set of ghosts, to gather them before you start.
+  `Catalogue.ItemName(item)` gives each item's display name to show (contract 0.19).
+
+The builder reason codes (contract 0.19), each with a `Reason` helper that writes its facts:
+
+| Code | When | Facts | Made by |
+|---|---|---|---|
+| `needs-items` | The builder lacks items for the ghost. | `item` (prefab hash), `count` (how many more) | `Reason.NeedsItems(rule, quantity)` |
+| `out-of-reach` | The ghost is further than the builder reaches. | `metres`, `reach` | `Reason.OutOfReach(rule, distance, reach)` |
+| `no-power` | The builder, or the device it works from, has no power. | none; `device` (reference id) when named | `Reason.NoPower(rule)`, `Reason.NoPower(rule, device)` |
+| `blocked` | Something stands in a cell the builder must build or pass. | `cell` ("x,y,z"); when known, `by`: `ghost`, `structure` or `player`, with the id in `ghost` (ghost id) or `structure` (reference id) | `Reason.Blocked(rule, cell)`, `Reason.Blocked(rule, cell, ghost)`, `Reason.Blocked(rule, cell, structure)`, `Reason.BlockedByPlayer(rule, cell)` |
+
+```csharp
+if (carried < needed.Count)
+    _me.Report(ghost, new ExecutorStatus.Waiting(Reason.NeedsItems(_rule, Must(ItemQuantity.Create(needed.Item, needed.Count - carried)))));
+```
 
 ## An agent
 

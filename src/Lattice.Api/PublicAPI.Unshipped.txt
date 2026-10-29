@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 18 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 19 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2704,3 +2704,17 @@ Lattice.Api.Selector.Joined
 Lattice.Api.Selector.Joined.Cell.get -> Lattice.Api.Cell
 Lattice.Api.Selector.Joined.Cell.init -> void
 Lattice.Api.Selector.Joined.Joined(Lattice.Api.Cell Cell) -> void
+Lattice.Api.Cell.ToWorld() -> Lattice.Api.WorldPoint
+Lattice.Api.IPieceCatalogue.ItemName(Lattice.Api.ItemKey item) -> Lattice.Api.Result<string!, Lattice.Api.Reason!>
+static Lattice.Api.Reason.Blocked(Lattice.Api.RuleId from, Lattice.Api.Cell cell) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.Blocked(Lattice.Api.RuleId from, Lattice.Api.Cell cell, Lattice.Api.GhostId by) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.Blocked(Lattice.Api.RuleId from, Lattice.Api.Cell cell, Lattice.Api.ReferenceId by) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.BlockedByPlayer(Lattice.Api.RuleId from, Lattice.Api.Cell cell) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.NeedsItems(Lattice.Api.RuleId from, Lattice.Api.ItemQuantity missing) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.NoPower(Lattice.Api.RuleId from) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.NoPower(Lattice.Api.RuleId from, Lattice.Api.ReferenceId device) -> Lattice.Api.Reason!
+static Lattice.Api.Reason.OutOfReach(Lattice.Api.RuleId from, Lattice.Api.Metres distance, Lattice.Api.Metres reach) -> Lattice.Api.Reason!
+static readonly Lattice.Api.ReasonCodes.Blocked -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NeedsItems -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.NoPower -> Lattice.Api.ReasonCode
+static readonly Lattice.Api.ReasonCodes.OutOfReach -> Lattice.Api.ReasonCode

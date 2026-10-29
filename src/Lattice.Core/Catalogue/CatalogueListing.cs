@@ -30,10 +30,19 @@ internal sealed record ListedPiece(PrefabKey Key, string PrefabName, string Name
 /// <summary>A kit prefab as the catalogue lists it: names, kind and the piece at each option, in the game's scroll order.</summary>
 internal sealed record ListedKit(KitKey Key, string PrefabName, string Name, KitKind Kind, ValueList<PrefabKey> Options);
 
-/// <summary>Every piece and kit the catalogue holds, in the source's order (the game's prefab order or the file's).</summary>
+/// <summary>An item prefab (a kit, tool, ingot or any other item) as the catalogue lists it: its names.</summary>
+internal sealed record ListedItem(ItemKey Key, string PrefabName, string Name);
+
+/// <summary>
+/// Every piece, kit and item the catalogue holds, in the source's order (the game's prefab order or the file's).
+/// <see cref="Items"/> is empty for a source that lists none.
+/// </summary>
 internal sealed record CatalogueListing(ValueList<ListedPiece> Pieces, ValueList<ListedKit> Kits)
 {
     public static CatalogueListing Empty { get; } = new(ValueList<ListedPiece>.Empty, ValueList<ListedKit>.Empty);
+
+    /// <summary>Every item prefab, kits included.</summary>
+    public ValueList<ListedItem> Items { get; init; } = ValueList<ListedItem>.Empty;
 }
 
 /// <summary>The rules every catalogue shares for the kits that place a piece and for grids.</summary>

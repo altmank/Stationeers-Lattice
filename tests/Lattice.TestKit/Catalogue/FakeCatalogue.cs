@@ -22,6 +22,9 @@ internal sealed record NamedPiece(string Name, ValueList<string> KitNames, Piece
 /// <summary>A kit line of the catalogue file: the kit's prefab name, kind, display name and every option's prefab name in order.</summary>
 internal sealed record KitLine(string Name, KitKind Kind, string DisplayName, ValueList<string> Options);
 
+/// <summary>An item line of the catalogue file: the item's prefab name and display name.</summary>
+internal sealed record ItemLine(string Name, string DisplayName);
+
 /// <summary>
 /// <see cref="ICatalogue"/> over pieces read from a catalogue data file (<see cref="CatalogueFile"/>). Knows the
 /// names behind the hashes so it can write itself back and print readable failures.
@@ -32,9 +35,14 @@ internal sealed class FakeCatalogue : ICatalogue
     private readonly Dictionary<KitKey, KitFacts> _kits;
     private readonly Dictionary<KitKey, string> _kitNames;
 
-    public FakeCatalogue(IReadOnlyList<NamedPiece> pieces, IReadOnlyList<string>? brokenTools = null, IReadOnlyList<KitLine>? kitLines = null)
+    public FakeCatalogue(
+        IReadOnlyList<NamedPiece> pieces,
+        IReadOnlyList<string>? brokenTools = null,
+        IReadOnlyList<KitLine>? kitLines = null,
+        IReadOnlyList<ItemLine>? itemLines = null)
     {
         KitLines = ValueList.From(kitLines ?? []);
+        ItemLines = ValueList.From(itemLines ?? []);
         BrokenToolNames = ValueList.From(brokenTools ?? []);
         var tools = new List<ItemKey>(BrokenToolNames.Count);
         foreach (var name in BrokenToolNames)
@@ -73,7 +81,7 @@ internal sealed class FakeCatalogue : ICatalogue
 
     /// <summary>
     /// The pieces in file order with their display names; the kits of the kit lines in file order, then those only piece
-    /// lines name in order of first mention, each by option index.
+    /// lines name in order of first mention, each by option index; the items of the item lines in file order.
     /// </summary>
     public CatalogueListing Listing => _listing.Value;
 
@@ -94,10 +102,13 @@ internal sealed class FakeCatalogue : ICatalogue
     public ValueList<ItemKey> BrokenTools { get; }
 
     /// <summary>The same pieces with other broken tools (none when empty).</summary>
-    public FakeCatalogue WithBrokenTools(params string[] tools) => new(Pieces, tools, KitLines);
+    public FakeCatalogue WithBrokenTools(params string[] tools) => new(Pieces, tools, KitLines, ItemLines);
 
     /// <summary>The file's kit lines, in file order.</summary>
     public ValueList<KitLine> KitLines { get; }
+
+    /// <summary>The file's item lines, in file order.</summary>
+    public ValueList<ItemLine> ItemLines { get; }
 
     /// <summary>
     /// The first kit without a kit line whose options do not run from 0 without a gap, as text; none when every kit's
@@ -185,7 +196,10 @@ internal sealed class FakeCatalogue : ICatalogue
             kits.Add(new ListedKit(kit, _kitNames[kit], _kitNames[kit], options.Length == 1 ? KitKind.Single : KitKind.Multi, ValueList.From(options)));
         }
 
-        return new CatalogueListing(ValueList.From(pieces), ValueList.From(kits));
+        var items = new List<ListedItem>(ItemLines.Count);
+        foreach (var line in ItemLines)
+            items.Add(new ListedItem(PrefabHash.Item(line.Name), line.Name, line.DisplayName));
+        return new CatalogueListing(ValueList.From(pieces), ValueList.From(kits)) { Items = ValueList.From(items) };
     }
 
     private KitLine? KitLineOf(KitKey kit)

@@ -78,3 +78,5 @@ Lattice.Api.TextStyle.Wording.get -> Lattice.Api.ValueMap<Lattice.Api.ReasonCode
 Lattice.Api.TextStyle.Wording.init -> void
 static Lattice.Api.LatticeDrawing.Current.get -> Lattice.Api.Option<Lattice.Api.IGhostDrawing!>
 static Lattice.Api.LatticeDrawing.Started -> System.Action<Lattice.Api.IGhostDrawing!>?
+Lattice.Api.TurnRotations
+static Lattice.Api.TurnRotations.ToRotation(this Lattice.Api.Turn turn) -> UnityEngine.Quaternion

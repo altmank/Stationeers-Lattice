@@ -194,6 +194,6 @@ internal sealed class PrefabCatalogue : ICatalogue
         var kits = new List<ListedKit>(_source.Kits.Count);
         foreach (var kit in _source.Kits)
             kits.Add(new ListedKit(kit.Key, kit.Name, kit.DisplayName, kit.Kind, kit.Pieces));
-        return new CatalogueListing(ValueList.From(_source.Listed), ValueList.From(kits));
+        return new CatalogueListing(ValueList.From(_source.Listed), ValueList.From(kits)) { Items = ValueList.From(_source.Items) };
     }
 }

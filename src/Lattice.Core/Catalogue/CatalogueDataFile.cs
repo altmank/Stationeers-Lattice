@@ -9,11 +9,13 @@ namespace Lattice.Core.Catalogue;
 
 /// <summary>
 /// Writes the catalogue data file the test kit loads (format <c>lattice-catalogue 3</c>, grammar in the test kit's
-/// <c>CatalogueFile</c>): every kit with its kind, display name and every option in scroll order, then every piece that
+/// <c>CatalogueFile</c>): every kit with its kind, display name and every option in scroll order, every item prefab with
+/// its display name, then every piece that
 /// mapped, once, under the kit its first build step uses (its other kits after <c>also=</c>), then the pieces no kit
 /// places, with their display names, build steps, ends, footprint, ratings, support group, family, face placement and
-/// look. Display names, family, face placement, look, and an end's game index (<c>index=</c>) and kind name
-/// (<c>game=</c>) are optional: a file without them reads names as prefab names, family <c>other</c>, every piece placed
+/// look. Display names, item lines, family, face placement, look, and an end's game index (<c>index=</c>) and kind name
+/// (<c>game=</c>) are optional: a file without them reads names as prefab names, no items but the kits, family
+/// <c>other</c>, every piece placed
 /// in a cell, no look, and each end numbered by its place among its piece's ends. Comments at the top say it came from the game, how long the load took, and what was left out.
 /// </summary>
 internal static class CatalogueDataFile
@@ -65,6 +67,14 @@ internal static class CatalogueDataFile
                 writer.Write((i == 0 ? "" : ",") + (names.TryGetValue(kit.Options[i], out var option)
                     ? option.PrefabName
                     : catalogue.NameOf(kit.Options[i]).Reduce(Number(kit.Options[i].Hash))));
+            writer.Write("\n");
+        }
+
+        foreach (var item in listing.Items)
+        {
+            writer.Write("item " + item.PrefabName);
+            if (item.Name != item.PrefabName)
+                writer.Write(" name=" + CatalogueText.Name(item.Name));
             writer.Write("\n");
         }
 

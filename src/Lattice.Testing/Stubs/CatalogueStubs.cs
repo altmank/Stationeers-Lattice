@@ -58,4 +58,8 @@ public class StubPieceCatalogue : IPieceCatalogue
     /// <inheritdoc />
     public virtual Result<ValueList<Cell>, Reason> CellsAt(Placement placement) =>
         throw Stub.NotSetUp("IPieceCatalogue", "CellsAt", "StubPieceCatalogue");
+
+    /// <inheritdoc />
+    public virtual Result<string, Reason> ItemName(ItemKey item) =>
+        throw Stub.NotSetUp("IPieceCatalogue", "ItemName", "StubPieceCatalogue");
 }

@@ -45,6 +45,10 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.19.0
+- Added: builder mods can say why a ghost waits (needs items, out of reach, no power, blocked) in the same words as every other builder.
+- Added: mods can show any item's name in the player's language, and place a piece at a cell's exact point and turn.
+
 v0.18.0
 - Added: pieces the game snaps to frame centres, such as the gas and liquid rocket engines and umbilicals, are planned only where the game builds them; a ghost elsewhere is marked as failing.
 - Added: mods can ask which cells a piece fills, to rest a tank or device on a frame.

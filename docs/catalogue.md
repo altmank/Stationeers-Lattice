@@ -27,6 +27,7 @@ added it: check `lattice.Version` before you read it.
 | `PortsAt(placement)` | The piece's ports placed at a cell and turn, in the game's order ([ports](#ports), contract 0.8) | `unknown-piece` |
 | `FacingOf(placement)` | The axis a face piece's face is square to under the placement; none for a piece off the faces ([facing](#facing), contract 0.9) | `unknown-piece` |
 | `CellsAt(placement)` | The cells the piece fills at a cell and turn, from its footprint ([cells a piece fills](#cells-a-piece-fills), contract 0.18) | `unknown-piece` |
+| `ItemName(item)` | Any item's display name: a kit, tool, ingot or anything a bill names ([item names](#item-names), contract 0.19) | `not-found`, fact `item` |
 
 Every lookup but `PortsAt` and `CellsAt` is constant cost and allocates nothing (after a piece's family is first
 read). `PortsAt` is linear in the piece's ports, `CellsAt` in its footprint, and each allocates the list it returns.
@@ -45,6 +46,20 @@ if (catalogue.KitOf(structure.Piece).TryGet(out var place))
 ```
 
 `PieceEntry.Kits` lists every kit that places a piece, `KitOf`'s answer first.
+
+## Item names
+
+`ItemName(item)` gives the display name of every item prefab the game holds, in the local player's language, read at
+world load as a piece's name is: kits, tools, ingots and every other item a `Bill` or a `needs-items` fact names
+(contract 0.19). Where the game has no localised name the prefab name stands in. A kit's item name is its
+`KitEntry.Name`.
+
+```csharp
+// "Needs 3 Ingot (Iron)" from a builder's needs-items reason.
+var item = new ItemKey(int.Parse(reason.Facts["item"]));
+var name = lattice.Catalogue.ItemName(item).Match(static n => n, static _ => "?");
+Show($"Needs {reason.Facts["count"]} {name}");
+```
 
 ## Families
 
@@ -188,6 +203,11 @@ Where Lattice cannot read a fact from a modded piece, a mod tells it:
 - `Cell.FromWorld(point, grid)` gives the cell a piece takes at a world point, snapped to the grid as the game snaps
   most pieces (contract 0.6); for a piece with a snap of its own, check `PieceEntry.Snap` too ([snap](#snap)).
 - `cell.Neighbour(face, grid)` gives the cell across a face: one cell along its normal (contract 0.6).
+- `cell.ToWorld()` gives the cell's point in metres, each decimetre key over ten (contract 0.19): the point a piece
+  placed at the cell stands at. It is the inverse of `FromWorld` for a point already snapped, and exact for every
+  piece's snap, the axis-snapped ones too.
+- `turn.ToRotation()` (in `Lattice.Api.Unity`, contract 0.19) gives the Unity rotation the game gives a piece placed
+  with the turn: the one that sends +X, +Y and +Z where `Turn.Axes` says, one of the 24 the game's quarter turns make.
 
 ## Testing with the catalogue
 

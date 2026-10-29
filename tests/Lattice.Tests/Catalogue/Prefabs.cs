@@ -69,7 +69,12 @@ internal static class Prefabs
 }
 
 /// <summary>An <see cref="IPrefabSource"/> over a fixed set, counting how often each prefab is read.</summary>
-internal sealed class CountingSource(KitData[] kits, PrefabData[] pieces, ItemRef[]? brokenTools = null, Dictionary<PrefabKey, string>? displayNames = null) : IPrefabSource
+internal sealed class CountingSource(
+    KitData[] kits,
+    PrefabData[] pieces,
+    ItemRef[]? brokenTools = null,
+    Dictionary<PrefabKey, string>? displayNames = null,
+    ListedItem[]? items = null) : IPrefabSource
 {
     private readonly Dictionary<PrefabKey, int> _reads = [];
 
@@ -80,6 +85,8 @@ internal sealed class CountingSource(KitData[] kits, PrefabData[] pieces, ItemRe
     public IReadOnlyList<PrefabKey> Structures { get; } = Keys(pieces);
 
     public IReadOnlyList<ListedPiece> Listed { get; } = Listing(pieces, displayNames);
+
+    public IReadOnlyList<ListedItem> Items { get; } = items ?? [];
 
     public Option<PrefabData> Read(PrefabKey piece)
     {

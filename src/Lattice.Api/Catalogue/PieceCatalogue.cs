@@ -91,6 +91,15 @@ public interface IPieceCatalogue
     /// allocates the returned list. Added in contract 0.18.
     /// </summary>
     Result<ValueList<Cell>, Reason> CellsAt(Placement placement);
+
+    /// <summary>
+    /// An item's display name in the local player's language, read at world load as <see cref="PieceEntry.Name"/> (the
+    /// prefab name where the game has no localised one), for every item prefab the game holds: kits, tools, ingots and
+    /// every other item a <see cref="Bill"/> or a <see cref="ReasonCodes.NeedsItems"/> fact can name. A kit's is its
+    /// <see cref="KitEntry.Name"/>. Refused <see cref="ReasonCodes.NotFound"/> (fact <c>item</c>) for an item the game
+    /// does not hold. Main thread; constant cost; allocates nothing. Added in contract 0.19.
+    /// </summary>
+    Result<string, Reason> ItemName(ItemKey item);
 }
 
 /// <summary>One structure prefab. Added in contract 0.3.</summary>

@@ -29,6 +29,12 @@ internal interface IPrefabSource
     /// </summary>
     IReadOnlyList<ItemRef> BrokenTools { get; }
 
+    /// <summary>
+    /// Every item prefab, kits and tools included, in the game's prefab order, with its display name as
+    /// <see cref="Listed"/> gives a piece's. Read once, on first use.
+    /// </summary>
+    IReadOnlyList<ListedItem> Items { get; }
+
     /// <summary>The prefab's data, or none when the game holds no structure prefab with that hash.</summary>
     Option<PrefabData> Read(PrefabKey piece);
 }

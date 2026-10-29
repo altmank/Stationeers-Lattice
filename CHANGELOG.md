@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.19.0
+
+Added:
+- **A cell's world point.** `Cell.ToWorld()` gives the point in metres a piece placed at the cell stands at, the
+  inverse of `Cell.FromWorld` for a snapped point.
+- **A turn's rotation.** `Turn.ToRotation()` in `Lattice.Api.Unity` gives the Unity rotation the game gives a piece
+  placed with the turn.
+- **Builder reason codes.** `needs-items`, `out-of-reach`, `no-power` and `blocked`, with `Reason.NeedsItems`,
+  `Reason.OutOfReach`, `Reason.NoPower`, `Reason.Blocked` and `Reason.BlockedByPlayer` to make them, so every builder
+  says why it waits in the same words.
+- **Item names.** `IPieceCatalogue.ItemName(item)` gives any item's display name in the player's language: kits, tools,
+  ingots and everything a bill names.
+- Contract 0.19, which only adds: a mod written for 0.18 sees the same answers.
+
 ## 0.18.0
 
 Added:

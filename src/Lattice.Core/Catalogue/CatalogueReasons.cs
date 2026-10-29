@@ -30,6 +30,9 @@ internal static class CatalogueReasons
             ValueMap<string, string>.Empty.With("kit", kitHash.ToString()).With("option", option.ToString())
                 .With("options", count.ToString()).With("problem", "past-last-option"));
 
+    public static Reason Item(int hash) =>
+        Reason.Of(ReasonCodes.NotFound, Catalogue, ValueMap<string, string>.Empty.With("item", hash.ToString()).With("problem", "no-item-prefab"));
+
     public static Reason NoKit(string piece) =>
         Reason.Of(ReasonCodes.NotFound, Catalogue, ValueMap<string, string>.Empty.With("piece", piece).With("problem", "no-kit"));
 }

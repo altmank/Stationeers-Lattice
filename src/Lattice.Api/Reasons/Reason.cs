@@ -18,6 +18,70 @@ public sealed record Reason(
     public static Reason Of(ReasonCode code, RuleId from, ValueMap<string, string> facts) =>
         new(code, facts, Option<string>.None, from);
 
+    /// <summary>
+    /// A builder lacks items for a ghost: <see cref="ReasonCodes.NeedsItems"/> with facts <c>item</c> (the item's prefab
+    /// hash) and <c>count</c> (how many more it needs). Added in contract 0.19.
+    /// </summary>
+    public static Reason NeedsItems(RuleId from, ItemQuantity missing) =>
+        Of(ReasonCodes.NeedsItems, from, ValueMap<string, string>.Empty
+            .With("item", Number(missing.Item.Hash))
+            .With("count", Number(missing.Count)));
+
+    /// <summary>
+    /// A builder is too far from a ghost to build it: <see cref="ReasonCodes.OutOfReach"/> with facts <c>metres</c> (how
+    /// far it is) and <c>reach</c> (how far it reaches), in metres. Added in contract 0.19.
+    /// </summary>
+    public static Reason OutOfReach(RuleId from, Metres distance, Metres reach) =>
+        Of(ReasonCodes.OutOfReach, from, ValueMap<string, string>.Empty
+            .With("metres", Number(distance.Value))
+            .With("reach", Number(reach.Value)));
+
+    /// <summary>A builder has no power: <see cref="ReasonCodes.NoPower"/> with no facts. Added in contract 0.19.</summary>
+    public static Reason NoPower(RuleId from) => Of(ReasonCodes.NoPower, from);
+
+    /// <summary>
+    /// The device a builder works from has no power: <see cref="ReasonCodes.NoPower"/> with fact <c>device</c> (its
+    /// reference id). Added in contract 0.19.
+    /// </summary>
+    public static Reason NoPower(RuleId from, ReferenceId device) =>
+        Of(ReasonCodes.NoPower, from, ValueMap<string, string>.Empty.With("device", Number(device.Value)));
+
+    /// <summary>
+    /// Something a builder cannot name stands in a cell it must build or pass: <see cref="ReasonCodes.Blocked"/> with
+    /// fact <c>cell</c> ("x,y,z"). Added in contract 0.19.
+    /// </summary>
+    public static Reason Blocked(RuleId from, Cell cell) =>
+        Of(ReasonCodes.Blocked, from, ValueMap<string, string>.Empty.With("cell", CellText(cell)));
+
+    /// <summary>
+    /// A ghost stands in the way: <see cref="ReasonCodes.Blocked"/> with facts <c>cell</c>, <c>by</c> (<c>ghost</c>)
+    /// and <c>ghost</c> (its id). Added in contract 0.19.
+    /// </summary>
+    public static Reason Blocked(RuleId from, Cell cell, GhostId by) =>
+        Of(ReasonCodes.Blocked, from, BlockedFacts(cell, "ghost").With("ghost", Number(by.Value)));
+
+    /// <summary>
+    /// A built structure stands in the way: <see cref="ReasonCodes.Blocked"/> with facts <c>cell</c>, <c>by</c>
+    /// (<c>structure</c>) and <c>structure</c> (its reference id). Added in contract 0.19.
+    /// </summary>
+    public static Reason Blocked(RuleId from, Cell cell, ReferenceId by) =>
+        Of(ReasonCodes.Blocked, from, BlockedFacts(cell, "structure").With("structure", Number(by.Value)));
+
+    /// <summary>
+    /// A player stands in the way: <see cref="ReasonCodes.Blocked"/> with facts <c>cell</c> and <c>by</c>
+    /// (<c>player</c>), and no id. Added in contract 0.19.
+    /// </summary>
+    public static Reason BlockedByPlayer(RuleId from, Cell cell) => Of(ReasonCodes.Blocked, from, BlockedFacts(cell, "player"));
+
+    private static ValueMap<string, string> BlockedFacts(Cell cell, string by) =>
+        ValueMap<string, string>.Empty.With("cell", CellText(cell)).With("by", by);
+
+    private static string CellText(Cell cell) => Number(cell.X) + "," + Number(cell.Y) + "," + Number(cell.Z);
+
+    private static string Number(long value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Number(float value) => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
     internal static Reason InvalidValue(string type, string value, string rule) =>
         new(ReasonCodes.InvalidValue,
             ValueMap<string, string>.Empty.With("type", type).With("value", value).With("rule", rule),
@@ -280,6 +344,33 @@ public static class ReasonCodes
     /// <c>take-apart</c> or <c>broken</c>) and, for build and take-apart, <c>step</c> (the build state index).
     /// </summary>
     public static readonly ReasonCode NoTool = ReasonCode.Known("no-tool");
+
+    /// <summary>
+    /// A builder lacks items to build a ghost; facts <c>item</c> (the item's prefab hash, <see cref="ItemKey"/>) and
+    /// <c>count</c> (how many more). <see cref="Reason.NeedsItems"/> makes it. Added in contract 0.19.
+    /// </summary>
+    public static readonly ReasonCode NeedsItems = ReasonCode.Known("needs-items");
+
+    /// <summary>
+    /// A builder is too far from a ghost to build it; facts <c>metres</c> (how far) and <c>reach</c> (how far it
+    /// reaches). <see cref="Reason.OutOfReach"/> makes it. Added in contract 0.19.
+    /// </summary>
+    public static readonly ReasonCode OutOfReach = ReasonCode.Known("out-of-reach");
+
+    /// <summary>
+    /// A builder, or the device it works from, has no power; no facts required, and fact <c>device</c> (reference id)
+    /// when a device is named. <see cref="Reason.NoPower(RuleId)"/> makes it. Added in contract 0.19.
+    /// </summary>
+    public static readonly ReasonCode NoPower = ReasonCode.Known("no-power");
+
+    /// <summary>
+    /// Something stands in a cell a builder must build or pass; fact <c>cell</c> ("x,y,z") and, when the builder knows
+    /// what, <c>by</c>: its kind, <c>ghost</c>, <c>structure</c> or <c>player</c>, with the id in the fact named for the
+    /// kind (<c>ghost</c>: the ghost's id; <c>structure</c>: its reference id; none for a player).
+    /// <see cref="Reason.Blocked(RuleId, Cell)"/> makes it. Not <see cref="Different"/>, which is the world's verdict on
+    /// a ghost's own spot. Added in contract 0.19.
+    /// </summary>
+    public static readonly ReasonCode Blocked = ReasonCode.Known("blocked");
 
     /// <summary>
     /// A mirror picked a ghost whose piece has no mirror image among its turns (a machine with an uneven port

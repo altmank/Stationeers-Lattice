@@ -38,8 +38,11 @@ internal sealed class GamePrefabSource : IPrefabSource
         var structures = new List<PrefabKey>(prefabs.Count / 2);
         _structures = new List<Structure>(prefabs.Count / 2);
         var brokenTools = new List<ItemRef>(8);
+        _items = new List<Item>(prefabs.Count / 2);
         foreach (var thing in prefabs)
         {
+            if (thing is Item item)
+                _items.Add(item);
             if (thing is Item tool && tool is IConstructor)
                 brokenTools.Add(Item(tool));
             if (thing is MultiMergeConstructor merging)
@@ -62,10 +65,16 @@ internal sealed class GamePrefabSource : IPrefabSource
         Structures = structures;
         BrokenTools = brokenTools;
         _listed = new Lazy<IReadOnlyList<ListedPiece>>(ListAll);
+        _listedItems = new Lazy<IReadOnlyList<ListedItem>>(ListItems);
     }
 
     private readonly List<Structure> _structures;
+    private readonly List<Item> _items;
     private readonly Lazy<IReadOnlyList<ListedPiece>> _listed;
+    private readonly Lazy<IReadOnlyList<ListedItem>> _listedItems;
+
+    /// <inheritdoc />
+    public IReadOnlyList<ListedItem> Items => _listedItems.Value;
 
     /// <inheritdoc />
     public IReadOnlyList<ListedPiece> Listed => _listed.Value;
@@ -220,6 +229,14 @@ internal sealed class GamePrefabSource : IPrefabSource
                 {
                     Snap = SnapOf(structure),
                 });
+        return listed;
+    }
+
+    private IReadOnlyList<ListedItem> ListItems()
+    {
+        var listed = new List<ListedItem>(_items.Count);
+        foreach (var item in _items)
+            listed.Add(new ListedItem(new ItemKey(item.PrefabHash), item.PrefabName, NameOf(item)));
         return listed;
     }
 

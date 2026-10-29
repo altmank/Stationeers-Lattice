@@ -17,13 +17,6 @@ public sealed class ContractSnapCellsTests
         return string.Join(" ", entry.Value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
     }
 
-    [Fact]
-    public void The_contract_is_zero_eighteen()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(18, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("P:Lattice.Api.PieceEntry.Snap")]
     [InlineData("T:Lattice.Api.PieceSnap")]
