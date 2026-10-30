@@ -20,7 +20,20 @@ public sealed record Plan(
     Actor Owner,
     Maker MadeBy,
     Visibility Visibility,
-    ValueMap<AttachmentKey, Attachment> HigherLayerData);
+    ValueMap<AttachmentKey, Attachment> HigherLayerData)
+{
+    /// <summary>
+    /// The plan's colour, for any reader to tint by; kept as written and never interpreted. None: no colour, each reader
+    /// picks its own. Added in contract 0.22.
+    /// </summary>
+    public Option<Tint> Colour { get; init; }
+
+    /// <summary>
+    /// The builders asked to build it, a set: many at once, at most 64. Saved and synced with the plan; it does not gate
+    /// claims. Added in contract 0.22.
+    /// </summary>
+    public ValueSet<ExecutorId> BuildBy { get; init; } = ValueSet<ExecutorId>.Empty;
+}
 
 /// <summary>A new plan to create. The submitting actor becomes its owner.</summary>
 /// <param name="Name">Its name.</param>
@@ -31,9 +44,13 @@ public sealed record PlanDraft(
     PlanName Name,
     Maker MadeBy,
     Visibility Visibility,
-    ValueMap<AttachmentKey, Attachment> HigherLayerData);
+    ValueMap<AttachmentKey, Attachment> HigherLayerData)
+{
+    /// <summary>The new plan's colour; none: no colour. Added in contract 0.22.</summary>
+    public Option<Tint> Colour { get; init; }
+}
 
-/// <summary>One edit to a plan.</summary>
+/// <summary>One edit to a plan. A later minor may add cases; refused <see cref="ReasonCodes.UnknownKind"/>.</summary>
 public abstract record PlanEdit
 {
     private PlanEdit() { }
@@ -58,6 +75,22 @@ public abstract record PlanEdit
     /// <summary>Removes higher-layer data under a key.</summary>
     /// <param name="Key">The key.</param>
     public sealed record ClearData(AttachmentKey Key) : PlanEdit;
+
+    /// <summary>A new colour; none clears it. Added in contract 0.22.</summary>
+    /// <param name="To">The colour.</param>
+    public sealed record Recolour(Option<Tint> To) : PlanEdit;
+
+    /// <summary>
+    /// Adds a builder to the plan's set; the others stay as they are. Refused <see cref="ReasonCodes.NotFound"/> (problem
+    /// <c>executor</c>) when it is not registered on the host as the edit is applied, <see cref="ReasonCodes.TooLarge"/>
+    /// past 64; a builder already in the set changes nothing. Added in contract 0.22.
+    /// </summary>
+    /// <param name="Builder">The builder.</param>
+    public sealed record Assign(ExecutorId Builder) : PlanEdit;
+
+    /// <summary>Drops a builder from the plan's set; it lets its claims there go itself. Added in contract 0.22.</summary>
+    /// <param name="Builder">The builder.</param>
+    public sealed record Unassign(ExecutorId Builder) : PlanEdit;
 }
 
 /// <summary>A finished plan as the finished-plans index lists it, without opening its file.</summary>

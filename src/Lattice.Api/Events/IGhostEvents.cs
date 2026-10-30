@@ -28,8 +28,18 @@ public interface IGhostEvents
     /// <summary>The world now matches a ghost.</summary>
     event Action<GhostId, Completion> Completed;
 
-    /// <summary>An executor's status on a ghost changed.</summary>
+    /// <summary>
+    /// A ghost's claim or an executor's status on it changed: a claim taken, released, lapsed or dropped, or a changed
+    /// report; not a renewal. On the host and on clients. Until contract 0.22 it was raised only for a report, or a drop
+    /// of a claim that had one.
+    /// </summary>
     event Action<GhostId> StatusChanged;
+
+    /// <summary>
+    /// A builder registered, went, or changed what it says (area, word, supply, an answer). One per builder per burst,
+    /// on every seat. Added in contract 0.22.
+    /// </summary>
+    event Action<ExecutorId> BuilderChanged;
 
     /// <summary>
     /// A command this client sent was applied or refused by the host. Raised once for every command sent, also across a

@@ -292,37 +292,48 @@ What to watch for:
 
 ## A builder
 
-A builder takes ghosts that can be built now, claims them, carries out their steps in the game, and lets the world
-say when each is done.
+A builder is an executor that describes itself (contract 0.22). It says who it is, where it works, how it is doing and
+what it can supply; it builds the plans it is assigned (or every plan, with none); it claims ghosts that can be built
+now, carries out their steps in the game, and lets the world say when each is done. Lattice keeps what it says, syncs it
+to every seat and drops it when the builder goes, and never checks it against the world. Lattice counts its progress
+from its claims and completions itself.
 
 ```csharp
 public sealed class Builder : IDisposable
 {
     private readonly IGhostSystem _lattice;
     private readonly IExecutorHandle _me;
-    private readonly PlanId _plan;
+    private readonly ExecutorId _id;
     private readonly Lease _lease = Must(Lease.Create(30));
     private readonly Queue<Step> _work = new();
     private readonly RuleId _rule;
     private readonly ReasonCode _unknownStep;
     private Claim? _claim;
 
-    private Builder(IGhostSystem lattice, IExecutorHandle me, PlanId plan, ModId mod)
+    private Builder(IGhostSystem lattice, IExecutorHandle me, ExecutorId id, ModId mod)
     {
         _lattice = lattice;
         _me = me;
-        _plan = plan;
+        _id = id;
         _rule = Must(RuleId.Create(mod, "drone"));
         _unknownStep = Must(ReasonCode.Create(mod, "unknown-step"));
         lattice.Events.Completed += OnCompleted;
+        lattice.Events.Changed += OnChanged;
     }
 
     /// <summary>On the host only: refused host-only on a client.</summary>
-    public static Result<Builder, Reason> Start(IGhostSystem lattice, ModId mod, PlanId plan) =>
+    public static Result<Builder, Reason> Start(IGhostSystem lattice, ModId mod, Actor owner, WorldPoint at) =>
         ExecutorId.Create(mod, "drone-1")
-            .Bind(id => DisplayName.Create("Drone 1").Map(name => new ExecutorInfo(id, name)))
-            .Bind(info => lattice.Executors.Register(info))
-            .Map(handle => new Builder(lattice, handle, plan, mod));
+            .Bind(id => DisplayName.Create("Drone 1").Map(name => new ExecutorInfo(id, name) { Owner = Option.Some(owner) }))
+            .Bind(info => lattice.Executors.Register(info).Map(handle => (info, handle)))
+            .Map(started =>
+            {
+                var (info, handle) = started;
+                handle.Locate(Option.Some<BuilderArea>(new BuilderArea.Sphere(at, Must(Metres.Create(40)), Option<Metres>.None)));
+                var builder = new Builder(lattice, handle, info.Id, mod);
+                builder.AnswerAll();                       // answer what the save already assigns, in the tick it registers
+                return builder;
+            });
 
     /// <summary>A few times a second, from your own update.</summary>
     public void Tick()
@@ -333,21 +344,67 @@ public sealed class Builder : IDisposable
             return;
         }
 
-        if (!_lattice.Plans.Facts(_plan).TryGet(out var answer) || answer is not Answer<PlanFacts>.Ready { Value: var facts })
-            return;                                    // unknown plan, or still being worked out
-        foreach (var ghost in facts.BuildableNext)
+        foreach (var plan in Plans())
         {
-            if (!_me.Claim(ghost, _lease).TryGet(out var claim))
-                continue;                              // another executor holds it
-            if (!_lattice.Steps.For(ghost).TryGet(out var plan) || !Queue(plan))
+            if (!_lattice.Plans.Facts(plan).TryGet(out var answer) || answer is not Answer<PlanFacts>.Ready { Value: var facts })
+                continue;                                  // unknown plan, or still being worked out
+            foreach (var ghost in facts.BuildableNext)
             {
-                _me.Release(claim);
-                continue;
+                if (!_me.Claim(ghost, _lease).TryGet(out var claim))
+                    continue;                              // another executor holds it
+                if (!_lattice.Steps.For(ghost).TryGet(out var steps) || !Queue(steps))
+                {
+                    _me.Release(claim);
+                    continue;
+                }
+                _claim = claim;
+                _me.Report(ghost, new ExecutorStatus.Working(1, steps.Steps.Count));
+                return;
             }
-            _claim = claim;
-            _me.Report(ghost, new ExecutorStatus.Working(1, plan.Steps.Count));
-            return;
         }
+    }
+
+    // The plans assigned to it; with none, every plan the board holds.
+    private IEnumerable<PlanId> Plans()
+    {
+        var assigned = _lattice.Executors.PlansOf(_id);
+        if (assigned.Count > 0)
+            return assigned;
+        var all = new List<PlanId>();
+        foreach (var plan in _lattice.Plans.All)
+            all.Add(plan.Id);
+        return all;
+    }
+
+    private void AnswerAll()
+    {
+        foreach (var plan in _lattice.Executors.PlansOf(_id))
+            _me.Answer(plan, new AssignmentAnswer.Accepted());
+    }
+
+    // A plan edit may assign it or drop it: answer what is new, and let go of a plan it no longer has.
+    private void OnChanged(ChangeSet changes)
+    {
+        if (changes.PlansChanged.Count == 0 && changes.PlansOpened.Count == 0)
+            return;
+        AnswerAll();
+        if (_claim is not null && _lattice.Board.Find(_claim.Ghost).TryGet(out var ghost) && !Mine(ghost.Plan))
+        {
+            _me.Release(_claim);
+            _claim = null;
+        }
+    }
+
+    // Whether it builds the plan: one assigned to it, or any plan while it has none.
+    private bool Mine(PlanId plan)
+    {
+        var assigned = _lattice.Executors.PlansOf(_id);
+        if (assigned.Count == 0)
+            return true;
+        foreach (var each in assigned)
+            if (each == plan)
+                return true;
+        return false;
     }
 
     private bool Queue(StepPlan plan)
@@ -371,30 +428,121 @@ public sealed class Builder : IDisposable
     private void OnCompleted(GhostId ghost, Completion _)
     {
         if (_claim is not null && _claim.Ghost == ghost)
-        {
-            _me.Release(_claim);
-            _claim = null;
-        }
+            _claim = null;                             // the claim ended with the ghost
     }
 
     public void Dispose()
     {
         _lattice.Events.Completed -= OnCompleted;
-        _me.Dispose();                                 // releases every claim it holds
+        _lattice.Events.Changed -= OnChanged;
+        _me.Dispose();                                 // releases every claim, and the builder leaves every seat's list
     }
 }
 ```
 
 The calls in order:
 
-1. **Register** an executor. Only on the host: a client is refused `host-only`.
-2. **Find work.** `Plans.Facts(plan).BuildableNext` lists the ghosts whose support exists and that nothing blocks.
-   Across plans, `Validation.Check` gives build order with `Finding.Passes`.
-3. **Claim** one with a lease. A claim refused `claimed` means another executor has it: try the next.
-4. **Read its steps** with `Steps.For`, and report `ExecutorStatus.Working` so players see what the drone does.
-5. **Carry them out** in the game, in order, honouring each `Constraint`.
-6. **Renew** the claim while you work. A claim you stop renewing lapses, and the ghost is free again.
-7. **Done** is not yours to say. When the world matches the ghost, `Events.Completed` comes: release the claim then.
+1. **Register** an executor, with who it builds for (`Owner`) and what it builds (`Builds`: `Any`, `Kits` or
+   `Families`). Who it is stays fixed while it is registered. Only on the host: a client is refused `host-only`.
+2. **Say where you work** with `Locate` (below), and **answer** every plan in `PlansOf(me)` in the tick you register:
+   a save keeps the players' assignments, and they read `Asked` until you answer.
+3. **Find work** in the plans assigned to you, or in every plan when none is. `Plans.Facts(plan).BuildableNext` lists
+   the ghosts whose support exists and that nothing blocks. Across plans, `Validation.Check` gives build order with
+   `Finding.Passes`.
+4. **Claim** one with a lease. A claim refused `claimed` means another executor has it: try the next. Many builders
+   share a plan through claims: one executor per ghost.
+5. **Read its steps** with `Steps.For`, and report `ExecutorStatus.Working` so players see what the drone does.
+6. **Carry them out** in the game, in order, honouring each `Constraint`.
+7. **Renew** the claim while you work. A claim you stop renewing lapses, and the ghost is free again.
+8. **Done** is not yours to say. When the world matches the ghost, `Events.Completed` comes and the claim ends with
+   it; the completion names you (`Completion.By`), so it counts as yours even when a player finishes the piece.
+
+### Where it works and how it is doing
+
+`Locate(area)` says where the builder works: `BuilderArea.Sphere(at, buildReach, sourceRange)`, a centre and two
+distances. A ghost is in build reach when the straight-line distance from `at` to its point (`Placement.At.ToWorld()`,
+where its `PlaceKit` puts it) is at most `buildReach`; a source is in range on the same rule, to the source's position.
+Measure your own `out-of-reach` refusals the same way, so a planner's split of the bill agrees with you. The area is
+where the builder works, not where its body is: a roaming drone reports a new area when it moves on to a new site.
+`BuilderArea` is a union: a later minor may add cases, and a reader draws one it does not know as "area not shown".
+
+`Say(word)` gives its word on itself: `BuilderWord.Ready`, or `Stuck(reason)` with the same reason it puts on the
+ghosts it waits on (`needs-items`, `out-of-reach`, `no-power`, `blocked`, or its own code such as `<mod>/dock-off`).
+Every seat reads `BuilderState`, worked out from its claims first:
+
+| State | When |
+|---|---|
+| `Working` | It holds a claim reported `Working`, or not reported on yet. This beats a `Stuck` word: a builder short of items for one ghost while it builds another reads as working. |
+| `Stuck(why)` | No working claim, and its word is `Stuck`. Claims reported `Waiting` or `Paused` are not work. |
+| `Idle` | No working claim, and its word is `Ready`. |
+
+An equal area, word or supply changes nothing and raises nothing, so report as often as is cheap for you. Every real
+change raises `Events.BuilderChanged` once per builder per burst, on every seat.
+
+### Assignments
+
+A plan holds a set of builders, `Plan.BuildBy`: many at once, at most 64. Assigning is an edit to the plan, saved and
+synced with it and checked by the access policy like any plan edit:
+
+```csharp
+lattice.Commands.Submit(CommandId.New(), new Command.EditPlan(plan, new PlanEdit.Assign(builder), Option<Revision>.None), player);
+lattice.Commands.Submit(CommandId.New(), new Command.EditPlan(plan, new PlanEdit.Unassign(builder), Option<Revision>.None), player);
+```
+
+- The builder must be registered on the host when the edit is first applied (else `not-found`, problem `executor`);
+  past 64 the edit is refused `too-large`; a builder already in the set changes nothing.
+- A builder that picks a plan on its own screen sends the same edit, as its owner: one field, so every reader agrees.
+- The builder answers with `Answer(plan, Accepted)` or `Answer(plan, Refused(why))`: its word, live and synced, not
+  saved, given again after a load, and it may answer again at any time. `AssignedTo(plan)` reads each builder as
+  `Asked`, `Accepted`, `Refused(why)`, or `Absent` while it is not registered.
+- Dropping a builder releases nothing itself: it hears it (`PlansOf(me)` no longer lists the plan) and lets its claims
+  there go within a tick, held `Waiting` claims too. What it does not let go lapses with its leases.
+- An assignment stays until someone drops it or the plan finishes. A builder that goes reads `Absent` (an absent builder
+  may be a mod not loaded yet); offer an `Unassign` on an `Absent` entry.
+- An assignment does not gate claims: any builder may claim any ghost. A builder keeps to its assigned plans by its own
+  choice, and builds every plan when it has none.
+
+### Supply
+
+`Offer(supply)` reports what the builder can supply:
+
+- `Reaches`: everything it holds or can reach now, its buffer plus the sources in its source range. It is this
+  builder's alone, may overlap another builder's, and is never summed across builders.
+- `Toward`: for each plan it names, what it has set aside for that plan: stock it holds or has reserved, so no other
+  builder counts or takes it, and toward that plan only. Cover at least your assigned plans. A held kit (a merge's
+  `Held`) counts once per builder per item: one coil in hand serves every merge.
+
+`SupplyToward(plan)` sums the assigned builders' `Toward` entries for the plan per item. Because `Toward` is exclusive the
+sum is exact; Lattice cannot verify it, it is each builder's promise. It is not capped at the bill: compare the two. A
+`Toward` entry for a plan the viewer may not see is left out on that seat. Lattice stamps each report with the game
+time (`Supply.At`) and keeps the latest only.
+
+A report is refused `too-large` past 256 items in `Reaches`, 64 plans in `Toward`, or 256 items a plan; nothing is cut
+down for you. Trim before you offer: first the items in an assigned plan's bill, then the rest by count, largest first.
+
+### What a planner reads
+
+Every seat reads the same, cached so a steady read allocates nothing:
+
+| Read | What |
+|---|---|
+| `Executors.All`, `Find(id)` | Each registered builder: who it is, its area, its state, its latest supply. |
+| `AssignedTo(plan)`, `PlansOf(id)` | A plan's builders and where each stands; a builder's plans. |
+| `ProgressOf(plan, id)` | One builder's `Built` (the plan's completions it held the claim on, saved with them, so they survive a load), and its live claims as `Working` and `Waiting`. |
+| `ProgressOf(plan)` | The same summed over every executor that built or holds claims in the plan, assigned or not: exact, a piece is never counted twice. |
+| `UnclaimedIn(plan)` | The plan's ghosts not done and held by no claim. With `Plans.Facts(plan).Progress`, it gives built, claimed and left. |
+| `SupplyToward(plan)` | What the plan's assigned builders have set aside for it. |
+
+Re-read on `Events.BuilderChanged` (a builder registered, went, or changed what it says) and `Events.StatusChanged` (a
+claim taken, released, lapsed or dropped, or a changed report; never a renewal), coalesced per frame, never every
+frame. A plan's helpers are the builders with progress in it that are not assigned: read `ProgressOf(plan, b)` for each
+builder in `All`, on a change.
+
+**Plan colour.** `Plan.Colour` is the plan's colour for any reader to tint by: set it with `PlanDraft.Colour` when the
+plan is made and `PlanEdit.Recolour(to)` after (`None` clears it). Lattice keeps it as written; a plan with none leaves
+each reader its own fallback.
+
+### Steps
 
 **Carrying out steps is the builder's job.** Lattice says what must happen; your mod makes it happen in the game,
 as a player's hands would:

@@ -32,6 +32,12 @@ public class StubGhostEvents : IGhostEvents
     public void RaiseStatusChanged(GhostId ghost) => StatusChanged.Invoke(ghost);
 
     /// <inheritdoc />
+    public virtual event Action<ExecutorId> BuilderChanged = delegate { };
+
+    /// <summary>Raises <see cref="BuilderChanged"/> to its subscribers, as Lattice would. Added in contract 0.22.</summary>
+    public void RaiseBuilderChanged(ExecutorId builder) => BuilderChanged.Invoke(builder);
+
+    /// <inheritdoc />
     public virtual event Action<Ticket, Outcome> Answered = delegate { };
 
     /// <summary>Raises <see cref="Answered"/> to its subscribers, as Lattice would.</summary>

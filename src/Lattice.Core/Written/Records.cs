@@ -127,6 +127,14 @@ internal static class PlanForm
             .Add("made", plan.MadeBy.Value);
         Common.WriteVisibility(fields, plan.Visibility);
         Common.WriteData(fields, plan.HigherLayerData);
+        if (plan.Colour.TryGet(out var colour))
+            fields.Add("colour", WrittenValues.Tint(colour));
+        var builders = new List<string>(plan.BuildBy.Count);
+        foreach (var builder in plan.BuildBy)
+            builders.Add(builder.Value);
+        builders.Sort(string.CompareOrdinal);
+        foreach (var builder in builders)
+            fields.Add("build-by", builder);
         return fields.AddAll(extra).ToList();
     }
 
@@ -140,9 +148,18 @@ internal static class PlanForm
             !Common.Get(read.Need("owner").Bind(WrittenValues.Actor), out var owner, ref problem) ||
             !Common.Get(read.Need("made").Bind(static t => WrittenValues.Checked(Maker.Parse(t), "maker", t)), out var made, ref problem) ||
             !Common.Get(Common.ReadVisibility(read), out var visibility, ref problem) ||
-            !Common.Get(Common.ReadData(read), out var data, ref problem))
+            !Common.Get(Common.ReadData(read), out var data, ref problem) ||
+            !Common.Get(Common.Optional(read.Take("colour"), WrittenValues.Tint), out var colour, ref problem))
             return new PlanRecord.Opaque(fields, problem);
-        return new PlanRecord.Known(new Plan(new PlanId(id), revision, name, owner, made, visibility, data), read.Rest());
+        var buildBy = new List<ExecutorId>();
+        foreach (var text in read.TakeAll("build-by"))
+        {
+            if (!ExecutorId.Parse(text).TryGet(out var builder))
+                return new PlanRecord.Opaque(fields, $"bad builder '{text}'");
+            buildBy.Add(builder);
+        }
+
+        return new PlanRecord.Known(new Plan(new PlanId(id), revision, name, owner, made, visibility, data) { Colour = colour, BuildBy = ValueSet.From(buildBy) }, read.Rest());
     }
 }
 

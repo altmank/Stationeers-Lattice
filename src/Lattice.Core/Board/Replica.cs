@@ -80,7 +80,8 @@ internal sealed partial class GhostBoard : IReplicaBoard
         {
             if ((!Index.Plans.ContainsKey(pair.Key) && !Opens(set, pair.Key)) || Finishes(set, pair.Key))
                 return Mismatch("plan", pair.Key.Value);
-            pending.DoneCounts.Add((pair.Key, pair.Value));
+            pending.DoneCounts.Add((pair.Key, pair.Value,
+                set.DoneBySet.TryGetValue(pair.Key, out var doneBy) ? DoneBy.From(doneBy) : DoneBy.None));
         }
 
         Stage(pending, byCommand);
@@ -90,6 +91,7 @@ internal sealed partial class GhostBoard : IReplicaBoard
         if (byCommand)
             History.Record(set);
         Events.Queue(new ChangedEvent(set));
+        Committed?.Invoke(set);
         return Result<ChangeSet, Reason>.Ok(set);
     }
 

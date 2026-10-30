@@ -166,6 +166,9 @@ public sealed class KindAndDefaultTests
             [typeof(PlanEdit.ChangeVisibility)] = () => EditPlan(new PlanEdit.ChangeVisibility(new Visibility.Everyone())),
             [typeof(PlanEdit.SetData)] = () => EditPlan(new PlanEdit.SetData(key, default)),
             [typeof(PlanEdit.ClearData)] = () => EditPlan(new PlanEdit.ClearData(key)),
+            [typeof(PlanEdit.Recolour)] = () => EditPlan(new PlanEdit.Recolour(Option.Some(new Tint(1, 2, 3, 255)))),
+            [typeof(PlanEdit.Assign)] = () => EditPlan(new PlanEdit.Assign(TestKitIds.Must(ExecutorId.Create(TestKitIds.Must(ModId.Create("kinds")), "dock")))),
+            [typeof(PlanEdit.Unassign)] = () => EditPlan(new PlanEdit.Unassign(TestKitIds.Must(ExecutorId.Create(TestKitIds.Must(ModId.Create("kinds")), "dock")))),
 
             [typeof(Selector.Everything)] = () => Pick(new Selector.Everything()),
             [typeof(Selector.Ids)] = () => Pick(ids),

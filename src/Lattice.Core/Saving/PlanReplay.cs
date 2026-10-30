@@ -36,6 +36,9 @@ internal sealed class PlanReplay
     /// <summary>Ghosts of the plan done along its lines up to here (built, removed or finished as asked; they left the plan).</summary>
     public int Done { get; private set; }
 
+    /// <summary>Of <see cref="Done"/>, how many each executor held the claim on (the done line's <c>by</c>).</summary>
+    public ValueMap<ExecutorId, int> DoneBy { get; private set; } = ValueMap<ExecutorId, int>.Empty;
+
     /// <summary>The box around the structures it built; none before the first.</summary>
     public Option<(Cell Min, Cell Max)> Bounds { get; private set; }
 
@@ -49,9 +52,9 @@ internal sealed class PlanReplay
     /// A state from a checkpoint: the plan, its ghosts and whether it was finished at that line. A checkpoint written
     /// before done counts were kept gives no <paramref name="done"/>; its built count stands in (every built ghost is done).
     /// </summary>
-    public static PlanReplay From(PlanId plan, long at, Option<Plan> record, bool finished, IEnumerable<Ghost> ghosts, int built = 0, Option<(Cell Min, Cell Max)> bounds = default, int? done = null)
+    public static PlanReplay From(PlanId plan, long at, Option<Plan> record, bool finished, IEnumerable<Ghost> ghosts, int built = 0, Option<(Cell Min, Cell Max)> bounds = default, int? done = null, ValueMap<ExecutorId, int>? doneBy = null)
     {
-        var replay = new PlanReplay(plan) { At = at, Record = record, Finished = finished, Built = built, Bounds = bounds, Done = done ?? built };
+        var replay = new PlanReplay(plan) { At = at, Record = record, Finished = finished, Built = built, Bounds = bounds, Done = done ?? built, DoneBy = doneBy ?? ValueMap<ExecutorId, int>.Empty };
         foreach (var ghost in ghosts)
             replay._ghosts[ghost.Id] = ghost;
         return replay;
@@ -84,8 +87,12 @@ internal sealed class PlanReplay
                 break;
             case ChangeOp.RemoveGhost remove:
                 _ghosts.Remove(remove.Ghost);
-                if (remove.Cause is RemovalCause.Done)
+                if (remove.Cause is RemovalCause.Done done)
+                {
                     Done++;
+                    if (done.How.By.TryGet(out var by))
+                        DoneBy = DoneBy.With(by, (DoneBy.TryGetValue(by, out var had) ? had : 0) + 1);
+                }
                 if (remove.Cause is RemovalCause.Done { How.Built: var built } && built.TryGet(out var structure))
                     Count(structure.At);
                 break;

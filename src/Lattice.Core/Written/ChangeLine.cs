@@ -325,6 +325,8 @@ internal static class ChangeLineForm
                     fields.Add("built", WrittenValues.Structure(built));
                 if (!context.At.TryGet(out var at) || at != done.How.At)
                     fields.Add("done-at", WrittenValues.Time(done.How.At));
+                if (done.How.By.TryGet(out var by))
+                    fields.Add("by", by.Value);
                 break;
             case RemovalCause.TargetGone:
                 fields.Add("cause", "target-gone");
@@ -355,7 +357,8 @@ internal static class ChangeLineForm
         "replaced" => read.Need("by-ghost").Bind(WrittenValues.Long).Map(static by => (RemovalCause)new RemovalCause.Replaced(new GhostId(by))),
         "done" => Common.Optional(read.Take("built"), WrittenValues.Structure)
             .Bind(built => Common.Contextual(read.Take("done-at"), context.At, WrittenValues.Time, "done-at")
-                .Map(at => (RemovalCause)new RemovalCause.Done(new Completion(built, at)))),
+                .Bind(at => Common.Optional(read.Take("by"), static t => WrittenValues.Checked(ExecutorId.Parse(t), "executor", t))
+                    .Map(by => (RemovalCause)new RemovalCause.Done(new Completion(built, at) { By = by })))),
         "target-gone" => Result<RemovalCause, string>.Ok(new RemovalCause.TargetGone()),
         _ => Result<RemovalCause, string>.Error($"unknown cause '{cause}'"),
     };

@@ -32,6 +32,12 @@ public sealed record ChangeSet(
     /// removed as done is counted, not listed here. Lattice's own: sync carries it so every seat counts the same.
     /// </summary>
     internal ValueMap<PlanId, int> DoneSet { get; init; } = ValueMap<PlanId, int>.Empty;
+
+    /// <summary>
+    /// Of <see cref="DoneSet"/>, each plan's done ghosts per executor that held their claim; a plan in it not listed here
+    /// has none.
+    /// </summary>
+    internal ValueMap<PlanId, ValueMap<ExecutorId, int>> DoneBySet { get; init; } = ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty;
 }
 
 /// <summary>A ghost before and after a change.</summary>
@@ -72,7 +78,11 @@ public abstract record RemovalCause
 /// <summary>The world matching a ghost.</summary>
 /// <param name="Built">The structure that matches it, for a build, swap or finish ghost.</param>
 /// <param name="At">When the match was seen, real time.</param>
-public sealed record Completion(Option<StructureRef> Built, DateTimeOffset At);
+public sealed record Completion(Option<StructureRef> Built, DateTimeOffset At)
+{
+    /// <summary>The executor that held the ghost's claim when it completed; none: unclaimed (a player). Added in contract 0.22.</summary>
+    public Option<ExecutorId> By { get; init; }
+}
 
 /// <summary>A command's outcome: applied, or refused with reasons.</summary>
 public abstract record Outcome

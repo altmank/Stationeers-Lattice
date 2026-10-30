@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 21 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 22 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2744,3 +2744,129 @@ static Lattice.Api.TurnSet.All.get -> Lattice.Api.TurnSet
 static Lattice.Api.TurnSet.None.get -> Lattice.Api.TurnSet
 static Lattice.Api.TurnSet.From(System.Collections.Generic.IEnumerable<Lattice.Api.Turn>! turns) -> Lattice.Api.TurnSet
 static readonly Lattice.Api.ReasonCodes.TurnNotAllowed -> Lattice.Api.ReasonCode
+Lattice.Api.Assignment
+Lattice.Api.Assignment.Absent
+Lattice.Api.Assignment.Absent.Absent(Lattice.Api.ExecutorId By) -> void
+Lattice.Api.Assignment.Absent.By.get -> Lattice.Api.ExecutorId
+Lattice.Api.Assignment.Absent.By.init -> void
+Lattice.Api.Assignment.Accepted
+Lattice.Api.Assignment.Accepted.Accepted(Lattice.Api.ExecutorId By) -> void
+Lattice.Api.Assignment.Accepted.By.get -> Lattice.Api.ExecutorId
+Lattice.Api.Assignment.Accepted.By.init -> void
+Lattice.Api.Assignment.Asked
+Lattice.Api.Assignment.Asked.Asked(Lattice.Api.ExecutorId By) -> void
+Lattice.Api.Assignment.Asked.By.get -> Lattice.Api.ExecutorId
+Lattice.Api.Assignment.Asked.By.init -> void
+Lattice.Api.Assignment.Refused
+Lattice.Api.Assignment.Refused.By.get -> Lattice.Api.ExecutorId
+Lattice.Api.Assignment.Refused.By.init -> void
+Lattice.Api.Assignment.Refused.Refused(Lattice.Api.ExecutorId By, Lattice.Api.Reason! Why) -> void
+Lattice.Api.Assignment.Refused.Why.get -> Lattice.Api.Reason!
+Lattice.Api.Assignment.Refused.Why.init -> void
+Lattice.Api.AssignmentAnswer
+Lattice.Api.AssignmentAnswer.Accepted
+Lattice.Api.AssignmentAnswer.Refused
+Lattice.Api.AssignmentAnswer.Refused.Refused(Lattice.Api.Reason! Why) -> void
+Lattice.Api.AssignmentAnswer.Refused.Why.get -> Lattice.Api.Reason!
+Lattice.Api.AssignmentAnswer.Refused.Why.init -> void
+Lattice.Api.Builder
+Lattice.Api.Builder.Area.get -> Lattice.Api.Option<Lattice.Api.BuilderArea!>
+Lattice.Api.Builder.Area.init -> void
+Lattice.Api.Builder.Builder(Lattice.Api.ExecutorInfo! Info, Lattice.Api.Option<Lattice.Api.BuilderArea!> Area, Lattice.Api.BuilderState! State, Lattice.Api.Option<Lattice.Api.Supply!> Supply) -> void
+Lattice.Api.Builder.Info.get -> Lattice.Api.ExecutorInfo!
+Lattice.Api.Builder.Info.init -> void
+Lattice.Api.Builder.State.get -> Lattice.Api.BuilderState!
+Lattice.Api.Builder.State.init -> void
+Lattice.Api.Builder.Supply.get -> Lattice.Api.Option<Lattice.Api.Supply!>
+Lattice.Api.Builder.Supply.init -> void
+Lattice.Api.BuilderArea
+Lattice.Api.BuilderArea.Sphere
+Lattice.Api.BuilderArea.Sphere.At.get -> Lattice.Api.WorldPoint
+Lattice.Api.BuilderArea.Sphere.At.init -> void
+Lattice.Api.BuilderArea.Sphere.BuildReach.get -> Lattice.Api.Metres
+Lattice.Api.BuilderArea.Sphere.BuildReach.init -> void
+Lattice.Api.BuilderArea.Sphere.SourceRange.get -> Lattice.Api.Option<Lattice.Api.Metres>
+Lattice.Api.BuilderArea.Sphere.SourceRange.init -> void
+Lattice.Api.BuilderArea.Sphere.Sphere(Lattice.Api.WorldPoint At, Lattice.Api.Metres BuildReach, Lattice.Api.Option<Lattice.Api.Metres> SourceRange) -> void
+Lattice.Api.BuilderProgress
+Lattice.Api.BuilderProgress.BuilderProgress() -> void
+Lattice.Api.BuilderProgress.BuilderProgress(int Built, int Working, int Waiting) -> void
+Lattice.Api.BuilderProgress.Built.get -> int
+Lattice.Api.BuilderProgress.Built.init -> void
+Lattice.Api.BuilderProgress.Waiting.get -> int
+Lattice.Api.BuilderProgress.Waiting.init -> void
+Lattice.Api.BuilderProgress.Working.get -> int
+Lattice.Api.BuilderProgress.Working.init -> void
+Lattice.Api.BuilderState
+Lattice.Api.BuilderState.Idle
+Lattice.Api.BuilderState.Stuck
+Lattice.Api.BuilderState.Stuck.Stuck(Lattice.Api.Reason! Why) -> void
+Lattice.Api.BuilderState.Stuck.Why.get -> Lattice.Api.Reason!
+Lattice.Api.BuilderState.Stuck.Why.init -> void
+Lattice.Api.BuilderState.Working
+Lattice.Api.BuilderWord
+Lattice.Api.BuilderWord.Ready
+Lattice.Api.BuilderWord.Stuck
+Lattice.Api.BuilderWord.Stuck.Stuck(Lattice.Api.Reason! Why) -> void
+Lattice.Api.BuilderWord.Stuck.Why.get -> Lattice.Api.Reason!
+Lattice.Api.BuilderWord.Stuck.Why.init -> void
+Lattice.Api.BuildScope
+Lattice.Api.BuildScope.Any
+Lattice.Api.BuildScope.Families
+Lattice.Api.BuildScope.Families.Families(Lattice.Api.ValueSet<Lattice.Api.PieceFamily>! Of) -> void
+Lattice.Api.BuildScope.Families.Of.get -> Lattice.Api.ValueSet<Lattice.Api.PieceFamily>!
+Lattice.Api.BuildScope.Families.Of.init -> void
+Lattice.Api.BuildScope.Kits
+Lattice.Api.BuildScope.Kits.Kits(Lattice.Api.ValueSet<Lattice.Api.KitKey>! Of) -> void
+Lattice.Api.BuildScope.Kits.Of.get -> Lattice.Api.ValueSet<Lattice.Api.KitKey>!
+Lattice.Api.BuildScope.Kits.Of.init -> void
+Lattice.Api.Completion.By.get -> Lattice.Api.Option<Lattice.Api.ExecutorId>
+Lattice.Api.Completion.By.init -> void
+Lattice.Api.ExecutorId.Mod.get -> Lattice.Api.ModId
+Lattice.Api.ExecutorInfo.Builds.get -> Lattice.Api.BuildScope!
+Lattice.Api.ExecutorInfo.Builds.init -> void
+Lattice.Api.ExecutorInfo.Owner.get -> Lattice.Api.Option<Lattice.Api.Actor!>
+Lattice.Api.ExecutorInfo.Owner.init -> void
+Lattice.Api.IExecutorHandle.Answer(Lattice.Api.PlanId plan, Lattice.Api.AssignmentAnswer! answer) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Api.IExecutorHandle.Locate(Lattice.Api.Option<Lattice.Api.BuilderArea!> area) -> void
+Lattice.Api.IExecutorHandle.Offer(Lattice.Api.SupplyReport! supply) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Api.IExecutorHandle.Say(Lattice.Api.BuilderWord! word) -> void
+Lattice.Api.IExecutors.All.get -> Lattice.Api.ValueList<Lattice.Api.Builder!>!
+Lattice.Api.IExecutors.AssignedTo(Lattice.Api.PlanId plan) -> Lattice.Api.ValueList<Lattice.Api.Assignment!>!
+Lattice.Api.IExecutors.Find(Lattice.Api.ExecutorId id) -> Lattice.Api.Option<Lattice.Api.Builder!>
+Lattice.Api.IExecutors.PlansOf(Lattice.Api.ExecutorId id) -> Lattice.Api.ValueList<Lattice.Api.PlanId>!
+Lattice.Api.IExecutors.ProgressOf(Lattice.Api.PlanId plan) -> Lattice.Api.BuilderProgress
+Lattice.Api.IExecutors.ProgressOf(Lattice.Api.PlanId plan, Lattice.Api.ExecutorId id) -> Lattice.Api.BuilderProgress
+Lattice.Api.IExecutors.SupplyToward(Lattice.Api.PlanId plan) -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+Lattice.Api.IExecutors.UnclaimedIn(Lattice.Api.PlanId plan) -> int
+Lattice.Api.IGhostEvents.BuilderChanged -> System.Action<Lattice.Api.ExecutorId>!
+Lattice.Api.Plan.BuildBy.get -> Lattice.Api.ValueSet<Lattice.Api.ExecutorId>!
+Lattice.Api.Plan.BuildBy.init -> void
+Lattice.Api.Plan.Colour.get -> Lattice.Api.Option<Lattice.Api.Tint>
+Lattice.Api.Plan.Colour.init -> void
+Lattice.Api.PlanDraft.Colour.get -> Lattice.Api.Option<Lattice.Api.Tint>
+Lattice.Api.PlanDraft.Colour.init -> void
+Lattice.Api.PlanEdit.Assign
+Lattice.Api.PlanEdit.Assign.Assign(Lattice.Api.ExecutorId Builder) -> void
+Lattice.Api.PlanEdit.Assign.Builder.get -> Lattice.Api.ExecutorId
+Lattice.Api.PlanEdit.Assign.Builder.init -> void
+Lattice.Api.PlanEdit.Recolour
+Lattice.Api.PlanEdit.Recolour.Recolour(Lattice.Api.Option<Lattice.Api.Tint> To) -> void
+Lattice.Api.PlanEdit.Recolour.To.get -> Lattice.Api.Option<Lattice.Api.Tint>
+Lattice.Api.PlanEdit.Recolour.To.init -> void
+Lattice.Api.PlanEdit.Unassign
+Lattice.Api.PlanEdit.Unassign.Builder.get -> Lattice.Api.ExecutorId
+Lattice.Api.PlanEdit.Unassign.Builder.init -> void
+Lattice.Api.PlanEdit.Unassign.Unassign(Lattice.Api.ExecutorId Builder) -> void
+Lattice.Api.Supply
+Lattice.Api.Supply.At.get -> Lattice.Api.GameTime
+Lattice.Api.Supply.At.init -> void
+Lattice.Api.Supply.Report.get -> Lattice.Api.SupplyReport!
+Lattice.Api.Supply.Report.init -> void
+Lattice.Api.Supply.Supply(Lattice.Api.SupplyReport! Report, Lattice.Api.GameTime At) -> void
+Lattice.Api.SupplyReport
+Lattice.Api.SupplyReport.Reaches.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+Lattice.Api.SupplyReport.Reaches.init -> void
+Lattice.Api.SupplyReport.SupplyReport(Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! Reaches, Lattice.Api.ValueMap<Lattice.Api.PlanId, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!>! Toward) -> void
+Lattice.Api.SupplyReport.Toward.get -> Lattice.Api.ValueMap<Lattice.Api.PlanId, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!>!
+Lattice.Api.SupplyReport.Toward.init -> void

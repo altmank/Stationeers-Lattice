@@ -32,6 +32,22 @@ internal sealed class OffModule(Reason why) : IValidation, ISteps, IBills, ISwap
 
     public ValueList<ExecutorReport> StatusOf(GhostId ghost) => ValueList<ExecutorReport>.Empty;
 
+    public ValueList<Builder> All => ValueList<Builder>.Empty;
+
+    public Option<Builder> Find(ExecutorId id) => Option<Builder>.None;
+
+    public ValueList<Assignment> AssignedTo(PlanId plan) => ValueList<Assignment>.Empty;
+
+    public ValueList<PlanId> PlansOf(ExecutorId id) => ValueList<PlanId>.Empty;
+
+    public BuilderProgress ProgressOf(PlanId plan, ExecutorId id) => default;
+
+    public BuilderProgress ProgressOf(PlanId plan) => default;
+
+    public ValueList<ItemQuantity> SupplyToward(PlanId plan) => ValueList<ItemQuantity>.Empty;
+
+    public int UnclaimedIn(PlanId plan) => 0;
+
     public Result<GhostStory, Reason> Story(GhostId ghost) => Result<GhostStory, Reason>.Error(why);
 
     public Result<PlanStory, Reason> Story(PlanId plan) => Result<PlanStory, Reason>.Error(why);

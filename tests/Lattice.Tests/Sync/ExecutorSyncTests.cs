@@ -39,7 +39,7 @@ public sealed class ExecutorSyncTests
     }
 
     [Fact]
-    public void A_report_raises_one_status_change_on_the_client_and_an_equal_report_none()
+    public void A_claim_and_a_report_each_raise_one_status_change_on_the_client_and_an_equal_report_none()
     {
         var bench = new ExecutorSyncBench();
         var client = bench.Join(1);
@@ -47,15 +47,15 @@ public sealed class ExecutorSyncTests
         var builder = bench.Register("builder");
         ExecutorSyncBench.Claim(builder, ghost);
         bench.Settle();
-        Assert.Empty(client.StatusChanges);
+        Assert.Equal(new[] { ghost }, client.StatusChanges);
 
         ExecutorSyncBench.Report(builder, ghost, Working25);
         bench.Settle();
-        Assert.Equal(new[] { ghost }, client.StatusChanges);
+        Assert.Equal(new[] { ghost, ghost }, client.StatusChanges);
 
         ExecutorSyncBench.Report(builder, ghost, new ExecutorStatus.Working(2, 5));
         bench.Settle();
-        Assert.Single(client.StatusChanges);
+        Assert.Equal(2, client.StatusChanges.Count);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class ExecutorSyncTests
 
     [Theory]
     [MemberData(nameof(Endings))]
-    public void A_claim_that_ends_on_the_host_is_gone_on_the_client_with_a_status_change_when_it_had_a_status(string ending)
+    public void A_claim_that_ends_on_the_host_is_gone_on_the_client_with_one_status_change_status_or_not(string ending)
     {
         foreach (var hadStatus in new[] { true, false })
         {
@@ -118,7 +118,7 @@ public sealed class ExecutorSyncTests
 
             Assert.False(client.Executors.ClaimOn(ghost).IsSome, ending);
             Assert.Empty(client.Executors.StatusOf(ghost));
-            var expected = hadStatus && ending != "remove" ? 1 : 0;
+            var expected = ending != "remove" ? 1 : 0;
             Assert.Equal(changes + expected, client.StatusChanges.Count);
             Assert.Empty(client.Reports);
         }

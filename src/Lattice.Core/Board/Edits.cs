@@ -69,8 +69,22 @@ internal static class Edits
         PlanEdit.ChangeVisibility visibility => OkPlan(plan with { Visibility = visibility.To, Revision = at }),
         PlanEdit.SetData set => OkPlan(plan with { HigherLayerData = plan.HigherLayerData.With(set.Key, set.Value), Revision = at }),
         PlanEdit.ClearData clear => OkPlan(plan with { HigherLayerData = plan.HigherLayerData.Without(clear.Key), Revision = at }),
+        PlanEdit.Recolour recolour => OkPlan(plan with { Colour = recolour.To, Revision = at }),
+        PlanEdit.Assign assign => plan.BuildBy.Contains(assign.Builder)
+            ? OkPlan(plan)
+            : plan.BuildBy.Count >= MostBuilders
+                ? Result<Plan, Reason>.Error(Reason.Of(ReasonCodes.TooLarge, LatticeIdentity.Board, ValueMap
+                    .Of("plan", plan.Id.Value.ToString())
+                    .With("builders", MostBuilders.ToString())))
+                : OkPlan(plan with { BuildBy = Sets.With(plan.BuildBy, assign.Builder), Revision = at }),
+        PlanEdit.Unassign unassign => plan.BuildBy.Contains(unassign.Builder)
+            ? OkPlan(plan with { BuildBy = Sets.Without(plan.BuildBy, unassign.Builder), Revision = at })
+            : OkPlan(plan),
         _ => Result<Plan, Reason>.Error(Unknown.Kind(edit)),
     };
+
+    /// <summary>How many builders a plan may be assigned to at once.</summary>
+    public const int MostBuilders = 64;
 
     /// <summary>A build or swap ghost takes or drops a finish; a finish ghost only takes a new one; a remove ghost has none.</summary>
     private static Result<Intent, Reason> Finish(Intent intent, Option<Finish> to) => intent switch
@@ -138,4 +152,26 @@ internal static class ResultErrors
 internal static class Lists
 {
     public static ValueList<T> Own<T>(T[] items) => ValueList<T>.Own(items);
+}
+
+/// <summary>A set with one item more or less; the others as they were.</summary>
+internal static class Sets
+{
+    public static ValueSet<T> With<T>(ValueSet<T> set, T item) where T : notnull
+    {
+        var items = new System.Collections.Generic.List<T>(set.Count + 1);
+        foreach (var each in set)
+            items.Add(each);
+        items.Add(item);
+        return ValueSet.From(items);
+    }
+
+    public static ValueSet<T> Without<T>(ValueSet<T> set, T item) where T : notnull
+    {
+        var items = new System.Collections.Generic.List<T>(set.Count);
+        foreach (var each in set)
+            if (!each.Equals(item))
+                items.Add(each);
+        return ValueSet.From(items);
+    }
 }

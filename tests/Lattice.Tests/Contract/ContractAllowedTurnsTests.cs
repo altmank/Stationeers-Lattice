@@ -17,13 +17,6 @@ public sealed class ContractAllowedTurnsTests
         return string.Join(" ", entry.Value.Split((char[]?)null, System.StringSplitOptions.RemoveEmptyEntries));
     }
 
-    [Fact]
-    public void The_contract_is_zero_twenty_one()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(21, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData("P:Lattice.Api.PieceEntry.AllowedTurns")]
     [InlineData("T:Lattice.Api.TurnSet")]

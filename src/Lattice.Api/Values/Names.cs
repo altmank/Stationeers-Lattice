@@ -139,6 +139,16 @@ public readonly record struct ExecutorId
     internal static Result<ExecutorId, Reason> Parse(string value) =>
         Token.CheckQualified(value, nameof(ExecutorId)).Map(static v => new ExecutorId(v));
 
+    /// <summary>The mod that owns it: the owner part of <c>owner/name</c>; <c>default</c> for a bare id. Added in contract 0.22.</summary>
+    public ModId Mod
+    {
+        get
+        {
+            var slash = Value.IndexOf('/');
+            return slash > 0 && ModId.Create(Value.Substring(0, slash)).TryGet(out var mod) ? mod : default;
+        }
+    }
+
     /// <inheritdoc />
     public override string ToString() => Value;
 }

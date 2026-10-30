@@ -15,11 +15,14 @@ namespace Lattice.Tests.Sync;
 
 /// <summary>
 /// A change set that gives a plan its done count outright (a catch-up, a reopen) carries the count, so a joined
-/// client's plan counts what the host's does after that same set; ghosts done after it are counted once on each seat.
+/// client's plan counts what the host's does after that same set, each builder's built count with it; ghosts done after
+/// it are counted once on each seat.
 /// </summary>
 public sealed class DoneSetSyncTests
 {
     private static readonly ConnectionId Connection = new(1);
+    private static readonly ExecutorId Dock = TestKitIds.Must(ExecutorId.Create(TestKitIds.Mod, "dock"));
+    private static readonly ExecutorId Drone = TestKitIds.Must(ExecutorId.Create(TestKitIds.Mod, "drone"));
 
     /// <summary>A plan of two trusses built and one planned.</summary>
     private static (PlanId Plan, Ghost Left) TwoBuiltOneLeft(FinishedBench b)
@@ -114,7 +117,54 @@ public sealed class DoneSetSyncTests
         Assert.Empty(seats.Reports);
     }
 
+    [Fact]
+    public void A_catch_up_gives_a_joined_client_each_builders_built_count()
+    {
+        using var b = new FinishedBench();
+        var plan = b.NewPlan("Hall");
+        b.Board.ClaimHolder = _ => Option.Some(Dock);
+        b.Construct(b.Plan(plan, "ModTruss", Large(0)));
+        var save = b.Save();
+        b.Construct(b.Plan(plan, "ModTruss", Large(1)));
+        b.Board.ClaimHolder = _ => Option.Some(Drone);
+        b.Construct(b.Plan(plan, "ModTruss", Large(2)));
+        b.Board.ClaimHolder = null;
+        b.Reload(Option.Some(save));
+        var seats = new Seats(b);
+        Assert.Equal(1, seats.ClientBuiltBy(plan, Dock));
+
+        seats.Apply(new Command.CatchUp(plan));
+
+        Assert.Equal(2, BuiltBy(b.Board, plan, Dock));
+        Assert.Equal(2, seats.ClientBuiltBy(plan, Dock));
+        Assert.Equal(1, seats.ClientBuiltBy(plan, Drone));
+        Assert.Equal(3, seats.ClientDone(plan));
+        Assert.Empty(seats.Reports);
+    }
+
+    [Fact]
+    public void A_reopened_plan_reaches_a_joined_client_with_each_builders_built_count()
+    {
+        using var b = new FinishedBench();
+        var plan = b.NewPlan("Hall");
+        b.Board.ClaimHolder = _ => Option.Some(Dock);
+        b.Construct(b.Plan(plan, "ModTruss", Large(0)));
+        b.Construct(b.Plan(plan, "ModTruss", Large(1)));
+        b.Board.ClaimHolder = null;
+        b.Construct(b.Plan(plan, "ModTruss", Large(2)));
+        b.Finish(plan);
+        var seats = new Seats(b);
+
+        seats.Apply(new Command.Reopen(plan));
+
+        Assert.Equal(2, seats.ClientBuiltBy(plan, Dock));
+        Assert.Equal(3, seats.ClientDone(plan));
+        Assert.Empty(seats.Reports);
+    }
+
     private static int Done(GhostBoard board, PlanId plan) => board.Index.Plans[plan].Done;
+
+    private static int BuiltBy(GhostBoard board, PlanId plan, ExecutorId by) => board.Index.Plans[plan].DoneBy.Of(by);
 
     /// <summary>The bench's board as the host, with a client seat's own board joined over one sync wire.</summary>
     private sealed class Seats
@@ -142,6 +192,8 @@ public sealed class DoneSetSyncTests
         public List<Reason> Reports { get; } = new();
 
         public int ClientDone(PlanId plan) => _clientBoard.Index.Plans[plan].Done;
+
+        public int ClientBuiltBy(PlanId plan, ExecutorId by) => _clientBoard.Index.Plans[plan].DoneBy.Of(by);
 
         public int ClientGhosts(PlanId plan) => _clientBoard.Index.Plans[plan].Ghosts.Count;
 

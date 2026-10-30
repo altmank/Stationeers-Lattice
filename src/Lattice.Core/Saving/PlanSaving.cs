@@ -108,6 +108,9 @@ internal sealed record NewestPlan(Option<Plan> Record, bool Finished, ValueList<
 {
     /// <summary>The plan's ghosts done along its lines up to that line.</summary>
     public int Done { get; init; }
+
+    /// <summary>Of <see cref="Done"/>, how many each executor held the claim on.</summary>
+    public ValueMap<ExecutorId, int> DoneBy { get; init; } = ValueMap<ExecutorId, int>.Empty;
 }
 
 /// <summary>The board to start a world with, and what the load found.</summary>
@@ -356,7 +359,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
                 _newest[plan] = state;
                 var ghosts = new List<Ghost>(state.Ghosts);
                 ghosts.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
-                return Result<NewestPlan, Reason>.Ok(new NewestPlan(state.Record, state.Finished, ValueList.From(ghosts)) { Done = state.Done });
+                return Result<NewestPlan, Reason>.Ok(new NewestPlan(state.Record, state.Finished, ValueList.From(ghosts)) { Done = state.Done, DoneBy = state.DoneBy });
             }
 
         return Result<NewestPlan, Reason>.Error(Reason.Of(ReasonCodes.NotFound, SavingReasons.Saving,
@@ -391,7 +394,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
                 replay.Apply(read);
         if (!replay.Finished || !replay.Record.TryGet(out var record))
             return Result<FinishedContents, Reason>.Error(Reason.Of(ReasonCodes.NotAllowed, SavingReasons.Saving, PlanFact(plan).With("problem", "not-finished")));
-        return Result<FinishedContents, Reason>.Ok(new FinishedContents(record, ValueList.From(replay.Built), ValueList.From(replay.Left), head) { Done = replay.Done });
+        return Result<FinishedContents, Reason>.Ok(new FinishedContents(record, ValueList.From(replay.Built), ValueList.From(replay.Left), head) { Done = replay.Done, DoneBy = replay.DoneBy });
     }
 
     /// <summary>
@@ -689,6 +692,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         var plans = new List<Plan>();
         var ghosts = new List<Ghost>();
         var done = new Dictionary<PlanId, int>();
+        var doneBy = new Dictionary<PlanId, ValueMap<ExecutorId, int>>();
         foreach (var (plan, state) in _states)
         {
             if (state.Finished)
@@ -697,13 +701,15 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
                 plans.Add(record);
             if (state.Done > 0)
                 done[plan] = state.Done;
+            if (state.DoneBy.Count > 0)
+                doneBy[plan] = state.DoneBy;
             foreach (var ghost in state.Ghosts)
                 ghosts.Add(ghost);
         }
 
         plans.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
         ghosts.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
-        return new BoardSeed(_revision, _next, ValueList.From(plans), ValueList.From(ghosts)) { Done = ValueMap<PlanId, int>.From(done) };
+        return new BoardSeed(_revision, _next, ValueList.From(plans), ValueList.From(ghosts)) { Done = ValueMap<PlanId, int>.From(done), DoneBy = ValueMap<PlanId, ValueMap<ExecutorId, int>>.From(doneBy) };
     }
 
     // The line a finished plan is at: the world's head for it, else its index entry's finishing line, else its newest line.
@@ -775,7 +781,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     }
 
     private static PlanReplay Copy(PlanReplay state) =>
-        PlanReplay.From(state.Plan, state.At, state.Record, state.Finished, new List<Ghost>(state.Ghosts), state.Built, state.Bounds, state.Done);
+        PlanReplay.From(state.Plan, state.At, state.Record, state.Finished, new List<Ghost>(state.Ghosts), state.Built, state.Bounds, state.Done, state.DoneBy);
 
     // The next queued item: a line with the lines after it of the same plan, up to AppendChars, in one append; a
     // checkpoint's first part; anything else whole.

@@ -64,6 +64,7 @@ internal sealed class BoardEvents : IGhostEvents
     private readonly Subscribers<Action<Revision>> _answersReady = new();
     private readonly Subscribers<Action<LoadReport>> _loaded = new();
     private readonly Subscribers<Action> _boardReset = new();
+    private readonly Subscribers<Action<ExecutorId>> _builderChanged = new();
 
     private readonly List<QueuedEvent> _queue = new(64);
     private int _next;
@@ -88,6 +89,8 @@ internal sealed class BoardEvents : IGhostEvents
     public event Action<LoadReport> Loaded { add => _loaded.Add(value); remove => _loaded.Remove(value); }
 
     public event Action BoardReset { add => _boardReset.Add(value); remove => _boardReset.Remove(value); }
+
+    public event Action<ExecutorId> BuilderChanged { add => _builderChanged.Add(value); remove => _builderChanged.Remove(value); }
 
     /// <summary>Events waiting for the next flush.</summary>
     public int Waiting => _queue.Count - _next;
@@ -189,6 +192,20 @@ internal sealed class BoardEvents : IGhostEvents
             try
             {
                 handlers[i](at);
+            }
+            catch (Exception error)
+            {
+                Caught(handlers[i], error);
+            }
+    }
+
+    internal void RaiseBuilderChanged(ExecutorId builder)
+    {
+        var handlers = _builderChanged.Current;
+        for (var i = 0; i < handlers.Length; i++)
+            try
+            {
+                handlers[i](builder);
             }
             catch (Exception error)
             {

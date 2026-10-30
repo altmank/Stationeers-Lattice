@@ -34,6 +34,12 @@ internal sealed class PlanEntry(Plan plan, Revision commandRevision)
     /// <summary>The plan's ghosts done so far (they left the board), across loads: saving restores it from the plan's file.</summary>
     public int Done { get; set; }
 
+    /// <summary>
+    /// Of <see cref="Done"/>, how many each executor held the claim on when they completed (<see cref="Completion.By"/>);
+    /// kept beside it on every path.
+    /// </summary>
+    public DoneBy DoneBy { get; set; } = DoneBy.None;
+
     public HashSet<GhostId> Ghosts { get; } = new();
 }
 
@@ -199,4 +205,45 @@ internal sealed class BoardIndex
         if (index.TryGetValue(key, out var set) && set.Remove(ghost) && set.Count == 0)
             index.Remove(key);
     }
+}
+
+/// <summary>A plan's done ghosts per executor that held their claim; immutable, so a count is set or rolled back whole.</summary>
+internal sealed class DoneBy
+{
+    private readonly Dictionary<ExecutorId, int> _counts;
+
+    private DoneBy(Dictionary<ExecutorId, int> counts) => _counts = counts;
+
+    /// <summary>No ghost done by an executor.</summary>
+    public static DoneBy None { get; } = new(new Dictionary<ExecutorId, int>());
+
+    public static DoneBy From(ValueMap<ExecutorId, int> counts)
+    {
+        if (counts.Count == 0)
+            return None;
+        var copy = new Dictionary<ExecutorId, int>(counts.Count);
+        foreach (var pair in counts)
+            copy[pair.Key] = pair.Value;
+        return new DoneBy(copy);
+    }
+
+    public int Count => _counts.Count;
+
+    public int Of(ExecutorId by) => _counts.TryGetValue(by, out var done) ? done : 0;
+
+    /// <summary>The counts with one more (or, for a negative step, fewer) for <paramref name="by"/>.</summary>
+    public DoneBy Plus(ExecutorId by, int step)
+    {
+        var copy = new Dictionary<ExecutorId, int>(_counts);
+        var next = Of(by) + step;
+        if (next > 0)
+            copy[by] = next;
+        else
+            copy.Remove(by);
+        return new DoneBy(copy);
+    }
+
+    public ValueMap<ExecutorId, int> ToMap() => ValueMap<ExecutorId, int>.From(_counts);
+
+    public Dictionary<ExecutorId, int>.Enumerator GetEnumerator() => _counts.GetEnumerator();
 }

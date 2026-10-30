@@ -199,14 +199,24 @@ internal sealed class ClientSync : ICommands
     {
         if (!Joined || _dropped)
             return;
-        var read = StatusForm.Read(text);
+        var read = StatusForm.Read(text, _executors?.Now ?? default);
         if (!read.TryGet(out var update))
         {
             Report(read);
             return;
         }
 
-        _executors?.Take(update.Join, update.Entries);
+        if (_executors is null)
+            return;
+        _executors.Take(update.Join, update.Entries);
+        var says = new List<BuilderSays>(update.Builders.Count);
+        var gone = new List<ExecutorId>();
+        foreach (var line in update.Builders)
+            if (line is BuilderLine.Says said)
+                says.Add(said.Word);
+            else if (line is BuilderLine.Gone went)
+                gone.Add(went.Id);
+        _executors.TakeBuilders(update.Join, says, gone);
     }
 
     private void Answered(string text)

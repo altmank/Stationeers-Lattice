@@ -356,6 +356,8 @@ internal static class CommandForm
             var fields = new FieldList().Add("name", draft.Name.Value).Add("made", draft.MadeBy.Value);
             Common.WriteVisibility(fields, draft.Visibility);
             Common.WriteData(fields, draft.HigherLayerData);
+            if (draft.Colour.TryGet(out var colour))
+                fields.Add("colour", WrittenValues.Tint(colour));
             return fields;
         }
 
@@ -526,6 +528,9 @@ internal static class CommandForm
             Api.PlanEdit.ChangeVisibility visibility => Node("p.vis", new FieldList().Add("to", WrittenValues.Visibility(visibility.To))),
             Api.PlanEdit.SetData set => Node("p.set-data", new FieldList().Add("key", set.Key.Value).Add("value", set.Value.Value)),
             Api.PlanEdit.ClearData clear => Node("p.clear-data", new FieldList().Add("key", clear.Key.Value)),
+            Api.PlanEdit.Recolour recolour => Node("p.recolour", recolour.To.TryGet(out var to) ? new FieldList().Add("to", WrittenValues.Tint(to)) : new FieldList()),
+            Api.PlanEdit.Assign assign => Node("p.assign", new FieldList().Add("builder", assign.Builder.Value)),
+            Api.PlanEdit.Unassign unassign => Node("p.unassign", new FieldList().Add("builder", unassign.Builder.Value)),
             _ => Refuse(edit),
         };
     }
@@ -640,6 +645,9 @@ internal static class CommandForm
             "p.vis" => Need(read, "to", WrittenValues.Visibility).Map(static v => (object)new PlanEdit.ChangeVisibility(v)),
             "p.set-data" => Need(read, "key", KeyOf).Bind(key => Need(read, "value", AttachmentOf).Map(value => (object)new PlanEdit.SetData(key, value))),
             "p.clear-data" => Need(read, "key", KeyOf).Map(static k => (object)new PlanEdit.ClearData(k)),
+            "p.recolour" => Optional(read, "to", WrittenValues.Tint).Map(static t => (object)new PlanEdit.Recolour(t)),
+            "p.assign" => Need(read, "builder", ExecutorOf).Map(static b => (object)new PlanEdit.Assign(b)),
+            "p.unassign" => Need(read, "builder", ExecutorOf).Map(static b => (object)new PlanEdit.Unassign(b)),
             _ => Result<object, string>.Error($"unknown kind '{kind}'"),
         };
 
@@ -664,9 +672,10 @@ internal static class CommandForm
             if (!Common.Get(read.Need("name").Bind(static t => WrittenValues.Checked(PlanName.Create(t), "plan name", t)), out var name, ref problem) ||
                 !Common.Get(read.Need("made").Bind(MakerOf), out var made, ref problem) ||
                 !Common.Get(Common.ReadVisibility(read), out var visibility, ref problem) ||
-                !Common.Get(Common.ReadData(read), out var data, ref problem))
+                !Common.Get(Common.ReadData(read), out var data, ref problem) ||
+                !Common.Get(Common.Optional(read.Take("colour"), WrittenValues.Tint), out var colour, ref problem))
                 return Result<PlanDraft, string>.Error(problem);
-            return Result<PlanDraft, string>.Ok(new PlanDraft(name, made, visibility, data));
+            return Result<PlanDraft, string>.Ok(new PlanDraft(name, made, visibility, data) { Colour = colour });
         }
 
         private Result<object, string> Run(FieldReader read)
@@ -1017,6 +1026,8 @@ internal static class CommandForm
         private static Result<GroupName, string> GroupOf(string text) => WrittenValues.Checked(GroupName.Create(text), "group", text);
 
         private static Result<Maker, string> MakerOf(string text) => WrittenValues.Checked(Maker.Parse(text), "maker", text);
+
+        private static Result<ExecutorId, string> ExecutorOf(string text) => WrittenValues.Checked(ExecutorId.Parse(text), "executor", text);
 
         private static Result<AttachmentKey, string> KeyOf(string text) => WrittenValues.Checked(AttachmentKey.Parse(text), "key", text);
 

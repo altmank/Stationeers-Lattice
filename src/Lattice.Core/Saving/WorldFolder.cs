@@ -148,6 +148,7 @@ internal sealed class WorldFolder
             .Add("built", state.Built)
             .AddAll(Box(state.Bounds))
             .Add("done", state.Done)
+            .AddAll(DoneByFields(state.DoneBy))
             .ToList();
         var ghosts = new List<Ghost>(state.Ghosts);
         return new CheckpointWrite(Path.Combine(Checkpoints, Name(state.Plan), Number(state.At) + ".lcheck"), new JoinSnapshot(default, plans, ValueList<GhostRecord>.Empty) { Extra = extra }, ghosts);
@@ -233,6 +234,7 @@ internal sealed class WorldFolder
             ? Option.Some((min, max))
             : Option<(Cell, Cell)>.None;
         var done = extra.Take("done").Bind(static d => WrittenValues.Int(d).Match(Option.Some, static _ => Option<int>.None));
+        var doneBy = DoneByOf(extra.TakeAll("done-by"));
         var record = Option<Plan>.None;
         foreach (var planRecord in read.Join.Plans)
             if (planRecord is PlanRecord.Known known)
@@ -241,7 +243,34 @@ internal sealed class WorldFolder
         foreach (var ghost in read.Join.Ghosts)
             if (ghost is GhostRecord.Known known)
                 ghosts.Add(known.Ghost);
-        return Option.Some(PlanReplay.From(plan, line, record, finished, ghosts, built, bounds, done.TryGet(out var count) ? count : null));
+        return Option.Some(PlanReplay.From(plan, line, record, finished, ghosts, built, bounds, done.TryGet(out var count) ? count : null, doneBy));
+    }
+
+    // One done-by field per executor, "<executor>=<count>", in id order; none when no ghost was done under a claim.
+    private static ValueList<Field> DoneByFields(ValueMap<ExecutorId, int> doneBy)
+    {
+        var ids = new List<ExecutorId>(doneBy.Count);
+        foreach (var pair in doneBy)
+            ids.Add(pair.Key);
+        ids.Sort(static (a, b) => string.CompareOrdinal(a.Value, b.Value));
+        var fields = new FieldList();
+        foreach (var id in ids)
+            fields.Add("done-by", id.Value + "=" + doneBy[id].ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return fields.ToList();
+    }
+
+    // The done-by fields read back; one that does not read is passed over (the count is then lower, never wrong upward).
+    private static ValueMap<ExecutorId, int> DoneByOf(List<string> fields)
+    {
+        var counts = new Dictionary<ExecutorId, int>(fields.Count);
+        foreach (var text in fields)
+        {
+            var at = text.LastIndexOf('=');
+            if (at > 0 && ExecutorId.Parse(text.Substring(0, at)).TryGet(out var id) && WrittenValues.Int(text.Substring(at + 1)).TryGet(out var count))
+                counts[id] = count;
+        }
+
+        return ValueMap<ExecutorId, int>.From(counts);
     }
 
     /// <summary>Writes the record of a save, replacing any earlier record of the same save file.</summary>

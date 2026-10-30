@@ -15,6 +15,9 @@ internal sealed record FinishedContents(Plan Record, ValueList<BuiltPiece> Built
 {
     /// <summary>The plan's ghosts done along its lines up to its finishing line.</summary>
     public int Done { get; init; }
+
+    /// <summary>Of <see cref="Done"/>, how many each executor held the claim on.</summary>
+    public ValueMap<ExecutorId, int> DoneBy { get; init; } = ValueMap<ExecutorId, int>.Empty;
 }
 
 /// <summary>
@@ -37,6 +40,9 @@ internal sealed class FinishedReplay
 
     /// <summary>Ghosts of the plan done along the lines applied.</summary>
     public int Done { get; private set; }
+
+    /// <summary>Of <see cref="Done"/>, how many each executor held the claim on.</summary>
+    public ValueMap<ExecutorId, int> DoneBy { get; private set; } = ValueMap<ExecutorId, int>.Empty;
 
     public IReadOnlyList<BuiltPiece> Built => _built;
 
@@ -62,8 +68,12 @@ internal sealed class FinishedReplay
                 break;
             case ChangeOp.RemoveGhost remove when _ghosts.TryGetValue(remove.Ghost, out var ghost):
                 _ghosts.Remove(remove.Ghost);
-                if (remove.Cause is RemovalCause.Done)
+                if (remove.Cause is RemovalCause.Done done)
+                {
                     Done++;
+                    if (done.How.By.TryGet(out var by))
+                        DoneBy = DoneBy.With(by, (DoneBy.TryGetValue(by, out var had) ? had : 0) + 1);
+                }
                 if (remove.Cause is RemovalCause.Done { How.Built: var built } && built.TryGet(out var structure))
                     _built.Add(new BuiltPiece(ghost, structure));
                 else if (remove.Cause is RemovalCause.Removed)

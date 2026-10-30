@@ -386,3 +386,17 @@ Lattice.Testing.Stubs.StubValidation
 Lattice.Testing.Stubs.StubValidation.StubValidation() -> void
 virtual Lattice.Testing.Stubs.StubValidation.Check(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.ValidationReport!>!, Lattice.Api.Reason!>
 virtual Lattice.Testing.Stubs.StubPieceCatalogue.ItemName(Lattice.Api.ItemKey item) -> Lattice.Api.Result<string!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutors.All.get -> Lattice.Api.ValueList<Lattice.Api.Builder!>!
+virtual Lattice.Testing.Stubs.StubExecutors.AssignedTo(Lattice.Api.PlanId plan) -> Lattice.Api.ValueList<Lattice.Api.Assignment!>!
+virtual Lattice.Testing.Stubs.StubExecutors.Find(Lattice.Api.ExecutorId id) -> Lattice.Api.Option<Lattice.Api.Builder!>
+virtual Lattice.Testing.Stubs.StubExecutors.PlansOf(Lattice.Api.ExecutorId id) -> Lattice.Api.ValueList<Lattice.Api.PlanId>!
+virtual Lattice.Testing.Stubs.StubExecutors.ProgressOf(Lattice.Api.PlanId plan) -> Lattice.Api.BuilderProgress
+virtual Lattice.Testing.Stubs.StubExecutors.ProgressOf(Lattice.Api.PlanId plan, Lattice.Api.ExecutorId id) -> Lattice.Api.BuilderProgress
+virtual Lattice.Testing.Stubs.StubExecutors.SupplyToward(Lattice.Api.PlanId plan) -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+virtual Lattice.Testing.Stubs.StubExecutors.UnclaimedIn(Lattice.Api.PlanId plan) -> int
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Answer(Lattice.Api.PlanId plan, Lattice.Api.AssignmentAnswer! answer) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Locate(Lattice.Api.Option<Lattice.Api.BuilderArea!> area) -> void
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Offer(Lattice.Api.SupplyReport! supply) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Say(Lattice.Api.BuilderWord! word) -> void
+virtual Lattice.Testing.Stubs.StubGhostEvents.BuilderChanged -> System.Action<Lattice.Api.ExecutorId>!
+Lattice.Testing.Stubs.StubGhostEvents.RaiseBuilderChanged(Lattice.Api.ExecutorId builder) -> void

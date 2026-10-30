@@ -20,6 +20,9 @@ internal sealed record BoardSeed(Revision Revision, IdCounters Next, ValueList<P
 {
     /// <summary>Each plan's count of ghosts done so far; a plan not listed has none.</summary>
     public ValueMap<PlanId, int> Done { get; init; } = ValueMap<PlanId, int>.Empty;
+
+    /// <summary>Of <see cref="Done"/>, each plan's ghosts per executor that held their claim; a plan left out has none.</summary>
+    public ValueMap<PlanId, ValueMap<ExecutorId, int>> DoneBy { get; init; } = ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty;
 }
 
 /// <summary>
@@ -64,6 +67,25 @@ internal sealed partial class GhostBoard
     }
 
     public Revision Revision { get; private set; }
+
+    /// <summary>
+    /// Whether an executor is registered, asked when an assign edit is first applied (never on a plan file's replay);
+    /// set on the host, none on a client, which only previews.
+    /// </summary>
+    internal Func<ExecutorId, bool>? Registered { get; set; }
+
+    /// <summary>
+    /// The executor holding a ghost's claim, asked as the ghost completes so the completion names it
+    /// (<see cref="Completion.By"/>); set on the host.
+    /// </summary>
+    internal Func<GhostId, Option<ExecutorId>>? ClaimHolder { get; set; }
+
+    /// <summary>
+    /// Told each change set as it commits (on the host and on a client's replica), before its event is raised; never for
+    /// a preview's staged change. For the counts that must agree with the board at once: a done ghost's claim leaves
+    /// the moment its completion lands.
+    /// </summary>
+    internal Action<ChangeSet>? Committed { get; set; }
 
     /// <summary>Rises with every commit; read caches built at an older epoch are dropped.</summary>
     public int Epoch { get; private set; }
@@ -143,6 +165,8 @@ internal sealed partial class GhostBoard
     /// <summary>The world matches the ghost: it leaves the board, and <see cref="IGhostEvents.Completed"/> follows its change set.</summary>
     public Result<ChangeSet, Reason> Complete(GhostId ghost, Completion how)
     {
+        if (how.By.IsNone && ClaimHolder is { } holder)
+            how = how with { By = holder(ghost) };
         var dropped = Drop(ghost, new RemovalCause.Done(how));
         if (dropped.IsOk)
             Events.Queue(new CompletedEvent(ghost, how));
@@ -706,7 +730,7 @@ internal sealed partial class GhostBoard
         if (create.Ghosts.Count > 0)
             return PrepareCreateWithGhosts(create, actor, pending);
         var draft = create.Draft;
-        var plan = new Plan(new PlanId(_nextPlan), pending.At, draft.Name, actor, draft.MadeBy, draft.Visibility, draft.HigherLayerData);
+        var plan = new Plan(new PlanId(_nextPlan), pending.At, draft.Name, actor, draft.MadeBy, draft.Visibility, draft.HigherLayerData) { Colour = draft.Colour };
         pending.PlansTaken = 1;
         pending.PlansOpened.Add(plan);
         Ask(pending, new AccessRequest(actor, create, plan.Id, Option<Ghost>.None), ValueList<GhostId>.Empty);
@@ -719,10 +743,13 @@ internal sealed partial class GhostBoard
             return Fail(NotFound("plan", edit.Plan.Value));
         if (edit.UnchangedSince.TryGet(out var since) && entry.CommandRevision.Value > since.Value && entry.CommandRevision != pending.At)
             return Fail(Reason.Of(ReasonCodes.ChangedSince, LatticeIdentity.Board, ValueMap.Of("plan", edit.Plan.Value.ToString())));
+        if (edit.Edit is PlanEdit.Assign { Builder: var builder } && !entry.Plan.BuildBy.Contains(builder) && Registered is { } registered && !registered(builder))
+            return Fail(Reason.Of(ReasonCodes.NotFound, LatticeIdentity.Board, ValueMap.Of("executor", builder.Value).With("problem", "executor")));
         var edited = Edits.Apply(entry.Plan, edit.Edit, pending.At);
         if (!edited.TryGet(out var after))
             return Fail(edited.ErrorOf());
-        pending.PlansChanged.Add((entry.Plan, after));
+        if (!ReferenceEquals(after, entry.Plan))
+            pending.PlansChanged.Add((entry.Plan, after));
         Ask(pending, new AccessRequest(actor, edit, edit.Plan, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
     }
@@ -933,7 +960,7 @@ internal sealed partial class GhostBoard
         if (newest.Finished)
             pending.PlansFinished.Add(onBoard ? plan! : new PlanEntry(record!, pending.At));
         else
-            pending.DoneCounts.Add((catchUp.Plan, newest.Done));
+            pending.DoneCounts.Add((catchUp.Plan, newest.Done, DoneBy.From(newest.DoneBy)));
         pending.CaughtUp.Add(catchUp.Plan);
 
         foreach (var (entry, _) in pending.Removed)
@@ -966,7 +993,7 @@ internal sealed partial class GhostBoard
             return Fail(NotFound("plan", reopen.Plan.Value));
 
         pending.PlansOpened.Add(contents.Record with { Revision = pending.At });
-        pending.DoneCounts.Add((reopen.Plan, contents.Done));
+        pending.DoneCounts.Add((reopen.Plan, contents.Done, DoneBy.From(contents.DoneBy)));
         var back = new HashSet<GhostId>();
         foreach (var ghost in contents.Left)
             back.Add(ghost.Id);
@@ -1038,6 +1065,7 @@ internal sealed partial class GhostBoard
         if (byCommand)
             History.Record(changes);
         Events.Queue(new ChangedEvent(changes));
+        Committed?.Invoke(changes);
         return changes;
     }
 
@@ -1055,15 +1083,31 @@ internal sealed partial class GhostBoard
         Lists.Own(Map(pending.PlansFinished, static e => e.Plan.Id)))
     {
         DoneSet = DoneSetOf(pending.DoneCounts),
+        DoneBySet = DoneBySetOf(pending.DoneCounts),
     };
 
+    /// <summary>The per-executor counts a change sets, the last for each plan, for the plans that have any.</summary>
+    private static ValueMap<PlanId, ValueMap<ExecutorId, int>> DoneBySetOf(List<(PlanId Plan, int Done, DoneBy DoneBy)> counts)
+    {
+        if (counts.Count == 0)
+            return ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty;
+        var last = new Dictionary<PlanId, DoneBy>(counts.Count);
+        foreach (var (plan, _, doneBy) in counts)
+            last[plan] = doneBy;
+        var set = new Dictionary<PlanId, ValueMap<ExecutorId, int>>(last.Count);
+        foreach (var pair in last)
+            if (pair.Value.Count > 0)
+                set[pair.Key] = pair.Value.ToMap();
+        return set.Count == 0 ? ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty : ValueMap<PlanId, ValueMap<ExecutorId, int>>.From(set);
+    }
+
     /// <summary>The done counts a change sets, the last for each plan.</summary>
-    private static ValueMap<PlanId, int> DoneSetOf(List<(PlanId Plan, int Done)> counts)
+    private static ValueMap<PlanId, int> DoneSetOf(List<(PlanId Plan, int Done, DoneBy DoneBy)> counts)
     {
         if (counts.Count == 0)
             return ValueMap<PlanId, int>.Empty;
         var last = new Dictionary<PlanId, int>(counts.Count);
-        foreach (var (plan, done) in counts)
+        foreach (var (plan, done, _) in counts)
             last[plan] = done;
         return ValueMap<PlanId, int>.From(last);
     }
@@ -1074,8 +1118,12 @@ internal sealed partial class GhostBoard
         foreach (var (entry, cause) in pending.Removed)
         {
             Index.Remove(entry);
-            if (cause is RemovalCause.Done && Index.Plans.TryGetValue(entry.Ghost.Plan, out var donePlan))
+            if (cause is RemovalCause.Done done && Index.Plans.TryGetValue(entry.Ghost.Plan, out var donePlan))
+            {
                 donePlan.Done++;
+                if (done.How.By.TryGet(out var by))
+                    donePlan.DoneBy = donePlan.DoneBy.Plus(by, 1);
+            }
         }
         foreach (var (before, _) in pending.Changed)
             Index.Remove(before);
@@ -1095,11 +1143,12 @@ internal sealed partial class GhostBoard
             Index.Plans.Remove(entry.Plan.Id);
 
         pending.DoneBefore.Clear();
-        foreach (var (plan, done) in pending.DoneCounts)
+        foreach (var (plan, done, doneBy) in pending.DoneCounts)
         {
             var entry = Index.Plans[plan];
-            pending.DoneBefore.Add(entry.Done);
+            pending.DoneBefore.Add((entry.Done, entry.DoneBy));
             entry.Done = done;
+            entry.DoneBy = doneBy;
         }
 
         foreach (var (_, after) in pending.Changed)
@@ -1120,7 +1169,10 @@ internal sealed partial class GhostBoard
         for (var i = pending.Changed.Count - 1; i >= 0; i--)
             Index.Remove(pending.Changed[i].After);
         for (var i = pending.DoneCounts.Count - 1; i >= 0; i--)
-            Index.Plans[pending.DoneCounts[i].Plan].Done = pending.DoneBefore[i];
+        {
+            var entry = Index.Plans[pending.DoneCounts[i].Plan];
+            (entry.Done, entry.DoneBy) = pending.DoneBefore[i];
+        }
         foreach (var entry in pending.PlansFinished)
             Index.Plans.Add(entry.Plan.Id, entry);
         for (var i = pending.PlansChanged.Count - 1; i >= 0; i--)
@@ -1137,8 +1189,12 @@ internal sealed partial class GhostBoard
         for (var i = pending.Removed.Count - 1; i >= 0; i--)
         {
             var (entry, cause) = pending.Removed[i];
-            if (cause is RemovalCause.Done && Index.Plans.TryGetValue(entry.Ghost.Plan, out var donePlan))
+            if (cause is RemovalCause.Done done && Index.Plans.TryGetValue(entry.Ghost.Plan, out var donePlan))
+            {
                 donePlan.Done--;
+                if (done.How.By.TryGet(out var by))
+                    donePlan.DoneBy = donePlan.DoneBy.Plus(by, -1);
+            }
             Index.Add(entry);
         }
     }
@@ -1254,12 +1310,15 @@ internal sealed partial class GhostBoard
         Revision = seed.Revision;
         (_nextGhost, _nextPlan, _nextChangeSet) = (seed.Next.NextGhost, seed.Next.NextPlan, seed.Next.NextChangeSet);
         foreach (var plan in seed.Plans)
-            Index.Plans[plan.Id] = new PlanEntry(plan, plan.Revision) { Done = seed.Done.TryGetValue(plan.Id, out var done) ? done : 0 };
+            Index.Plans[plan.Id] = new PlanEntry(plan, plan.Revision) { Done = seed.Done.TryGetValue(plan.Id, out var done) ? done : 0, DoneBy = SeedDoneBy(seed, plan.Id) };
         if (!Index.Plans.ContainsKey(DefaultPlan))
-            Index.Plans.Add(DefaultPlan, new PlanEntry(NewDefaultPlan(), default) { Done = seed.Done.TryGetValue(DefaultPlan, out var loose) ? loose : 0 });
+            Index.Plans.Add(DefaultPlan, new PlanEntry(NewDefaultPlan(), default) { Done = seed.Done.TryGetValue(DefaultPlan, out var loose) ? loose : 0, DoneBy = SeedDoneBy(seed, DefaultPlan) });
         foreach (var ghost in seed.Ghosts)
             Index.Add(EntryFor(ghost, ghost.Revision));
     }
+
+    private static DoneBy SeedDoneBy(BoardSeed seed, PlanId plan) =>
+        seed.DoneBy.TryGetValue(plan, out var by) ? DoneBy.From(by) : DoneBy.None;
 
     /// <summary>A ghost the board takes as it is (loaded or mirrored): its shape and target, or none when its intent does not resolve.</summary>
     private GhostEntry EntryFor(Ghost ghost, Revision commandRevision)
@@ -1341,10 +1400,10 @@ internal sealed partial class GhostBoard
         public List<(AccessRequest Request, ValueList<GhostId> Ghosts)> Asks { get; } = new();
 
         /// <summary>Plans whose done count is set from a file (catch-up, reopen), applied after the removals.</summary>
-        public List<(PlanId Plan, int Done)> DoneCounts { get; } = new();
+        public List<(PlanId Plan, int Done, DoneBy DoneBy)> DoneCounts { get; } = new();
 
         /// <summary>The done counts those plans had before staging, in <see cref="DoneCounts"/> order.</summary>
-        public List<int> DoneBefore { get; } = new();
+        public List<(int Done, DoneBy DoneBy)> DoneBefore { get; } = new();
 
         /// <summary>The command revisions the changed plans had before staging, in <see cref="PlansChanged"/> order.</summary>
         public List<Revision> PlanRevisionsBefore { get; } = new();

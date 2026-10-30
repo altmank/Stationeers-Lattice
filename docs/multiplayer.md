@@ -48,6 +48,16 @@ keeps sync or saving from a change.
   `host-only`, and the log says `module <name> is host-only; off on a client`.
 - **Executors** run on the host. Clients read their claims and status (`IExecutors.ClaimOn`, `StatusOf`, and
   status looks), and get their `StatusChanged` and `Blocked` events, a message later.
+- **Builders** register on the host only (contract 0.22). What each says (who it is, its area, its word, its supply,
+  its answers) reaches every client with the claims: the whole list when a client joins, then the latest word of each
+  builder that changed, once a frame, and a line when one goes. A client works each builder's state out from the
+  claims it mirrors and the builder's word, as the host does, reads the same `All`, `Find`, `AssignedTo`, `PlansOf`,
+  `ProgressOf`, `SupplyToward` and `UnclaimedIn`, and raises `BuilderChanged` for each. A supply report's `At` is taken
+  on the client's own clock (the host sends its age). Answers come only from handles on the host.
+- **Plan colour and assignments** travel with the plan, as every plan field does: assign, unassign and recolour are
+  plan edits a client submits as commands. Each plan's built counts per builder come with a join beside its done
+  count, after it with each completion (its `by`), and with a catch-up or a reopen beside the count it sets. A seat whose Lattice is older refuses the new plan edits and
+  builder lines rather than drop them.
 - **Drawing seats only:** the `render` module. On a dedicated server or a headless client, style registrations are
   accepted and held, and `Pick` and `Explain` still answer, but nothing is drawn.
 
@@ -104,5 +114,7 @@ var handle = Must(lattice.Registries.Install(policy));   // refused while anothe
 
 ## What never syncs
 
-Style state is the local viewer's: layers, sets, highlights, drafts and the clip never sync and never save. What every
+Style state is the local viewer's: layers, sets, highlights, drafts and the clip never sync and never save.
+A builder's word (area, state, supply, answers) syncs and never saves: the builder says it again when it registers
+after a load. What every
 player should see alike belongs in ghost data a style reads: tint, label, groups and attachments.

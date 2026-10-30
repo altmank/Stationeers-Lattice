@@ -23,6 +23,38 @@ public class StubExecutors : IExecutors
     /// <inheritdoc />
     public virtual ValueList<ExecutorReport> StatusOf(GhostId ghost) =>
         throw Stub.NotSetUp("IExecutors", "StatusOf", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual ValueList<Builder> All =>
+        throw Stub.NotSetUp("IExecutors", "All", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual Option<Builder> Find(ExecutorId id) =>
+        throw Stub.NotSetUp("IExecutors", "Find", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual ValueList<Assignment> AssignedTo(PlanId plan) =>
+        throw Stub.NotSetUp("IExecutors", "AssignedTo", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual ValueList<PlanId> PlansOf(ExecutorId id) =>
+        throw Stub.NotSetUp("IExecutors", "PlansOf", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual BuilderProgress ProgressOf(PlanId plan, ExecutorId id) =>
+        throw Stub.NotSetUp("IExecutors", "ProgressOf", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual BuilderProgress ProgressOf(PlanId plan) =>
+        throw Stub.NotSetUp("IExecutors", "ProgressOf", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual ValueList<ItemQuantity> SupplyToward(PlanId plan) =>
+        throw Stub.NotSetUp("IExecutors", "SupplyToward", "StubExecutors");
+
+    /// <inheritdoc />
+    public virtual int UnclaimedIn(PlanId plan) =>
+        throw Stub.NotSetUp("IExecutors", "UnclaimedIn", "StubExecutors");
 }
 
 /// <summary>
@@ -49,6 +81,22 @@ public class StubExecutorHandle : IExecutorHandle
     /// <inheritdoc />
     public virtual Result<Unit, Reason> Report(GhostId ghost, ExecutorStatus status) =>
         throw Stub.NotSetUp("IExecutorHandle", "Report", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual void Locate(Option<BuilderArea> area) =>
+        throw Stub.NotSetUp("IExecutorHandle", "Locate", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual void Say(BuilderWord word) =>
+        throw Stub.NotSetUp("IExecutorHandle", "Say", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual Result<Unit, Reason> Offer(SupplyReport supply) =>
+        throw Stub.NotSetUp("IExecutorHandle", "Offer", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual Result<Unit, Reason> Answer(PlanId plan, AssignmentAnswer answer) =>
+        throw Stub.NotSetUp("IExecutorHandle", "Answer", "StubExecutorHandle");
 
     /// <summary>Does nothing until overridden.</summary>
     public virtual void Dispose()

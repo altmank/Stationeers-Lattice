@@ -8,22 +8,31 @@ using Lattice.Core.Written;
 namespace Lattice.Core.Sync;
 
 /// <summary>A status message as read: whether it is a join's, and each ghost's claim as the host held it when it wrote it.</summary>
-internal sealed record StatusUpdate(bool Join, ValueList<ClaimState> Entries);
+internal sealed record StatusUpdate(bool Join, ValueList<ClaimState> Entries)
+{
+    /// <summary>The builders the message names: each one's whole word, or that it went.</summary>
+    public ValueList<BuilderLine> Builders { get; init; } = ValueList<BuilderLine>.Empty;
+}
 
 /// <summary>
 /// The status form: <c>lattice-status &lt;schema&gt; join=&lt;0|1&gt;</c>, then one line per ghost.
 /// <c>claim ghost= by= name= left=</c> is a claim with the lease seconds left on the host (to the hundredth), followed
 /// by its status if it has one: <c>now=working step= of=</c>, <c>now=paused</c>, or <c>now=waiting</c> with its reason
 /// under <c>why</c> (the reason form). <c>gone ghost=</c> is no claim and no status. Each line is the ghost's whole
-/// state, so a later line wins and a line read twice changes nothing. The reader is strict: a line or field it does
-/// not know, or a bad value, refuses the whole message.
+/// state, so a later line wins and a line read twice changes nothing. Builder lines follow: <c>builder</c> with a
+/// builder's whole word (<see cref="BuilderForm"/>), <c>builder-gone id=</c> for one that went. The reader is strict: a
+/// line or field it does not know, or a bad value, refuses the whole message.
 /// </summary>
 internal static class StatusForm
 {
     public const string Form = "lattice-status";
 
     /// <summary>The message for the entries, in order. One text; linear in the entries.</summary>
-    public static string Write(bool join, IReadOnlyList<ClaimState> entries)
+    public static string Write(bool join, IReadOnlyList<ClaimState> entries) =>
+        Write(join, entries, System.Array.Empty<BuilderLine>(), default);
+
+    /// <summary>The message for the entries and the builder lines, in order; supply ages are taken against <paramref name="now"/>.</summary>
+    public static string Write(bool join, IReadOnlyList<ClaimState> entries, IReadOnlyList<BuilderLine> builders, GameTime now)
     {
         var text = new StringBuilder(32 + 72 * entries.Count);
         text.Append(Form).Append(' ').Append(WrittenValues.Number(WrittenForms.Schema)).Append(join ? " join=1\n" : " join=0\n");
@@ -49,11 +58,34 @@ internal static class StatusForm
             text.Append('\n');
         }
 
+        foreach (var builder in builders)
+        {
+            var fields = new FieldList();
+            switch (builder)
+            {
+                case BuilderLine.Says says:
+                    text.Append("builder");
+                    BuilderForm.Write(fields, says.Word, now);
+                    break;
+                case BuilderLine.Gone gone:
+                    text.Append("builder-gone");
+                    fields.Add("id", gone.Id.Value);
+                    break;
+            }
+
+            foreach (var field in fields.ToList())
+                Field(text, field.Key, field.Value);
+            text.Append('\n');
+        }
+
         return text.ToString();
     }
 
     /// <summary>The message as written; refused, whole, when any part of it is not exactly the form.</summary>
-    public static Result<StatusUpdate, Reason> Read(string text)
+    public static Result<StatusUpdate, Reason> Read(string text) => Read(text, default);
+
+    /// <summary>The message as written, supply stamps taken against <paramref name="now"/>; refused, whole, when any part of it is not exactly the form.</summary>
+    public static Result<StatusUpdate, Reason> Read(string text, GameTime now)
     {
         var lines = text.Split('\n');
         var count = lines.Length;
@@ -67,12 +99,27 @@ internal static class StatusForm
             return Fail("bad status header");
 
         var entries = new List<ClaimState>(count - 1);
+        var builders = new List<BuilderLine>();
         for (var i = 1; i < count; i++)
         {
             if (!TextForm.Read(lines[i], ["n"]).TryGet(out var line) || line.Groups.Count > 0)
                 return Fail($"line {i + 1}: unreadable");
             var read = new FieldReader(line.Fields);
-            var entry = read.Take("n").Reduce("") switch
+            var kind = read.Take("n").Reduce("");
+            if (kind is "builder" or "builder-gone")
+            {
+                var builder = kind == "builder"
+                    ? BuilderForm.Read(read, now).Map(static says => (BuilderLine)new BuilderLine.Says(says))
+                    : read.Need("id").Bind(static t => WrittenValues.Checked(ExecutorId.Parse(t), "executor", t)).Map(static id => (BuilderLine)new BuilderLine.Gone(id));
+                if (!builder.TryGet(out var said))
+                    return Fail($"line {i + 1}: {(builder.TryGetError(out var why) ? why : "unreadable")}");
+                if (read.Rest().Count > 0)
+                    return Fail($"line {i + 1}: a field this version does not know");
+                builders.Add(said);
+                continue;
+            }
+
+            var entry = kind switch
             {
                 "claim" => Held(read),
                 "gone" => Ghost(read).Map(static ghost => (ClaimState)new ClaimState.Gone(ghost)),
@@ -85,7 +132,7 @@ internal static class StatusForm
             entries.Add(state);
         }
 
-        return Result<StatusUpdate, Reason>.Ok(new StatusUpdate(joinText == "1", ValueList.From(entries)));
+        return Result<StatusUpdate, Reason>.Ok(new StatusUpdate(joinText == "1", ValueList.From(entries)) { Builders = ValueList.From(builders) });
     }
 
     private static Result<ClaimState, string> Held(FieldReader read)

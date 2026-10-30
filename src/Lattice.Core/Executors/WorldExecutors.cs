@@ -17,8 +17,9 @@ internal enum WorldSeat
 /// The world's executors: who works on which ghost and what each says about it. One claim per ghost; a claim lapses
 /// when game time reaches its end (<see cref="IGameClock"/>, so a paused game holds every lease), when its executor
 /// releases it or is disposed, and when its ghost leaves the board. Reads see a lapsed claim as gone at once;
-/// <see cref="Lapse"/>, called once per frame before the board's events flush, forgets lapsed claims and tells
-/// <see cref="IGhostEvents.StatusChanged"/> for those that had a status. Status lives with the claim and is never
+/// <see cref="Lapse"/>, called once per frame before the board's events flush, forgets lapsed claims.
+/// <see cref="IGhostEvents.StatusChanged"/> is told for every claim taken, released, lapsed or dropped and every changed
+/// report, never a renewal. Builders (what each says, its counts) are kept in <see cref="Builders"/>. Status lives with the claim and is never
 /// "done": matching decides that from the world. A ghost's maker hears <see cref="IGhostEvents.Blocked"/> when the
 /// ghost turns stale or its stale reason changes, and when its executor reports <see cref="ExecutorStatus.Waiting"/>
 /// with a status it had not reported just before. On a client nothing is held here: reads answer from the host's word
@@ -34,19 +35,36 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
     private readonly SortedSet<(double Until, long Ghost)> _ends = new();
     private readonly ExecutorNotices _notices;
     private readonly ExecutorMirror? _mirror;
+    private readonly BuilderBook _book;
     private readonly Action<ChangeSet> _onBoard;
+    private readonly Action<ChangeSet> _onCommitted;
 
-    public WorldExecutors(GhostBoard board, IGameClock clock, WorldSeat seat)
+    public WorldExecutors(GhostBoard board, IGameClock clock, WorldSeat seat, Actor? viewer = null)
     {
         _board = board;
         _clock = clock;
         _seat = seat;
         _notices = new ExecutorNotices(board);
+        _book = new BuilderBook(board, viewer ?? LatticeIdentity.Actor);
         if (seat == WorldSeat.Client)
-            _mirror = new ExecutorMirror(board, clock, _notices);
+            _mirror = new ExecutorMirror(board, clock, _notices, _book);
+        else
+        {
+            board.Registered = _registered.ContainsKey;
+            board.ClaimHolder = ghost => Live(ghost, out var hold) ? Option.Some(hold.Claim.By) : Option<ExecutorId>.None;
+        }
+
         _onBoard = OnBoard;
         board.Events.Changed += _onBoard;
+        _onCommitted = OnCommitted;
+        board.Committed += _onCommitted;
     }
+
+    /// <summary>The builders' words, claims and counts every seat reads.</summary>
+    internal BuilderBook Builders => _book;
+
+    /// <summary>This seat's game time.</summary>
+    internal GameTime Now => _clock.Now;
 
     /// <summary>Who gives the executors' reasons.</summary>
     public static RuleId Rule => RuleId.Known("lattice.executors");
@@ -64,8 +82,14 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         if (_registered.ContainsKey(info.Id))
             return Result<IExecutorHandle, Reason>.Error(Reason.Of(ReasonCodes.AlreadyRegistered, Rule, ValueMap.Of("executor", info.Id.Value)));
 
+        if (info.Builds is null)
+            return Result<IExecutorHandle, Reason>.Error(Reason.InvalidValue(nameof(BuildScope), "null", "not-null"));
+        if (info.Builds is not (BuildScope.Any or BuildScope.Kits or BuildScope.Families))
+            return Result<IExecutorHandle, Reason>.Error(Reason.Of(ReasonCodes.UnknownKind, Rule, ValueMap.Of("kind", info.Builds.GetType().Name)));
+
         var handle = new Handle(this, info);
         _registered.Add(info.Id, handle);
+        _book.Put(info);
         return Result<IExecutorHandle, Reason>.Ok(handle);
     }
 
@@ -87,6 +111,30 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
     public ValueList<ExecutorReport> StatusOf(GhostId ghost) =>
         _mirror is not null ? _mirror.StatusOf(ghost)
         : Live(ghost, out var hold) ? hold.Reports : ValueList<ExecutorReport>.Empty;
+
+    /// <inheritdoc />
+    public ValueList<Builder> All => _book.All;
+
+    /// <inheritdoc />
+    public Option<Builder> Find(ExecutorId id) => _book.Find(id);
+
+    /// <inheritdoc />
+    public ValueList<Assignment> AssignedTo(PlanId plan) => _book.AssignedTo(plan);
+
+    /// <inheritdoc />
+    public ValueList<PlanId> PlansOf(ExecutorId id) => _book.PlansOf(id);
+
+    /// <inheritdoc />
+    public BuilderProgress ProgressOf(PlanId plan, ExecutorId id) => _book.ProgressOf(plan, id);
+
+    /// <inheritdoc />
+    public BuilderProgress ProgressOf(PlanId plan) => _book.ProgressOf(plan);
+
+    /// <inheritdoc />
+    public ValueList<ItemQuantity> SupplyToward(PlanId plan) => _book.SupplyToward(plan);
+
+    /// <inheritdoc />
+    public int UnclaimedIn(PlanId plan) => _book.UnclaimedIn(plan);
 
     /// <summary>The ghost's claim as it stands now: held, with the lease seconds left, or gone. Constant cost.</summary>
     internal ClaimState StateOf(GhostId ghost) =>
@@ -116,6 +164,10 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
     public void Dispose()
     {
         _board.Events.Changed -= _onBoard;
+        _board.Committed -= _onCommitted;
+        _book.End();
+        if (_seat == WorldSeat.Host)
+            (_board.Registered, _board.ClaimHolder) = (null, null);
         var handles = new List<Handle>(_registered.Values);
         foreach (var handle in handles)
             handle.Dispose();
@@ -150,7 +202,9 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         _holds.Add(ghost, hold);
         _ends.Add(End(hold));
         by.Held.Add(ghost);
+        _book.Claimed(ghost, by.Info.Id, Option<ExecutorStatus>.None);
         Told?.Invoke(ghost);
+        _notices.StatusChanged(ghost);
         return Result<Claim, ClaimRefused>.Ok(hold.Claim);
     }
 
@@ -188,6 +242,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
 
         hold.Status = Option<ExecutorStatus>.Some(status);
         hold.Reports = ValueList.Of(new ExecutorReport(by.Info, status));
+        _book.Claimed(ghost, by.Info.Id, hold.Status);
         Told?.Invoke(ghost);
         _notices.StatusChanged(ghost);
         if (status is ExecutorStatus.Waiting waiting)
@@ -202,9 +257,11 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         foreach (var ghost in held)
             Drop(_holds[ghost]);
         _registered.Remove(handle.Info.Id);
+        _book.Gone(handle.Info.Id);
     }
 
-    private void OnBoard(ChangeSet changes)
+    // A ghost that left the board takes its claim with it as the change lands, so the counts never hold a done ghost twice.
+    private void OnCommitted(ChangeSet changes)
     {
         foreach (var removal in changes.Removed)
         {
@@ -212,6 +269,10 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
                 Drop(hold);
             _mirror?.Forget(removal.Ghost.Id);
         }
+    }
+
+    private void OnBoard(ChangeSet changes)
+    {
 
         foreach (var added in changes.Added)
             if (added.State is GhostState.Stale stale)
@@ -237,9 +298,9 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         _holds.Remove(ghost);
         _ends.Remove(End(hold));
         hold.By.Held.Remove(ghost);
+        _book.Unclaimed(ghost);
         Told?.Invoke(ghost);
-        if (hold.Status.IsSome)
-            _notices.StatusChanged(ghost);
+        _notices.StatusChanged(ghost);
     }
 
     private GameTime Until(Lease lease) => new(_clock.Now.Seconds + lease.Seconds);
@@ -294,6 +355,24 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         public void Release(Claim claim) => executors.Release(this, claim);
 
         public Result<Unit, Reason> Report(GhostId ghost, ExecutorStatus status) => executors.Report(this, ghost, status);
+
+        public void Locate(Option<BuilderArea> area)
+        {
+            if (!Disposed)
+                executors._book.Locate(Info.Id, area);
+        }
+
+        public void Say(BuilderWord word)
+        {
+            if (!Disposed && word is not null)
+                executors._book.Say(Info.Id, word);
+        }
+
+        public Result<Unit, Reason> Offer(SupplyReport supply) =>
+            Disposed ? Result<Unit, Reason>.Error(NotRegistered(this)) : executors._book.Offer(Info.Id, supply, executors._clock.Now);
+
+        public Result<Unit, Reason> Answer(PlanId plan, AssignmentAnswer answer) =>
+            Disposed ? Result<Unit, Reason>.Error(NotRegistered(this)) : executors._book.Answer(Info.Id, plan, answer);
 
         public void Dispose()
         {

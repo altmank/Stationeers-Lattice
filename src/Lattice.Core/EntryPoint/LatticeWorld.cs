@@ -499,7 +499,7 @@ internal sealed class LatticeWorld : IGhostSystem
         if (on.IsOn(LatticeModules.Executors))
         {
             _starting = LatticeModules.Executors;
-            var executors = new WorldExecutors(Ghosts, ports.GameClock, ports.Seat);
+            var executors = new WorldExecutors(Ghosts, ports.GameClock, ports.Seat, ports.Viewer);
             Stop(LatticeModules.Executors, executors.Dispose);
             _executors = executors;
             Executors = executors;

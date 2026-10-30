@@ -43,6 +43,8 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     private readonly WorldExecutors? _executors;
     private readonly HashSet<GhostId> _noted = new();
     private readonly List<GhostId> _notedOrder = new();
+    private readonly HashSet<ExecutorId> _notedBuilders = new();
+    private readonly List<ExecutorId> _notedBuildersOrder = new();
     private SlicedJob? _job;
     private int _turn;
 
@@ -66,7 +68,10 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         board.Events.Answered += _onAnswered;
         _executors = executors;
         if (executors is not null)
+        {
             executors.Told = OnTold;
+            executors.Builders.Told = OnBuilderTold;
+        }
     }
 
     /// <summary>Ghosts noted for a status message and not placed yet.</summary>
@@ -153,8 +158,10 @@ internal sealed class HostSync : ISlicedWork, IDisposable
             return;
         var claimed = new List<GhostId>();
         _executors.Claimed(claimed);
-        if (claimed.Count > 0)
-            peer.Enqueue(new Outgoing(SyncKind.Status, new StatusText(_executors, join: true, claimed)));
+        var builders = new List<ExecutorId>(_executors.Builders.Ids);
+        builders.Sort(static (a, b) => string.CompareOrdinal(a.Value, b.Value));
+        if (claimed.Count > 0 || builders.Count > 0)
+            peer.Enqueue(new Outgoing(SyncKind.Status, new StatusText(_executors, join: true, claimed, builders)));
     }
 
     /// <summary>The client left: what was queued for it is dropped, and answers still owed to it are not sent.</summary>
@@ -211,18 +218,20 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     /// </summary>
     public void PlaceStatus()
     {
-        if (_notedOrder.Count == 0 || _executors is null)
+        if ((_notedOrder.Count == 0 && _notedBuildersOrder.Count == 0) || _executors is null)
             return;
         foreach (var peer in _order)
         {
             if (peer.Last is { Kind: SyncKind.Status, Text: StatusText { Written: false } pending })
-                pending.Add(_notedOrder);
+                pending.Add(_notedOrder, _notedBuildersOrder);
             else
-                peer.Enqueue(new Outgoing(SyncKind.Status, new StatusText(_executors, join: false, _notedOrder)));
+                peer.Enqueue(new Outgoing(SyncKind.Status, new StatusText(_executors, join: false, _notedOrder, _notedBuildersOrder)));
         }
 
         _noted.Clear();
         _notedOrder.Clear();
+        _notedBuilders.Clear();
+        _notedBuildersOrder.Clear();
         Wake();
     }
 
@@ -251,7 +260,10 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         _board.Events.Changed -= _onChanged;
         _board.Events.Answered -= _onAnswered;
         if (_executors is not null)
+        {
             _executors.Told = null;
+            _executors.Builders.Told = null;
+        }
         _job?.Cancel();
         _peers.Clear();
         _order.Clear();
@@ -284,6 +296,12 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         Wake();
     }
 
+    private void OnBuilderTold(ExecutorId builder)
+    {
+        if (_notedBuilders.Add(builder))
+            _notedBuildersOrder.Add(builder);
+    }
+
     private void OnTold(GhostId ghost)
     {
         if (_order.Count > 0 && _noted.Add(ghost))
@@ -301,11 +319,14 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     {
         var plans = new List<Plan>(_board.Index.Plans.Count);
         var done = new Dictionary<PlanId, int>();
+        var doneBy = new Dictionary<PlanId, ValueMap<ExecutorId, int>>();
         foreach (var entry in _board.Index.Plans.Values)
         {
             plans.Add(entry.Plan);
             if (entry.Done > 0)
                 done[entry.Plan.Id] = entry.Done;
+            if (entry.DoneBy.Count > 0)
+                doneBy[entry.Plan.Id] = entry.DoneBy.ToMap();
         }
 
         plans.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
@@ -313,7 +334,7 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         foreach (var entry in _board.Index.Ghosts.Values)
             ghosts.Add(entry.Ghost);
         ghosts.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
-        return new Snapshot(_board.Revision, plans, done, ghosts);
+        return new Snapshot(_board.Revision, plans, done, doneBy, ghosts);
     }
 
     /// <summary>A joined client: what is queued for it and the revision its join holds.</summary>
@@ -367,7 +388,7 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     }
 
     /// <summary>The board a join sends: its revision, plans with each plan's done count (a plan not listed has none), and ghosts.</summary>
-    private sealed record Snapshot(Revision Revision, List<Plan> Plans, Dictionary<PlanId, int> Done, List<Ghost> Ghosts);
+    private sealed record Snapshot(Revision Revision, List<Plan> Plans, Dictionary<PlanId, int> Done, Dictionary<PlanId, ValueMap<ExecutorId, int>> DoneBy, List<Ghost> Ghosts);
 
     /// <summary>A message's text, written once when first sent (shared by every connection it goes to), and its frames.</summary>
     private abstract class MessageText
@@ -396,7 +417,7 @@ internal sealed class HostSync : ISlicedWork, IDisposable
 
     private sealed class JoinText(Snapshot snapshot, int part, int perPart) : MessageText
     {
-        protected override string Write() => JoinParts.Write(snapshot.Revision, snapshot.Plans, snapshot.Done, snapshot.Ghosts, part, perPart);
+        protected override string Write() => JoinParts.Write(snapshot.Revision, snapshot.Plans, snapshot.Done, snapshot.DoneBy, snapshot.Ghosts, part, perPart);
     }
 
     private sealed class AnswerText(CommandId id, Answer answer) : MessageText
@@ -416,20 +437,27 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         private readonly bool _join;
         private readonly List<GhostId> _ghosts;
         private readonly HashSet<GhostId> _listed;
+        private readonly List<ExecutorId> _builders;
+        private readonly HashSet<ExecutorId> _listedBuilders;
 
-        public StatusText(WorldExecutors executors, bool join, List<GhostId> ghosts)
+        public StatusText(WorldExecutors executors, bool join, List<GhostId> ghosts, List<ExecutorId> builders)
         {
             _executors = executors;
             _join = join;
             _ghosts = new List<GhostId>(ghosts);
             _listed = new HashSet<GhostId>(ghosts);
+            _builders = new List<ExecutorId>(builders);
+            _listedBuilders = new HashSet<ExecutorId>(builders);
         }
 
-        public void Add(List<GhostId> ghosts)
+        public void Add(List<GhostId> ghosts, List<ExecutorId> builders)
         {
             foreach (var ghost in ghosts)
                 if (_listed.Add(ghost))
                     _ghosts.Add(ghost);
+            foreach (var builder in builders)
+                if (_listedBuilders.Add(builder))
+                    _builders.Add(builder);
         }
 
         protected override string Write()
@@ -437,7 +465,10 @@ internal sealed class HostSync : ISlicedWork, IDisposable
             var entries = new List<ClaimState>(_ghosts.Count);
             foreach (var ghost in _ghosts)
                 entries.Add(_executors.StateOf(ghost));
-            return StatusForm.Write(_join, entries);
+            var builders = new List<BuilderLine>(_builders.Count);
+            foreach (var id in _builders)
+                builders.Add(_executors.Builders.Says(id).TryGet(out var says) ? new BuilderLine.Says(says) : new BuilderLine.Gone(id));
+            return StatusForm.Write(_join, entries, builders, _executors.Now);
         }
     }
 }

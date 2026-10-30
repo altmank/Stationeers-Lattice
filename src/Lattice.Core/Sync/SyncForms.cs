@@ -127,28 +127,50 @@ internal static class AnswerForm
 /// One part of a join as read: the host's revision, which part of how many, its plans with each plan's done count (a
 /// plan not listed has none), and its ghosts.
 /// </summary>
-internal sealed record JoinPart(Revision Revision, int Part, int Parts, ValueList<Plan> Plans, ValueMap<PlanId, int> Done, ValueList<Ghost> Ghosts);
+internal sealed record JoinPart(Revision Revision, int Part, int Parts, ValueList<Plan> Plans, ValueMap<PlanId, int> Done, ValueList<Ghost> Ghosts)
+{
+    /// <summary>Of <see cref="Done"/>, each plan's ghosts per executor that held their claim.</summary>
+    public ValueMap<PlanId, ValueMap<ExecutorId, int>> DoneBy { get; init; } = ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty;
+}
 
 /// <summary>
 /// A join in parts: each part is a join document (the join form) whose header adds <c>part= parts=</c>. The first
-/// part carries every plan, each plan line with <c>done=</c> when the plan has ghosts done (absent: none); the ghosts are cut into parts of <see cref="SyncLimits.JoinGhostsPerPart"/>, so a large
+/// part carries every plan, each plan line with <c>done=</c> when the plan has ghosts done (absent: none) and one
+/// <c>done-by=executor=count</c> per executor that held the claim on some of them; the ghosts are cut into parts of <see cref="SyncLimits.JoinGhostsPerPart"/>, so a large
 /// board is sent over several frames. A board with no ghosts is one part.
 /// </summary>
 internal static class JoinParts
 {
     private const string DoneField = "done";
+    private const string DoneByField = "done-by";
 
     public static int Count(int ghosts, int perPart) => ghosts == 0 ? 1 : (ghosts + perPart - 1) / perPart;
 
-    public static string Write(Revision revision, IReadOnlyList<Plan> plans, IReadOnlyDictionary<PlanId, int> done, IReadOnlyList<Ghost> ghosts, int part, int perPart)
+    public static string Write(Revision revision, IReadOnlyList<Plan> plans, IReadOnlyDictionary<PlanId, int> done, IReadOnlyList<Ghost> ghosts, int part, int perPart) =>
+        Write(revision, plans, done, new Dictionary<PlanId, ValueMap<ExecutorId, int>>(), ghosts, part, perPart);
+
+    public static string Write(Revision revision, IReadOnlyList<Plan> plans, IReadOnlyDictionary<PlanId, int> done, IReadOnlyDictionary<PlanId, ValueMap<ExecutorId, int>> doneBy, IReadOnlyList<Ghost> ghosts, int part, int perPart)
     {
         var parts = Count(ghosts.Count, perPart);
         var planRecords = new List<PlanRecord>(part == 0 ? plans.Count : 0);
         if (part == 0)
             foreach (var plan in plans)
-                planRecords.Add(new PlanRecord.Known(plan, done.TryGetValue(plan.Id, out var count) && count > 0
-                    ? ValueList.Of(new Field(DoneField, WrittenValues.Number(count)))
-                    : ValueList<Field>.Empty));
+            {
+                var fields = new FieldList();
+                if (done.TryGetValue(plan.Id, out var count) && count > 0)
+                    fields.Add(DoneField, WrittenValues.Number(count));
+                if (doneBy.TryGetValue(plan.Id, out var by))
+                {
+                    var ids = new List<ExecutorId>(by.Count);
+                    foreach (var pair in by)
+                        ids.Add(pair.Key);
+                    ids.Sort(static (a, b) => string.CompareOrdinal(a.Value, b.Value));
+                    foreach (var id in ids)
+                        fields.Add(DoneByField, id.Value + "=" + WrittenValues.Number(by[id]));
+                }
+
+                planRecords.Add(new PlanRecord.Known(plan, fields.ToList()));
+            }
         var from = part * perPart;
         var to = from + perPart < ghosts.Count ? from + perPart : ghosts.Count;
         var ghostRecords = new List<GhostRecord>(to > from ? to - from : 0);
@@ -172,13 +194,16 @@ internal static class JoinParts
             return Fail("bad part");
         var plans = new List<Plan>(read.Join.Plans.Count);
         var done = new Dictionary<PlanId, int>();
+        var doneBy = new Dictionary<PlanId, ValueMap<ExecutorId, int>>();
         foreach (var plan in read.Join.Plans)
         {
-            if (plan is not PlanRecord.Known known || !DoneOf(known.Extra).TryGet(out var count))
+            if (plan is not PlanRecord.Known known || !DoneOf(known.Extra).TryGet(out var counts))
                 return Fail("unreadable plan");
             plans.Add(known.Plan);
-            if (count > 0)
-                done[known.Plan.Id] = count;
+            if (counts.Done > 0)
+                done[known.Plan.Id] = counts.Done;
+            if (counts.By.Count > 0)
+                doneBy[known.Plan.Id] = counts.By;
         }
 
         var ghosts = new List<Ghost>(read.Join.Ghosts.Count);
@@ -189,17 +214,32 @@ internal static class JoinParts
             ghosts.Add(known.Ghost);
         }
 
-        return Result<JoinPart, Reason>.Ok(new JoinPart(read.Join.Revision, part, parts, ValueList.From(plans), ValueMap<PlanId, int>.From(done), ValueList.From(ghosts)));
+        return Result<JoinPart, Reason>.Ok(new JoinPart(read.Join.Revision, part, parts, ValueList.From(plans), ValueMap<PlanId, int>.From(done), ValueList.From(ghosts))
+        {
+            DoneBy = ValueMap<PlanId, ValueMap<ExecutorId, int>>.From(doneBy),
+        });
     }
 
-    /// <summary>A plan line's done count: none when the line has no <c>done=</c>; nothing when it has another field or a count below one.</summary>
-    private static Option<int> DoneOf(ValueList<Field> extra)
+    /// <summary>
+    /// A plan line's done counts: none (0) when the line has no <c>done=</c>; nothing when it has another field, a count
+    /// below one, or a <c>done-by</c> that does not read.
+    /// </summary>
+    private static Option<(int Done, ValueMap<ExecutorId, int> By)> DoneOf(ValueList<Field> extra)
     {
         var read = new FieldReader(extra);
         var count = 0;
         if (read.Take(DoneField).TryGet(out var text) && (!WrittenValues.Int(text).TryGet(out count) || count < 1))
-            return Option<int>.None;
-        return read.Rest().Count == 0 ? Option.Some(count) : Option<int>.None;
+            return Option<(int, ValueMap<ExecutorId, int>)>.None;
+        var by = new Dictionary<ExecutorId, int>();
+        foreach (var each in read.TakeAll(DoneByField))
+        {
+            var at = each.LastIndexOf('=');
+            if (at < 1 || !ExecutorId.Parse(each.Substring(0, at)).TryGet(out var id) || !WrittenValues.Int(each.Substring(at + 1)).TryGet(out var n) || n < 1)
+                return Option<(int, ValueMap<ExecutorId, int>)>.None;
+            by[id] = n;
+        }
+
+        return read.Rest().Count == 0 ? Option.Some((count, ValueMap<ExecutorId, int>.From(by))) : Option<(int, ValueMap<ExecutorId, int>)>.None;
     }
 
     private static Result<JoinPart, Reason> Fail(string problem) => Result<JoinPart, Reason>.Error(SyncRules.Problem(problem));
@@ -209,19 +249,19 @@ internal static class JoinParts
 /// The lines of one change set: the live message form, one line per plan the set touches (plans ascending), each
 /// numbered with the set's revision (only the host keeps plan files, so the file numbering stays on the host); a set
 /// that touches no plan is one line with no operations. The done counts the set gives plans outright ride in every
-/// line's header as <c>done=&lt;plan&gt;:&lt;count&gt;,...</c> (plans ascending), never in a plan file.
+/// line's header as <c>done=&lt;plan&gt;:&lt;count&gt;,...</c> (plans ascending), never in a plan file, each with one
+/// <c>done-by=&lt;plan&gt;:&lt;executor&gt;=&lt;count&gt;</c> per executor that held the claim on some of its done ghosts.
 /// A client turns them back into the whole change set with its own board's ghosts and plans as the before states.
 /// </summary>
 internal static class SetLines
 {
     private const string DoneField = "done";
+    private const string DoneByField = "done-by";
 
     public static string Write(ChangeSet set)
     {
         var parts = ChangeLines.Of(set);
-        var extra = set.DoneSet.Count == 0
-            ? ValueList<Field>.Empty
-            : ValueList.Of(new Field(DoneField, DoneText(set.DoneSet)));
+        var extra = set.DoneSet.Count == 0 ? ValueList<Field>.Empty : DoneFields(set);
         var lines = new List<ChangeLine>(parts.Count > 0 ? parts.Count : 1);
         foreach (var part in parts)
             lines.Add(ChangeLine.For(new LineNumber(set.Revision.Value), Option<LineNumber>.None, set, part.Ops) with { Extra = extra });
@@ -230,34 +270,72 @@ internal static class SetLines
         return LiveMessageForm.Write(ValueList.From(lines));
     }
 
-    private static string DoneText(ValueMap<PlanId, int> done)
+    private static ValueList<Field> DoneFields(ChangeSet set)
     {
-        var plans = new List<PlanId>(done.Count);
-        foreach (var pair in done)
+        var plans = new List<PlanId>(set.DoneSet.Count);
+        foreach (var pair in set.DoneSet)
             plans.Add(pair.Key);
         plans.Sort(static (a, b) => a.Value.CompareTo(b.Value));
         var text = new StringBuilder(plans.Count * 8);
         foreach (var plan in plans)
-            text.Append(text.Length > 0 ? "," : "").Append(WrittenValues.Number(plan.Value)).Append(':').Append(WrittenValues.Number(done[plan]));
-        return text.ToString();
+            text.Append(text.Length > 0 ? "," : "").Append(WrittenValues.Number(plan.Value)).Append(':').Append(WrittenValues.Number(set.DoneSet[plan]));
+        var fields = new List<Field> { new(DoneField, text.ToString()) };
+        foreach (var plan in plans)
+        {
+            if (!set.DoneBySet.TryGetValue(plan, out var by))
+                continue;
+            var ids = new List<ExecutorId>(by.Count);
+            foreach (var pair in by)
+                ids.Add(pair.Key);
+            ids.Sort(static (a, b) => string.CompareOrdinal(a.Value, b.Value));
+            foreach (var id in ids)
+                fields.Add(new Field(DoneByField, WrittenValues.Number(plan.Value) + ":" + id.Value + "=" + WrittenValues.Number(by[id])));
+        }
+
+        return ValueList.From(fields);
     }
 
-    /// <summary>The done counts a line's header gives; empty with none; nothing when the field does not read.</summary>
-    private static Option<ValueMap<PlanId, int>> DoneOf(ValueList<Field> extra)
+    /// <summary>
+    /// The done counts a line's header gives, and of them each plan's counts per executor; empty with none; nothing when
+    /// a field does not read, or a <c>done-by</c> names a plan with no done count.
+    /// </summary>
+    private static Option<(ValueMap<PlanId, int> Done, ValueMap<PlanId, ValueMap<ExecutorId, int>> By)> DoneOf(ValueList<Field> extra)
     {
+        var none = Option<(ValueMap<PlanId, int>, ValueMap<PlanId, ValueMap<ExecutorId, int>>)>.None;
         var read = new FieldReader(extra);
         if (!read.Take(DoneField).TryGet(out var text))
-            return Option.Some(ValueMap<PlanId, int>.Empty);
+            return read.TakeAll(DoneByField).Count > 0
+                ? none
+                : Option.Some((ValueMap<PlanId, int>.Empty, ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty));
         var done = new Dictionary<PlanId, int>();
         foreach (var item in text.Split(','))
         {
             var colon = item.IndexOf(':');
             if (colon < 1 || !WrittenValues.Long(item.Substring(0, colon)).TryGet(out var plan) ||
                 !WrittenValues.Int(item.Substring(colon + 1)).TryGet(out var count) || count < 0 || !done.TryAdd(new PlanId(plan), count))
-                return Option<ValueMap<PlanId, int>>.None;
+                return none;
         }
 
-        return Option.Some(ValueMap<PlanId, int>.From(done));
+        var by = new Dictionary<PlanId, Dictionary<ExecutorId, int>>();
+        foreach (var each in read.TakeAll(DoneByField))
+        {
+            var colon = each.IndexOf(':');
+            var at = each.LastIndexOf('=');
+            if (colon < 1 || at <= colon + 1 || !WrittenValues.Long(each.Substring(0, colon)).TryGet(out var raw) ||
+                !done.ContainsKey(new PlanId(raw)) || !ExecutorId.Parse(each.Substring(colon + 1, at - colon - 1)).TryGet(out var id) ||
+                !WrittenValues.Int(each.Substring(at + 1)).TryGet(out var n) || n < 1)
+                return none;
+            var plan = new PlanId(raw);
+            if (!by.TryGetValue(plan, out var counts))
+                by[plan] = counts = new Dictionary<ExecutorId, int>();
+            if (!counts.TryAdd(id, n))
+                return none;
+        }
+
+        var byMap = new Dictionary<PlanId, ValueMap<ExecutorId, int>>(by.Count);
+        foreach (var pair in by)
+            byMap[pair.Key] = ValueMap<ExecutorId, int>.From(pair.Value);
+        return Option.Some((ValueMap<PlanId, int>.From(done), ValueMap<PlanId, ValueMap<ExecutorId, int>>.From(byMap)));
     }
 
     /// <summary>
@@ -342,7 +420,8 @@ internal static class SetLines
             ValueList.From(planChanges),
             ValueList.From(finished))
         {
-            DoneSet = doneSet,
+            DoneSet = doneSet.Done,
+            DoneBySet = doneSet.By,
         });
     }
 
@@ -479,6 +558,7 @@ internal sealed class JoinGather
     private readonly List<Plan> _plans = new();
     private readonly List<Ghost> _ghosts = new();
     private ValueMap<PlanId, int> _done = ValueMap<PlanId, int>.Empty;
+    private ValueMap<PlanId, ValueMap<ExecutorId, int>> _doneBy = ValueMap<PlanId, ValueMap<ExecutorId, int>>.Empty;
     private Revision _revision;
     private int _next;
     private int _parts;
@@ -491,6 +571,7 @@ internal sealed class JoinGather
             _plans.Clear();
             _ghosts.Clear();
             _done = part.Done;
+            _doneBy = part.DoneBy;
             _revision = part.Revision;
             _parts = part.Parts;
             _next = 0;
@@ -518,6 +599,6 @@ internal sealed class JoinGather
             ghost = each.Id.Value > ghost ? each.Id.Value : ghost;
         foreach (var each in _plans)
             plan = each.Id.Value > plan ? each.Id.Value : plan;
-        return new BoardSeed(_revision, new IdCounters(ghost + 1, plan + 1, 1), ValueList.From(_plans), ValueList.From(_ghosts)) { Done = _done };
+        return new BoardSeed(_revision, new IdCounters(ghost + 1, plan + 1, 1), ValueList.From(_plans), ValueList.From(_ghosts)) { Done = _done, DoneBy = _doneBy };
     }
 }

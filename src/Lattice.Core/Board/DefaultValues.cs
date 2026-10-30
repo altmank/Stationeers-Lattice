@@ -87,6 +87,8 @@ internal static class DefaultValues
         Api.PlanEdit.Rename rename => Check(rename.To == default, nameof(PlanName)),
         Api.PlanEdit.ChangeOwner owner => Actor(owner.To),
         Api.PlanEdit.ChangeVisibility visibility => Visibility(visibility.To),
+        Api.PlanEdit.Assign assign => Check(assign.Builder == default, nameof(ExecutorId)),
+        Api.PlanEdit.Unassign unassign => Check(unassign.Builder == default, nameof(ExecutorId)),
         _ => Option<Reason>.None,
     };
 

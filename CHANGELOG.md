@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.22.0
+
+Added:
+- **Builders describe themselves.** A builder registers with who it builds for and what it builds
+  (`ExecutorInfo.Owner`, `.Builds`), and through its handle says where it works (`Locate`, a `BuilderArea.Sphere` with a
+  build reach and a source range), how it is doing (`Say`), what it can supply (`Offer`: what it reaches, and what it has
+  set aside toward each plan), and its answer to each plan assigned to it (`Answer`). Lattice keeps the word, syncs it
+  to every seat, drops it with the handle, and never checks it; an equal report changes nothing.
+- **Every seat reads the builders.** `IExecutors.All` and `Find` give each builder with its state, worked out from its
+  claims first (a working claim beats a stuck word); `AssignedTo(plan)` and `PlansOf(builder)` the assignments and
+  answers (`Asked`, `Accepted`, `Refused`, `Absent`); `ProgressOf(plan, builder)` and `ProgressOf(plan)` what was built
+  under each builder's claims and what it works on or waits on now; `UnclaimedIn(plan)` what no claim holds;
+  `SupplyToward(plan)` what the plan's builders have set aside for it, summed. `Events.BuilderChanged` says when to read
+  again. Reads are cached and a steady frame allocates nothing, with 64 builders registered.
+- **Plans have builders and a colour.** `Plan.BuildBy` is the set of builders asked to build a plan (at most 64), changed
+  with `PlanEdit.Assign` and `Unassign`; `Plan.Colour` is the plan's colour for any reader, set with `PlanDraft.Colour`
+  and `PlanEdit.Recolour`. Both are saved and synced with the plan; a plan from an older save has none.
+- **A completion names its builder.** `Completion.By` is the executor that held the ghost's claim when it completed,
+  even when a player finished the piece; it is saved, so built counts survive a load, and a catch-up or a reopen gives
+  every seat the same built counts.
+- Contract 0.22.
+
+Changed:
+- **`PlanEdit` gains cases** (`Recolour`, `Assign`, `Unassign`), and says a later minor may add more: a consumer that
+  switches on it exhaustively sees new cases.
+- **`StatusChanged` is raised for every claim**, taken, released, lapsed or dropped, as well as for a changed report
+  (never a renewal), on the host and on clients. It was raised only for a report, or a drop of a claim that had one, so
+  a handler that counted reports by it sees more calls.
+
 ## 0.21.1
 
 Fixed:
