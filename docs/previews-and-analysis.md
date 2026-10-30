@@ -31,6 +31,10 @@ A `Preview` holds:
 The refusals sit inside the answer because a command's refusals are known only once it is expanded, which can take
 several frames.
 
+The findings are ready once the new and changed ghosts, and the ghosts whose changes they read, are judged: a preview
+does not wait for the rest of the board's checks, so it may answer before an unrelated ghost still being checked has
+its place in the build order.
+
 Use a preview for the live readout while a player drags (a run's length and cost, the first failing cell), for an
 agent's dry run before it commits, and to draw the would-be result with `IDrafts.Show(preview)`
 ([styles](styles.md#drafts)).

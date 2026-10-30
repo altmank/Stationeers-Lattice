@@ -274,7 +274,7 @@ internal sealed class RoutePlanner(
             allNamed.AddRange(targets);
         }
 
-        var planned = new PlannedWorld(board, world);
+        var planned = new PlannedWorld(board, world, shapes: _shapes);
         var reach = kit.Step * limits.Margin;
         var (min, max) = (points[0], points[0]);
         foreach (var point in points)

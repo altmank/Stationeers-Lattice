@@ -22,22 +22,40 @@ internal sealed class ValidationRules(RuleGuard guard)
     public int Generation { get; private set; }
 
     /// <summary>A registered rule.</summary>
-    internal sealed class Entry(RuleDescriptor rule)
+    internal sealed class Entry(RuleDescriptor rule, Func<Ghost, bool>? applies, bool inline)
     {
         public RuleDescriptor Rule => rule;
+
+        /// <summary>
+        /// Whether the rule has anything to say about a ghost; a ghost it does not apply to passes it without a call.
+        /// Lattice's own rules only: every mod rule applies to every ghost.
+        /// </summary>
+        public bool AppliesTo(Ghost ghost) => applies is null || applies(ghost);
+
+        /// <summary>
+        /// Called directly on the validation worker, with no rule thread and no guard: Lattice's own constant checks
+        /// over what the worker holds already. Mod rules are never inline.
+        /// </summary>
+        public bool Inline => inline;
     }
 
     /// <summary>The rules now registered, in registration order.</summary>
     public IReadOnlyList<Entry> Current => _rules;
 
     /// <summary>Adds a rule; refused for an id already registered.</summary>
-    public Result<IDisposable, Reason> Register(RuleDescriptor rule)
+    public Result<IDisposable, Reason> Register(RuleDescriptor rule) => Register(rule, null, false);
+
+    /// <summary>
+    /// Adds one of Lattice's own rules: <paramref name="applies"/> says which ghosts it is asked about (none: every
+    /// ghost), and an <paramref name="inline"/> rule is called on the worker directly (<see cref="Entry.Inline"/>).
+    /// </summary>
+    public Result<IDisposable, Reason> Register(RuleDescriptor rule, Func<Ghost, bool>? applies, bool inline)
     {
         foreach (var existing in _rules)
             if (existing.Rule.Id == rule.Id)
                 return Result<IDisposable, Reason>.Error(
                     Reason.Of(ReasonCodes.AlreadyRegistered, rule.Id, ValueMap<string, string>.Of("rule", rule.Id.Value)));
-        var entry = new Entry(rule);
+        var entry = new Entry(rule, applies, inline);
         var next = new Entry[_rules.Length + 1];
         Array.Copy(_rules, next, _rules.Length);
         next[_rules.Length] = entry;

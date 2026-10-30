@@ -54,8 +54,9 @@ internal static class RefusalWords
 }
 
 /// <summary>
-/// The cells a route may enter, judged on the planned world (every ghost done, <see cref="PlannedWorld"/>) from
-/// catalogue facts only; the game's own check runs later, on the pieces the run planner lays.
+/// The cells a route may enter, judged on the planned world (every ghost done, <see cref="PlannedWorld"/>, a planned
+/// piece in every cell it fills as a built one is) from catalogue facts only; the game's own check runs later, on the
+/// pieces the run planner lays.
 /// <list type="bullet">
 /// <item>Always: the kit's straight along the way the route travels must not collide with what stands in the cell
 /// (<see cref="Shapes.Conflict"/>: collision classes, then ends).

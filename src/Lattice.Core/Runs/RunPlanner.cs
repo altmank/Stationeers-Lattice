@@ -173,7 +173,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
     private Option<CellFailure> FirstBreak(
         RunRequest request, RouteToggles rules, KitShapes kit, RunPath path, IReadOnlyList<PortTarget> ports, IGhostBoard board, IWorldQuery world)
     {
-        var planned = new PlannedWorld(board, world);
+        var planned = new PlannedWorld(board, world, shapes: _shapes);
         var (min, max) = (path.Cells[0], path.Cells[0]);
         foreach (var cell in path.Cells)
         {

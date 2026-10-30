@@ -15,6 +15,9 @@ internal sealed class SwapFaceRule(SwapPlanner planner)
     /// <summary>The descriptor to register with the validation rules.</summary>
     public RuleDescriptor Descriptor => new(SwapCodes.Swaps, Check) { Thread = CallbackThread.Main };
 
+    /// <summary>The ghosts it is asked about: swaps; every other ghost passes it.</summary>
+    public static bool Applies(Ghost ghost) => ghost.Intent is Intent.Swap;
+
     /// <summary>The verdict for one ghost: a warning for a swap over its face rating, else a pass. Linear in the new piece's spots.</summary>
     public RuleVerdict Check(RuleInput input)
     {

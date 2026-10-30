@@ -60,6 +60,8 @@ internal sealed class ValidationEngine
     private Revision _revision;
     private AssumedIndex? _staged;
     private bool _trying;
+    private Ordering? _lastOrdering;
+    private OrderReport? _lastReport;
     private ReadLog? _spareLog;
     private long _sequence;
 
@@ -122,6 +124,7 @@ internal sealed class ValidationEngine
         (_stageOf, _spareStageOf) = (stageOf, _stageOf);
 
         var report = _order.Report(ordering, judge, out var complete);
+        (_lastOrdering, _lastReport) = (ordering, report);
         var asks = _asks;
         Asks(ordering, asks);
         var counts = new RunCounts(_ghosts.Count, judge.Judged, visited, ValueSet.From(judge.Rechecked));
@@ -143,6 +146,8 @@ internal sealed class ValidationEngine
     /// so the ghosts near the change are judged as before. Both runs re-check only what the change touches. The
     /// second run's outcome is the engine's own, as after any run. Game, room and network answers the trial needed
     /// stay for the next trial nearby; main-thread rules' answers for its ghosts hold for this trial only.
+    /// The trial is judged on its own ghosts (<see cref="TrialOf"/>): ready once they, and the ghosts whose changes
+    /// they read, are judged in full, whatever the rest of the board still waits on.
     /// </summary>
     public (TrialOutcome Trial, RunOutcome After, TrialWorld World) Trial(ChangeSet changes)
     {
@@ -172,7 +177,7 @@ internal sealed class ValidationEngine
         }
 
         var (revision, verdicts, findings) = (_revision, _verdicts, _findings);
-        RunOutcome outcome;
+        TrialOutcome outcome;
         AssumedIndex? staged;
         RunOutcome after;
         _store.BeginTrial(changes);
@@ -181,8 +186,9 @@ internal sealed class ValidationEngine
         {
             try
             {
-                outcome = Run([new WorkInput.Ghosts(changes.Revision, ValueList.From(upserts), ValueList.From(gone), Reset: false)]);
+                Run([new WorkInput.Ghosts(changes.Revision, ValueList.From(upserts), ValueList.From(gone), Reset: false)]);
                 staged = _staged;
+                outcome = TrialOf(tried, _lastOrdering!, _lastReport!);
             }
             finally
             {
@@ -197,7 +203,7 @@ internal sealed class ValidationEngine
             _trying = false;
         }
 
-        return (TrialOf(outcome, tried), after, new TrialWorld(staged));
+        return (outcome, after, new TrialWorld(staged));
     }
 
     /// <summary>
@@ -222,21 +228,91 @@ internal sealed class ValidationEngine
         return ValueList.From(facts);
     }
 
-    private static TrialOutcome TrialOf(RunOutcome outcome, HashSet<GhostId> tried)
+    // The trial's outcome from its own ghosts, right after the run with them in. Pending with the asks that hold them up:
+    // their own, ordering's, and those of every ghost not judged in full whose changes they read (it writes a key their
+    // judgements read). Else ready with their findings as a ready run gives them: in build order, each ghost's together,
+    // a stale ghost's last. The rest of the board's asks are not the trial's. Linear in the board's ghosts.
+    private TrialOutcome TrialOf(HashSet<GhostId> tried, Ordering ordering, OrderReport report)
     {
-        if (outcome is RunOutcome.Pending pending)
-            return new TrialOutcome.Pending(pending.Asks, pending.MainAsks);
-        var result = ((RunOutcome.Ready)outcome).Result;
-        var places = new List<(int Start, int Count, int Order)>(tried.Count);
+        var asks = new List<Ask>();
+        var asked = new HashSet<ReadKey>();
+        var read = new HashSet<ReadKey>();
+        foreach (var ask in ordering.Reads.Asks)
+            if (asked.Add(ask.Key))
+                asks.Add(ask);
         foreach (var id in tried)
-            if (result.TryPlace(id, out var place))
-                places.Add(place);
-        places.Sort(static (a, b) => a.Order.CompareTo(b.Order));
-        var findings = new List<Finding>(places.Count);
-        foreach (var (start, count, _) in places)
-            for (var i = start; i < start + count; i++)
-                findings.Add(result.Findings[i]);
+        {
+            if (_edges.TryGetValue(id, out var edge))
+                Held(edge.Keys, edge.Asks);
+            if (_stages.TryGetValue(id, out var stage))
+                Held(stage.Keys, stage.Asks);
+        }
+
+        var writes = new List<ReadKey>(8);
+        foreach (var pair in _ghosts)
+        {
+            if (tried.Contains(pair.Key))
+                continue;
+            var edgeAsks = _edges.TryGetValue(pair.Key, out var edge) ? edge.Asks : [];
+            var stageAsks = _stages.TryGetValue(pair.Key, out var stage) ? stage.Asks : [];
+            if (edgeAsks.Length == 0 && stageAsks.Length == 0)
+                continue;
+            writes.Clear();
+            Writes(pair.Value, writes);
+            if (!read.Overlaps(writes))
+                continue;
+            foreach (var ask in edgeAsks)
+                if (asked.Add(ask.Key))
+                    asks.Add(ask);
+            foreach (var ask in stageAsks)
+                if (asked.Add(ask.Key))
+                    asks.Add(ask);
+        }
+
+        if (asks.Count > 0)
+        {
+            var main = false;
+            foreach (var ask in asks)
+                main |= ask is Ask.MainSupport or Ask.MainRule;
+            return new TrialOutcome.Pending(ValueList.From(asks), main);
+        }
+
+        var order = new List<GhostId>(tried.Count);
+        var groups = new Dictionary<GhostId, List<Finding>>(tried.Count);
+        foreach (var finding in report.Findings)
+            Group(finding);
+        var stale = new List<Ghost>();
+        foreach (var id in tried)
+            if (_ghosts.TryGetValue(id, out var ghost) && ghost.State is GhostState.Stale)
+                stale.Add(ghost);
+        stale.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
+        foreach (var ghost in stale)
+            Group(new Finding.WillFail(ghost.Id, ((GhostState.Stale)ghost.State).Why));
+        var findings = new List<Finding>();
+        foreach (var id in order)
+            findings.AddRange(groups[id]);
         return new TrialOutcome.Ready(ValueList.From(findings));
+
+        void Held(ReadKey[] keys, Ask[] held)
+        {
+            read.UnionWith(keys);
+            foreach (var ask in held)
+                if (asked.Add(ask.Key))
+                    asks.Add(ask);
+        }
+
+        void Group(Finding finding)
+        {
+            if (!tried.Contains(finding.Ghost))
+                return;
+            if (!groups.TryGetValue(finding.Ghost, out var group))
+            {
+                groups.Add(finding.Ghost, group = new List<Finding>(2));
+                order.Add(finding.Ghost);
+            }
+
+            group.Add(finding);
+        }
     }
 
     private void Take(WorkInput input, HashSet<ReadKey> changed, HashSet<ReadKey> answers, HashSet<GhostId> direct, ref bool everything)
@@ -598,8 +674,12 @@ internal sealed class ValidationEngine
     {
         foreach (var entry in _rules.Current)
         {
+            if (!entry.AppliesTo(ghost))
+                continue;
             Option<Guarded<RuleVerdict>> answer;
-            if (entry.Rule.Thread == CallbackThread.Main)
+            if (entry.Inline)
+                answer = Option.Some<Guarded<RuleVerdict>>(new Guarded<RuleVerdict>.Answered(entry.Rule.Check(new RuleInput(ghost, world))));
+            else if (entry.Rule.Thread == CallbackThread.Main)
                 answer = world.MainRule(_rules, entry, new RuleInput(ghost, world));
             else
             {

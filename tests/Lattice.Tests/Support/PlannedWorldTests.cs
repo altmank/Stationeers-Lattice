@@ -1,4 +1,5 @@
 using Lattice.Api;
+using Lattice.Core.Board;
 using Lattice.Core.Support;
 using Lattice.Tests.Board;
 using Lattice.Tests.Runs;
@@ -32,5 +33,26 @@ public sealed class PlannedWorldTests
         var built = Assert.Single(world.At(At(3, 0, 0)));
         Assert.True(built.Ref.Id.Value < 0);
         Assert.Equal(built, world.Structure(built.Ref.Id).Match(s => s, () => null!));
+    }
+
+    [Fact]
+    public void With_shapes_a_planned_piece_stands_in_every_cell_it_fills_as_a_built_one_does()
+    {
+        var bench = new RunBench();
+        bench.Ghost("ModConduitLong4", At(0, 0, 0));
+        bench.Real("ModConduitLong4", At(4, 0, 0));
+        var footprints = new PlannedWorld(bench.Boards.View, bench.Query, shapes: new Shapes(bench.Catalogue, bench.Grid));
+        var ownCells = new PlannedWorld(bench.Boards.View, bench.Query);
+
+        for (var y = 0; y >= -3; y--)
+        {
+            Assert.True(Assert.Single(footprints.At(At(0, y, 0))).Ref.Id.Value < 0);
+            Assert.Single(footprints.At(At(4, y, 0)));
+            Assert.Single(ownCells.At(At(4, y, 0)));
+        }
+
+        Assert.Single(ownCells.At(At(0, 0, 0)));
+        Assert.Empty(ownCells.At(At(0, -2, 0)));
+        Assert.Empty(footprints.At(At(0, 1, 0)));
     }
 }

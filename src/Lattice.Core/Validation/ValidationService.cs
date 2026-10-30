@@ -93,7 +93,8 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     private readonly ValidationParts _parts;
     private readonly ConcurrentQueue<RunOutcome> _outbox = new();
     private readonly ConcurrentQueue<(ValidationTrial Trial, TrialOutcome Outcome)> _trialbox = new();
-    private readonly Queue<(ValueList<Ask> Asks, bool Trial)> _asks = new();
+    private readonly Queue<ValueList<Ask>> _asks = new();
+    private readonly Queue<(ValueList<Ask> Asks, ValidationTrial Trial)> _trialAsks = new();
     private readonly Queue<ValueList<Ask>> _uncounted = new();
     private readonly List<ValidationTrial> _trials = [];
     private readonly AnswerBook _book = new();
@@ -117,6 +118,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     private Revision _readyFor;
     private bool _inFlight;
     private int _askAt;
+    private int _trialAskAt;
     private int _asksLeft;
     private int _countAt;
     private int _posts;
@@ -147,7 +149,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     public bool Faulted => _fault is not null;
 
     /// <summary>Whether a run, its asks or changes not yet handed over are outstanding.</summary>
-    public bool Busy => _inFlight || _asking || _sweeping || _pending.Count > 0 || _noted.Count > 0 || _asks.Count > 0 || _trials.Count > 0;
+    public bool Busy => _inFlight || _asking || _sweeping || _pending.Count > 0 || _noted.Count > 0 || _asks.Count > 0 || _trialAsks.Count > 0 || _trials.Count > 0;
 
     /// <summary>Raised with each run's counts as its result is taken, for tests and timings. Main thread.</summary>
     /// <summary>The newest complete run's result, or null before the first; its revision is <see cref="ValidationResult.At"/>.</summary>
@@ -275,7 +277,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
             return;
         }
 
-        if (_asks.Count > 0 && !_asking)
+        if ((_asks.Count > 0 || _trialAsks.Count > 0) && !_asking)
         {
             _asking = true;
             _parts.Scheduler.Schedule(WorkKind.Checking, new AskWork(this), Priority.Normal);
@@ -287,7 +289,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
             _parts.Scheduler.Schedule(WorkKind.Checking, new SweepWork(this, _book.Keys()), Priority.Low);
         }
 
-        if (!_inFlight && !_mainWaiting && (_pending.Count > 0 || NextTrial() is not null))
+        if (!_inFlight && (NextTrial() is not null || (!_mainWaiting && _pending.Count > 0)))
             Post();
     }
 
@@ -302,10 +304,14 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     // first is answered, so no answering step grows a collection the size of the plan (a copy of it and, past 85 KB, a
     // large block from the collector). A run lists every ask it still waits on, most of them answered already, so room
     // is taken for the ones the book does not hold; it at least doubles when it grows, so a plan whose asks come over
-    // many runs copies its collections a few times in all.
-    private void Enqueue(ValueList<Ask> asks, bool trial)
+    // many runs copies its collections a few times in all. A trial's asks queue apart and are answered first, so a
+    // preview never waits behind a plan's.
+    private void Enqueue(ValueList<Ask> asks, ValidationTrial? trial)
     {
-        _asks.Enqueue((asks, trial));
+        if (trial is null)
+            _asks.Enqueue(asks);
+        else
+            _trialAsks.Enqueue((asks, trial));
         _uncounted.Enqueue(asks);
     }
 
@@ -350,29 +356,21 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     private bool IsLast(WorkInput input) => _pending.Count > 0 && ReferenceEquals(_pending[_pending.Count - 1], input);
 
     // A run lists every ask the board's checking still waits on (a ready run, none), so the asks of earlier runs not
-    // yet worked through are left out: what they ask that is still wanted is in the new list. A trial's asks stay (room for them is taken
-    // again only if the book needs it). Linear in the queued lists.
+    // yet worked through are left out: what they ask that is still wanted is in the new list. Trials' asks stay (room
+    // for them is taken again only if the book needs it). Linear in the queued trial lists.
     private void Supersede()
     {
-        var lists = _asks.Count;
+        _asks.Clear();
+        _askAt = 0;
         _uncounted.Clear();
         _countAt = 0;
-        for (var i = 0; i < lists; i++)
-        {
-            var entry = _asks.Dequeue();
-            if (entry.Trial)
-            {
-                _asks.Enqueue(entry);
-                _uncounted.Enqueue(entry.Asks);
-            }
-            else if (i == 0)
-                _askAt = 0;
-        }
-
+        foreach (var (asks, _) in _trialAsks)
+            _uncounted.Enqueue(asks);
         _asksLeft = 0;
     }
 
-    // The first trial ready to go to the worker; trials prepared for another revision are dropped.
+    // The first trial ready to go to the worker: not asked yet, or its asks all answered (the board's asks may still be
+    // waiting: a trial goes with whatever answers are in); trials prepared for another revision are dropped.
     private ValidationTrial? NextTrial()
     {
         var next = new Revision(_parts.Board.Revision.Value + 1);
@@ -380,9 +378,18 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
             if (!_trials[i].Posted && _trials[i].Changes.Revision != next)
                 _trials.RemoveAt(i);
         foreach (var trial in _trials)
-            if (!trial.Posted && !trial.Judged && (!trial.Asked || (_asks.Count == 0 && !_asking)))
+            if (!trial.Posted && !trial.Judged && (!trial.Asked || !Asking(trial)))
                 return trial;
         return null;
+    }
+
+    // Whether a trial's asks are still queued to be answered.
+    private bool Asking(ValidationTrial trial)
+    {
+        foreach (var (_, queued) in _trialAsks)
+            if (queued == trial)
+                return true;
+        return false;
     }
 
     /// <summary>
@@ -542,7 +549,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
                 Supersede();
                 if (pending.Asks.Count > 0)
                 {
-                    Enqueue(pending.Asks, false);
+                    Enqueue(pending.Asks, null);
                     _mainWaiting |= pending.MainAsks;
                 }
                 break;
@@ -596,7 +603,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
                 trial.Asked = pending.Asks.Count > 0;
                 if (trial.Asked)
                 {
-                    Enqueue(pending.Asks, true);
+                    Enqueue(pending.Asks, trial);
                     _mainWaiting |= pending.MainAsks;
                 }
 
@@ -691,15 +698,37 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     // The next ask not answered already (an answer on its way to the worker), passing over at most SkippedPerStep
     // answered ones (more is false then: look again next step); none, with more false, when every list is done. A
     // main-thread rule, or the game about a board ghost's placement, is not asked once the ghost has left the board
-    // (removed or done): no judgement reads that answer. A trial's game asks are about ghosts not on the board, and
-    // are always asked.
+    // (removed or done): no judgement reads that answer. Trials' asks come first, a dropped trial's passed over; they
+    // are about ghosts not on the board (or the ghosts a trial's ghosts read), and are always asked.
     private (Ask Ask, bool Trial)? NextAsk(out bool more)
     {
         more = false;
         var skipped = 0;
+        while (_trialAsks.Count > 0)
+        {
+            var (list, of) = _trialAsks.Peek();
+            while (_trialAskAt < list.Count && _trials.Contains(of))
+            {
+                if (skipped++ == SkippedPerStep)
+                {
+                    more = true;
+                    return null;
+                }
+
+                var ask = list[_trialAskAt++];
+                if (_asksLeft > 0 && !_book.Holds(ask.Key))
+                    _asksLeft--;
+                if (ask is Ask.MainSupport or Ask.MainRule || !_book.OnItsWay(ask.Key, _settled))
+                    return (ask, true);
+            }
+
+            _trialAsks.Dequeue();
+            _trialAskAt = 0;
+        }
+
         while (_asks.Count > 0)
         {
-            var (list, trial) = _asks.Peek();
+            var list = _asks.Peek();
             while (_askAt < list.Count)
             {
                 if (skipped++ == SkippedPerStep)
@@ -711,14 +740,12 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
                 var ask = list[_askAt++];
                 if (_asksLeft > 0 && !_book.Holds(ask.Key))
                     _asksLeft--;
-                if (trial && ask is Ask.MainSupport or Ask.MainRule)
-                    return (ask, true);
                 if (ask is Ask.MainSupport or Ask.MainRule && !_parts.Board.Index.Ghosts.ContainsKey(new GhostId(ask.Key.Id)))
                     continue;
-                if (!trial && ask is Ask.Game game && !OnTheBoard(game.At))
+                if (ask is Ask.Game game && !OnTheBoard(game.At))
                     continue;
                 if (!_book.OnItsWay(ask.Key, _settled))
-                    return (ask, trial);
+                    return (ask, false);
             }
 
             _asks.Dequeue();
@@ -828,14 +855,20 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     }
 
     /// <summary>
-    /// Counts the worker's asks against the book and takes room for their answers, then answers them one per step, in
-    /// the checking budget. A step's work is bounded: a part of a list counted, the room taken, or one answer.
+    /// Answers trials' asks first, one per step; then counts the board's asks against the book and takes room for their
+    /// answers, then answers them one per step, in the checking budget. A step's work is bounded: a part of a list counted, the room taken, or one answer.
     /// </summary>
     private sealed class AskWork(ValidationService service) : ISlicedWork
     {
         public StepOutcome Step()
         {
             service.DropNoted();
+            if (service._trialAsks.Count > 0 && service.NextAsk(out _) is { Trial: true } first)
+            {
+                service.Answer(first.Ask, true);
+                return StepOutcome.More;
+            }
+
             if (service.CountSome())
                 return StepOutcome.More;
 

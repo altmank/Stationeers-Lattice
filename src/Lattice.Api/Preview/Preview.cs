@@ -81,7 +81,9 @@ public interface IPreview
     /// The preview of a command for an actor, or the refusals it would get; pending while a big change is worked out
     /// in time slices. The refusals are inside the answer because a command's refusals are known only after it is
     /// expanded, which may take several frames (<see cref="IAnalysis.Of"/> nests the other way). Cost on the main
-    /// thread: bounded by the frame time slice.
+    /// thread: bounded by the frame time slice. The findings are ready once the new and changed ghosts, and the ghosts
+    /// whose changes they read, are judged: a preview does not wait for the rest of the board's checks, so it may answer
+    /// before an unrelated ghost still being checked has its place in the build order.
     /// </summary>
     Answer<Result<Preview, ValueList<Refusal>>> Of(Command command, Actor actor);
 }

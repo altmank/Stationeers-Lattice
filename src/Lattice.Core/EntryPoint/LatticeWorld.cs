@@ -409,9 +409,9 @@ internal sealed class LatticeWorld : IGhostSystem
             var main = new InlineRuleCalls(runtime.Clock);
             supportRules = new SupportRules(new RuleGuard(runtime.RuleLimit, RuleCalls(runtime), main));
             rules = new ValidationRules(new RuleGuard(runtime.RuleLimit, RuleCalls(runtime), main));
-            Must(rules.Register(new SnapRule(catalogue).Descriptor));
+            Must(rules.Register(new SnapRule(catalogue).Descriptor, SnapRule.Applies, inline: true));
             if (swaps is not null)
-                Must(rules.Register(new SwapFaceRule(swaps).Descriptor));
+                Must(rules.Register(new SwapFaceRule(swaps).Descriptor, SwapFaceRule.Applies, inline: false));
             var judge = new SupportJudge(supportRules, new SupportGeometry(grid, supportFacts, shapes));
             var validation = new ValidationService(new ValidationParts(
                 Ghosts, LatticeIdentity.Actor, mirror, view, game.Placement, catalogue, grid, judge, rules, Scheduler, runtime.Clock,

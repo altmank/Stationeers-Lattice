@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Lattice.Api;
+using Lattice.Core.Board;
 
 namespace Lattice.Core.Support;
 
@@ -9,10 +10,11 @@ namespace Lattice.Core.Support;
 /// stand, fully built, under the negated ghost id (<see cref="SupportWorld.IdOf"/>); the structures that removal and
 /// swap ghosts take are gone, and a part-built structure a build ghost was started on stands as the ghost's finished
 /// piece instead. Stale ghosts are left out, as the build order leaves them out. With <c>only</c>, just those ghosts
-/// are assumed done and the rest of the board is left out (the effects of a set of ghosts). Each cell is read once and
-/// cached, so one instance belongs to one pass over an unchanging board. Main thread, as the board is.
+/// are assumed done and the rest of the board is left out (the effects of a set of ghosts). An assumed piece stands in
+/// its own cell; with <c>shapes</c>, in every cell one of its spots lies in, as a built structure does. Each cell is read
+/// once and cached, so one instance belongs to one pass over an unchanging board. Main thread, as the board is.
 /// </summary>
-internal sealed class PlannedWorld(IGhostBoard board, IWorldQuery world, ISet<GhostId>? only = null) : IWorldQuery
+internal sealed class PlannedWorld(IGhostBoard board, IWorldQuery world, ISet<GhostId>? only = null, Shapes? shapes = null) : IWorldQuery
 {
     private readonly Dictionary<Cell, ValueList<StructureInfo>> _at = [];
 
@@ -37,9 +39,22 @@ internal sealed class PlannedWorld(IGhostBoard board, IWorldQuery world, ISet<Gh
             if (!Taken(info.Ref))
                 here.Add(info);
         foreach (var ghost in ghosts)
-            if (Put(ghost).TryGet(out var put) && put.At == cell)
+            if (Put(ghost).TryGet(out var put) && Fills(put, cell))
                 here.Add(SupportWorld.AssumedInfo(ghost.Id, put));
         return _at[cell] = ValueList.From(here);
+    }
+
+    // The board lists a ghost in each cell its spots lie in and in its target's cell, so the put's shape decides.
+    private bool Fills(Placement put, Cell cell)
+    {
+        if (put.At == cell)
+            return true;
+        if (shapes is null || !shapes.Of(put).TryGet(out var shape))
+            return false;
+        foreach (var spot in shape.Spots)
+            if (spot.Cell == cell)
+                return true;
+        return false;
     }
 
     public Result<ValueList<StructureRef>, Reason> Select(StructureSelector selector) =>

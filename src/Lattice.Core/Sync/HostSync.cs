@@ -300,14 +300,20 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     private Snapshot TakeSnapshot()
     {
         var plans = new List<Plan>(_board.Index.Plans.Count);
+        var done = new Dictionary<PlanId, int>();
         foreach (var entry in _board.Index.Plans.Values)
+        {
             plans.Add(entry.Plan);
+            if (entry.Done > 0)
+                done[entry.Plan.Id] = entry.Done;
+        }
+
         plans.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
         var ghosts = new List<Ghost>(_board.Index.Ghosts.Count);
         foreach (var entry in _board.Index.Ghosts.Values)
             ghosts.Add(entry.Ghost);
         ghosts.Sort(static (a, b) => a.Id.Value.CompareTo(b.Id.Value));
-        return new Snapshot(_board.Revision, plans, ghosts);
+        return new Snapshot(_board.Revision, plans, done, ghosts);
     }
 
     /// <summary>A joined client: what is queued for it and the revision its join holds.</summary>
@@ -360,7 +366,8 @@ internal sealed class HostSync : ISlicedWork, IDisposable
         };
     }
 
-    private sealed record Snapshot(Revision Revision, List<Plan> Plans, List<Ghost> Ghosts);
+    /// <summary>The board a join sends: its revision, plans with each plan's done count (a plan not listed has none), and ghosts.</summary>
+    private sealed record Snapshot(Revision Revision, List<Plan> Plans, Dictionary<PlanId, int> Done, List<Ghost> Ghosts);
 
     /// <summary>A message's text, written once when first sent (shared by every connection it goes to), and its frames.</summary>
     private abstract class MessageText
@@ -389,7 +396,7 @@ internal sealed class HostSync : ISlicedWork, IDisposable
 
     private sealed class JoinText(Snapshot snapshot, int part, int perPart) : MessageText
     {
-        protected override string Write() => JoinParts.Write(snapshot.Revision, snapshot.Plans, snapshot.Ghosts, part, perPart);
+        protected override string Write() => JoinParts.Write(snapshot.Revision, snapshot.Plans, snapshot.Done, snapshot.Ghosts, part, perPart);
     }
 
     private sealed class AnswerText(CommandId id, Answer answer) : MessageText

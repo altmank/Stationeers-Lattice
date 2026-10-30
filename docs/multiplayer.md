@@ -11,7 +11,10 @@ code for single player, a listen host, a client and a dedicated server.
 | Client | A copy, kept in step by the host's change sets | Sent to the host | Yes |
 | Dedicated server | Lattice's own actor, which sees everything | Applied at once | No: `LatticeDrawing.Current` is none |
 
-Every player and the host need Lattice at the same version.
+Every player and the host need Lattice at the same version; LaunchPadBooster refuses a player whose version differs.
+
+A joining player gets the host's whole board: plans, ghosts and each plan's done count, so `IPlans.Facts` and
+`IPlans.State` give the host's answers from the first frame.
 
 ## Commands from a client
 

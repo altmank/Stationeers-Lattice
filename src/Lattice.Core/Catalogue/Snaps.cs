@@ -31,14 +31,18 @@ internal static class Snaps
 /// <summary>
 /// Lattice's own validation rule for snaps: a build or swap ghost whose new piece stands off its snap fails
 /// <see cref="ReasonCodes.OffSnap"/> (<see cref="Snaps.Off"/>), so it is never built there. The ghost stays where it is.
-/// Main thread, as the catalogue reads prefabs on first ask. Constant cost; a pass allocates nothing.
+/// Registered inline: called on the validation worker as each ghost is judged, after the ghost's piece is read for its
+/// ordering, so it reads no piece the worker has not read already. Constant cost; a pass allocates nothing.
 /// </summary>
 internal sealed class SnapRule(ICatalogue catalogue)
 {
     private static readonly RuleVerdict Passed = new RuleVerdict.Pass();
 
+    /// <summary>The ghosts it is asked about: builds and swaps, the ghosts that put a piece.</summary>
+    public static bool Applies(Ghost ghost) => ghost.Intent is Intent.Build or Intent.Swap;
+
     /// <summary>The descriptor to register with the validation rules.</summary>
-    public RuleDescriptor Descriptor => new(Snaps.Rule, Check) { Thread = CallbackThread.Main };
+    public RuleDescriptor Descriptor => new(Snaps.Rule, Check) { Thread = CallbackThread.Worker };
 
     /// <summary>The verdict for one ghost: a failure off its piece's snap, else a pass.</summary>
     public RuleVerdict Check(RuleInput input)

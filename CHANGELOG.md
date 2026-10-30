@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.19.1
+
+Fixed:
+- **A joining player sees the host's progress.** A client's board came without each plan's done count, so a player
+  who joined after work was built saw fewer done ghosts in `PlanFacts.Progress`, and a plan built to the end not as
+  complete. The join now carries each plan's done count, the default plan included, so every seat gives the same
+  facts and states from the first frame; ghosts done after the join count once, as before.
+- **A small preview no longer waits behind a big plan.** Every planned build ghost asked two of Lattice's own
+  validation rules on the main thread (the snap rule, and the swap face rule, which only ever answers swaps), a few
+  dozen a frame, and a preview was not answered until all of them were: after a 5,000-ghost plan a run's preview
+  waited hundreds of frames. The snap rule now runs as each ghost is judged on Lattice's worker, and the face rule is
+  asked about swaps only, with the same verdicts and reasons. A preview's validation is judged on its own ghosts and
+  the ghosts whose changes they read, its questions answered ahead of the board's, so it no longer waits for an
+  unrelated plan's checks (a mod's main-thread rule over every ghost, the game's placement check). A run's preview
+  over 5,000 unrelated planned ghosts answers in as many frames as over an empty board, settled or right after the
+  plan is placed.
+- **A route goes around planned devices.** The route search read a planned piece only in its own cell, so it walked
+  through the other cells of a planned device (a stacker's upper cell, where its chute ports are) and the laid run
+  was then refused there. A planned piece now counts in every cell it will fill, as a built one does, for the route
+  search and for a drawn run's cell rules alike: a route between two planned stackers goes around both, as it does
+  between built ones, and a cable, pipe or chute route goes around a planned device in its way.
+
 ## 0.19.0
 
 Added:

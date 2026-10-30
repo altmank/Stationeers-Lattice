@@ -123,25 +123,32 @@ internal static class AnswerForm
         Result<(CommandId, Answer), Reason>.Error(SyncRules.Problem(problem));
 }
 
-/// <summary>One part of a join as read: the host's revision, which part of how many, and its plans and ghosts.</summary>
-internal sealed record JoinPart(Revision Revision, int Part, int Parts, ValueList<Plan> Plans, ValueList<Ghost> Ghosts);
+/// <summary>
+/// One part of a join as read: the host's revision, which part of how many, its plans with each plan's done count (a
+/// plan not listed has none), and its ghosts.
+/// </summary>
+internal sealed record JoinPart(Revision Revision, int Part, int Parts, ValueList<Plan> Plans, ValueMap<PlanId, int> Done, ValueList<Ghost> Ghosts);
 
 /// <summary>
 /// A join in parts: each part is a join document (the join form) whose header adds <c>part= parts=</c>. The first
-/// part carries every plan; the ghosts are cut into parts of <see cref="SyncLimits.JoinGhostsPerPart"/>, so a large
+/// part carries every plan, each plan line with <c>done=</c> when the plan has ghosts done (absent: none); the ghosts are cut into parts of <see cref="SyncLimits.JoinGhostsPerPart"/>, so a large
 /// board is sent over several frames. A board with no ghosts is one part.
 /// </summary>
 internal static class JoinParts
 {
+    private const string DoneField = "done";
+
     public static int Count(int ghosts, int perPart) => ghosts == 0 ? 1 : (ghosts + perPart - 1) / perPart;
 
-    public static string Write(Revision revision, IReadOnlyList<Plan> plans, IReadOnlyList<Ghost> ghosts, int part, int perPart)
+    public static string Write(Revision revision, IReadOnlyList<Plan> plans, IReadOnlyDictionary<PlanId, int> done, IReadOnlyList<Ghost> ghosts, int part, int perPart)
     {
         var parts = Count(ghosts.Count, perPart);
         var planRecords = new List<PlanRecord>(part == 0 ? plans.Count : 0);
         if (part == 0)
             foreach (var plan in plans)
-                planRecords.Add(PlanRecord.Of(plan));
+                planRecords.Add(new PlanRecord.Known(plan, done.TryGetValue(plan.Id, out var count) && count > 0
+                    ? ValueList.Of(new Field(DoneField, WrittenValues.Number(count)))
+                    : ValueList<Field>.Empty));
         var from = part * perPart;
         var to = from + perPart < ghosts.Count ? from + perPart : ghosts.Count;
         var ghostRecords = new List<GhostRecord>(to > from ? to - from : 0);
@@ -164,11 +171,14 @@ internal static class JoinParts
             part < 0 || parts < 1 || part >= parts)
             return Fail("bad part");
         var plans = new List<Plan>(read.Join.Plans.Count);
+        var done = new Dictionary<PlanId, int>();
         foreach (var plan in read.Join.Plans)
         {
-            if (plan is not PlanRecord.Known { Extra.Count: 0 } known)
+            if (plan is not PlanRecord.Known known || !DoneOf(known.Extra).TryGet(out var count))
                 return Fail("unreadable plan");
             plans.Add(known.Plan);
+            if (count > 0)
+                done[known.Plan.Id] = count;
         }
 
         var ghosts = new List<Ghost>(read.Join.Ghosts.Count);
@@ -179,7 +189,17 @@ internal static class JoinParts
             ghosts.Add(known.Ghost);
         }
 
-        return Result<JoinPart, Reason>.Ok(new JoinPart(read.Join.Revision, part, parts, ValueList.From(plans), ValueList.From(ghosts)));
+        return Result<JoinPart, Reason>.Ok(new JoinPart(read.Join.Revision, part, parts, ValueList.From(plans), ValueMap<PlanId, int>.From(done), ValueList.From(ghosts)));
+    }
+
+    /// <summary>A plan line's done count: none when the line has no <c>done=</c>; nothing when it has another field or a count below one.</summary>
+    private static Option<int> DoneOf(ValueList<Field> extra)
+    {
+        var read = new FieldReader(extra);
+        var count = 0;
+        if (read.Take(DoneField).TryGet(out var text) && (!WrittenValues.Int(text).TryGet(out count) || count < 1))
+            return Option<int>.None;
+        return read.Rest().Count == 0 ? Option.Some(count) : Option<int>.None;
     }
 
     private static Result<JoinPart, Reason> Fail(string problem) => Result<JoinPart, Reason>.Error(SyncRules.Problem(problem));
@@ -413,6 +433,7 @@ internal sealed class JoinGather
 {
     private readonly List<Plan> _plans = new();
     private readonly List<Ghost> _ghosts = new();
+    private ValueMap<PlanId, int> _done = ValueMap<PlanId, int>.Empty;
     private Revision _revision;
     private int _next;
     private int _parts;
@@ -424,6 +445,7 @@ internal sealed class JoinGather
         {
             _plans.Clear();
             _ghosts.Clear();
+            _done = part.Done;
             _revision = part.Revision;
             _parts = part.Parts;
             _next = 0;
@@ -451,6 +473,6 @@ internal sealed class JoinGather
             ghost = each.Id.Value > ghost ? each.Id.Value : ghost;
         foreach (var each in _plans)
             plan = each.Id.Value > plan ? each.Id.Value : plan;
-        return new BoardSeed(_revision, new IdCounters(ghost + 1, plan + 1, 1), ValueList.From(_plans), ValueList.From(_ghosts));
+        return new BoardSeed(_revision, new IdCounters(ghost + 1, plan + 1, 1), ValueList.From(_plans), ValueList.From(_ghosts)) { Done = _done };
     }
 }
