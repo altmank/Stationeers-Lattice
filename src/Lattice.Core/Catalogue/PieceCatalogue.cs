@@ -62,7 +62,7 @@ internal sealed class PieceCatalogue : IPieceCatalogue
             if (_pieces.ContainsKey(piece.Key))
                 continue;
             var places = homes.TryGetValue(piece.Key, out var found) ? Ordered(found, piece.FirstStep, rank) : ValueList<KitPlace>.Empty;
-            var entry = new PieceEntry(piece.Key, piece.PrefabName, piece.Name, piece.Grid, places) { Snap = piece.Snap, AllowedTurns = turns(piece.Turning) };
+            var entry = new PieceEntry(piece.Key, piece.PrefabName, piece.Name, piece.Grid, places) { Snap = piece.Snap, AllowedTurns = turns(piece.Turning), Placing = PlacingOf(piece.Turning.Placement) };
             _pieces.Add(piece.Key, entry);
             pieceEntries.Add(entry);
             _kitOf.Add(piece.Key, places.Count > 0
@@ -165,6 +165,13 @@ internal sealed class PieceCatalogue : IPieceCatalogue
     }
 
     // The game's choice first, then the others by the sorted kit order and option.
+    private static PiecePlacing PlacingOf(PlacedBy placed) => placed switch
+    {
+        PlacedBy.Face => PiecePlacing.OnFace,
+        PlacedBy.FaceMount => PiecePlacing.OnFaceMount,
+        _ => PiecePlacing.InGrid,
+    };
+
     private static ValueList<KitPlace> Ordered(List<KitPlace> homes, ValueList<ItemKey> firstStep, Dictionary<KitKey, int> rank)
     {
         var primary = KitHomes.Primary(homes, firstStep);

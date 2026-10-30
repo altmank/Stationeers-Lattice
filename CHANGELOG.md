@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.1
+
+Added:
+- **Each piece's placement.** `PieceEntry.Placing` says how the game's builder places a piece, read from its prefab's
+  `PlacementType`: `PiecePlacing.Grid` in a cell, `Face` on a cell face (walls, windows, floors), `FaceMount` mounted
+  on a face of a structure (lights, power controls). A later minor may add cases. Contract 0.22 is unchanged: a mod
+  built against 0.22 runs as before.
+- The catalogue data file writes `turning=` for every piece placed off the grid, so a face piece that turns freely
+  keeps its placement in the file; a file without it gives a large face piece its placement from `place=`.
+
 ## 0.22.0
 
 Added:

@@ -140,7 +140,7 @@ internal static class CatalogueDataFile
             writer.Write(" place=" + CatalogueText.Placement(onFace.Kind));
         if (facts.Snap != PieceSnap.Of(facts.Grid.ToPiece()))
             writer.Write(" snap=" + CatalogueText.Snap(facts.Snap));
-        if (!facts.Turning.IsFree)
+        if (!facts.Turning.IsFree || facts.Turning.Placement != PlacedBy.Grid)
             writer.Write(" turning=" + CatalogueText.Turning(facts.Turning));
         writer.Write("\n");
         foreach (var step in facts.Steps)

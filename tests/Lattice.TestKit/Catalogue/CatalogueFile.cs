@@ -245,7 +245,7 @@ internal static class CatalogueFile
                 writer.Write($" family={f.Family.Value}");
             if (f.Face.TryGet(out var onFace))
                 writer.Write($" place={CatalogueText.Placement(onFace.Kind)}");
-            if (!f.Turning.IsFree)
+            if (!f.Turning.IsFree || f.Turning.Placement != PlacedBy.Grid)
                 writer.Write($" turning={CatalogueText.Turning(f.Turning)}");
             writer.WriteLine();
             foreach (var step in f.Steps)
@@ -408,6 +408,10 @@ internal static class CatalogueFile
         var turning = TurnLimits.Free;
         if (fields.TryGetValue("turning", out var turningText) && !CatalogueText.ParseTurning(turningText).TryGet(out turning))
             return $"bad turning '{turningText}'";
+        if (placement is { } placed && turningText is null)
+            turning = turning with { Placement = (PlacedBy)(int)placed };
+        else if (placement is { } given && turning.Placement != (PlacedBy)(int)given)
+            return $"place '{placeText}' and turning '{turningText}' disagree";
 
         draft = new Draft(words[1], kits, grid.Value, supportGroup, pipeContent, openingKind, mergeTool, safety, family)
         {

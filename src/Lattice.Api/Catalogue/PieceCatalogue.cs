@@ -129,6 +129,48 @@ public sealed record PieceEntry(PrefabKey Key, string PrefabName, string Name, P
     /// 0.21.
     /// </summary>
     public TurnSet AllowedTurns { get; init; } = TurnSet.All;
+
+    /// <summary>
+    /// How the game's builder places the piece, read from its prefab at load (its <c>PlacementType</c>): in a cell
+    /// (<see cref="PiecePlacing.Grid"/>, the default for an entry built without one), on a cell face, or mounted on the
+    /// face of a structure. Added in 0.22.1.
+    /// </summary>
+    public PiecePlacing Placing { get; init; } = PiecePlacing.InGrid;
+}
+
+/// <summary>
+/// How the game's builder places a piece: the game's <c>PlacementSnap</c> (decompile
+/// <c>Assets.Scripts.Objects/PlacementSnap.cs</c>; <c>Assets.Scripts.Objects/Structure.cs</c> <c>GetGrid</c>;
+/// <c>Assets.Scripts.Inventory/InventoryManager.cs</c> <c>UpdatePlacement</c>). A later minor may add cases; a consumer
+/// that does not know a case places the piece as it would a <see cref="Grid"/> one. Added in 0.22.1.
+/// </summary>
+public abstract record PiecePlacing
+{
+    private PiecePlacing() { }
+
+    /// <summary>The <see cref="Grid"/> case, shared.</summary>
+    public static PiecePlacing InGrid { get; } = new Grid();
+
+    /// <summary>The <see cref="Face"/> case, shared.</summary>
+    public static PiecePlacing OnFace { get; } = new Face();
+
+    /// <summary>The <see cref="FaceMount"/> case, shared.</summary>
+    public static PiecePlacing OnFaceMount { get; } = new FaceMount();
+
+    /// <summary>In a cell: the cursor snaps to the centre of the grid cell it points into. Frames, devices, cables, pipes.</summary>
+    public sealed record Grid : PiecePlacing;
+
+    /// <summary>
+    /// On a cell face: the cursor snaps to the grid face it points at, and the piece's forward picks the face. Walls,
+    /// windows, floors and their kin.
+    /// </summary>
+    public sealed record Face : PiecePlacing;
+
+    /// <summary>
+    /// Mounted on a face of the structure the cursor points at, turned onto it: the face of a cell piece nearest the
+    /// view, or the front or back of a face piece. Lights, power controls and other wall-mounted devices.
+    /// </summary>
+    public sealed record FaceMount : PiecePlacing;
 }
 
 /// <summary>One kit. Added in contract 0.3.</summary>

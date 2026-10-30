@@ -212,6 +212,26 @@ Lattice keeps to the allowed turns itself:
 - A run or route lays each piece in an allowed turn where one fits, and reports `turn-not-allowed` at the first cell
   where none does.
 
+## Placement
+
+The game's builder places a piece in one of three ways, set on its prefab (`PlacementType`). Most pieces go in a cell:
+the cursor snaps to the centre of the cell it points into. Walls, windows and floors go on a cell face: the cursor
+snaps to the face it points at, and the piece's forward picks the face. Lights, power controls, passive vents and
+other wall devices mount on a face of the structure the cursor points at, turned onto it.
+
+`PieceEntry.Placing` (Lattice 0.22.1, inside contract 0.22) says which: `PiecePlacing.Grid`, `Face` or `FaceMount`
+(shared as `PiecePlacing.InGrid`, `OnFace` and `OnFaceMount`). An entry built without one is `Grid`. A later minor
+may add cases; place a piece of a case you do not know as a cell piece.
+
+```csharp
+var aim = entry.Placing switch
+{
+    PiecePlacing.Face => FaceAimedAt(),
+    PiecePlacing.FaceMount => FaceOfStructureAimedAt(),
+    _ => CellAimedInto(),
+};
+```
+
 ## Modded pieces
 
 Lattice finds everything by type from the prefabs the game loads: a mod's kit is a kit with its options in its own

@@ -101,7 +101,7 @@ internal static class PieceMapper
             Family = TypeFamilies.Of(prefab.Types, prefab.States),
             Look = prefab.Look.Map(look => LookOf(look, prefab.GridMetres)),
             Snap = prefab.Snap.Reduce(PieceSnap.Of(grid.Value.ToPiece())),
-            Turning = prefab.Turning,
+            Turning = prefab.Turning with { Placement = (PlacedBy)prefab.Placement },
         });
     }
 

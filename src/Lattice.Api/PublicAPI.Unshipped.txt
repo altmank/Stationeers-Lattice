@@ -2870,3 +2870,12 @@ Lattice.Api.SupplyReport.Reaches.init -> void
 Lattice.Api.SupplyReport.SupplyReport(Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! Reaches, Lattice.Api.ValueMap<Lattice.Api.PlanId, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!>! Toward) -> void
 Lattice.Api.SupplyReport.Toward.get -> Lattice.Api.ValueMap<Lattice.Api.PlanId, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!>!
 Lattice.Api.SupplyReport.Toward.init -> void
+Lattice.Api.PieceEntry.Placing.get -> Lattice.Api.PiecePlacing!
+Lattice.Api.PieceEntry.Placing.init -> void
+Lattice.Api.PiecePlacing
+Lattice.Api.PiecePlacing.Face
+Lattice.Api.PiecePlacing.FaceMount
+Lattice.Api.PiecePlacing.Grid
+static Lattice.Api.PiecePlacing.InGrid.get -> Lattice.Api.PiecePlacing!
+static Lattice.Api.PiecePlacing.OnFace.get -> Lattice.Api.PiecePlacing!
+static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
