@@ -28,7 +28,7 @@ public sealed class ContractPatchTests
         Assert.Equal(ApiVersion.ContractMajor.ToString(), parts[0]);
         Assert.Equal(ApiVersion.ContractMinor.ToString(), parts[1]);
         Assert.Equal(ApiVersion.ContractPatch.ToString(), parts[2]);
-        Assert.Equal(6, ApiVersion.ContractPatch);
+        Assert.Equal(7, ApiVersion.ContractPatch);
         Assert.Equal(ApiVersion.ContractPatch, ApiVersion.CurrentPatch);
         Assert.Equal(new ApiVersion(0, 22), ApiVersion.Current);
     }

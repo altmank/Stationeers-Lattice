@@ -129,7 +129,7 @@ internal sealed class Matcher(WorldMirror world, TurnFreePieces turnFree)
     private bool IsTheOne(StructureInfo info, Placement target) =>
         info.Ref.Piece == target.Piece
         && info.Ref.At == target.At
-        && (info.Turn == target.Turn || turnFree.Has(target.Piece));
+        && turnFree.LookAlike(target.Piece, target.Turn, info.Turn);
 
     private static string ProblemWith(StructureInfo other, Placement target) =>
         other.Ref.Piece != target.Piece ? "piece"

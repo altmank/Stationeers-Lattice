@@ -372,6 +372,11 @@ destroyed.
 Matching built pieces to ghosts runs on the host (module `matching`). It works the same for a player's hands, a
 builder mod or an agent: nobody reports "done". The world decides.
 
+The piece built must be the ghost's, in its cell, in a turn that shows the same: its exact turn, or another turn
+that gives the same cells and the same ends (cell, facing, network and role). A T junction turned end for end, or a
+cross or straight spun about its own line, completes the ghost; a chute junction turned so its input and output swap
+does not. A piece with no direction (a frame) matches in any turn.
+
 ## Plan facts and state
 
 ```csharp

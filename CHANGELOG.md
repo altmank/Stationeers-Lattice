@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.7
+
+Fixed:
+- **A piece built in a turn that looks the same completes its ghost.** A ghost was done only when its piece stood in
+  the ghost's exact turn, and several turns of a run piece join the same ends: a T junction turned end for end, a
+  cross or a straight spun about its own line. A player who built one of those turned another way left the ghost stale
+  as `different` for good. A built piece now matches when the turn gives the same cells and the same ends: cell,
+  facing, network and role. A chute junction turned so its input and output swap is still `different`. Load and live
+  matching both. Pieces with no direction still match in any turn.
+
 ## 0.22.6
 
 Fixed:

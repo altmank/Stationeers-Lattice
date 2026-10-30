@@ -12,9 +12,19 @@ namespace Lattice.Core.Matching;
 /// always has one: its face. A modded piece is judged the same way. Each piece is worked out once, on first use;
 /// quadratic in its ends, 24 times.
 /// </summary>
+/// <remarks>
+/// Pieces with a direction can still have turns that look alike: a T junction turned end for end, a cross or a
+/// straight spun about its own line. <see cref="LookAlike"/> groups the 24 turns of such a piece once, on first use:
+/// two turns look alike when they give the same spots and the same ends by cell, facing, kinds and role (a chute's
+/// input and output stay apart). Which of the game's port slots an end is (<see cref="ConnectionEnd.GameIndex"/>,
+/// <see cref="ConnectionEnd.GameName"/>) and how far its end point lies out (<see cref="ConnectionEnd.Reach"/>, measured
+/// from the mesh and a little different for each end of one junction) do not count: the game joins ends by cell and
+/// facing. A face piece keeps its exact turn.
+/// </remarks>
 internal sealed class TurnFreePieces(ICatalogue catalogue, IGrid grid, Shapes shapes)
 {
     private readonly Dictionary<PrefabKey, bool> _known = new();
+    private readonly Dictionary<PrefabKey, byte[]?> _alike = new();
 
     /// <summary>Whether a structure of the piece matches in any turn; false for a piece the catalogue does not hold.</summary>
     public bool Has(PrefabKey piece)
@@ -22,6 +32,21 @@ internal sealed class TurnFreePieces(ICatalogue catalogue, IGrid grid, Shapes sh
         if (!_known.TryGetValue(piece, out var free))
             _known[piece] = free = catalogue.Piece(piece).TryGet(out var facts) && WorkOut(facts);
         return free;
+    }
+
+    /// <summary>
+    /// Whether a structure of the piece standing in <paramref name="built"/> shows what a ghost of it in
+    /// <paramref name="planned"/> shows: the same turn, a piece with no direction, or a turn that looks alike. False
+    /// for a piece the catalogue does not hold in any other turn. Constant cost once the piece is worked out; up to 24
+    /// shapes and 24 by 24 end comparisons the first time.
+    /// </summary>
+    public bool LookAlike(PrefabKey piece, Turn planned, Turn built)
+    {
+        if (planned == built || Has(piece))
+            return true;
+        if (!_alike.TryGetValue(piece, out var groups))
+            _alike[piece] = groups = catalogue.Piece(piece).TryGet(out var facts) ? Groups(facts) : null;
+        return groups is not null && groups[planned.Index] == groups[built.Index];
     }
 
     /// <summary>
@@ -75,6 +100,45 @@ internal sealed class TurnFreePieces(ICatalogue catalogue, IGrid grid, Shapes sh
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Each turn's group: the lowest turn that looks like it (itself when none does); none for a face piece, which keeps
+    /// its exact turn.
+    /// </summary>
+    private byte[]? Groups(PieceFacts piece)
+    {
+        if (piece.Face.IsSome)
+            return null;
+        var spots = new HashSet<SpotKey>?[Turn.Count];
+        var ends = new List<ConnectionEnd>[Turn.Count];
+        var groups = new byte[Turn.Count];
+        for (var index = 0; index < Turn.Count; index++)
+        {
+            groups[index] = (byte)index;
+            if (!Turn.Create(index).TryGet(out var turn))
+                continue;
+            spots[index] = Spots(piece, turn).TryGet(out var turned) ? turned : null;
+            ends[index] = Looks(Ends(piece, turn));
+            if (spots[index] is not { } mine)
+                continue;
+            for (var earlier = 0; earlier < index; earlier++)
+                if (groups[earlier] == earlier && spots[earlier] is { } theirs && theirs.SetEquals(mine) && SameEnds(ends[earlier], ends[index]))
+                {
+                    groups[index] = (byte)earlier;
+                    break;
+                }
+        }
+
+        return groups;
+    }
+
+    /// <summary>The ends by what joins them: cell, facing, kinds and role; their game slot and measured reach left out.</summary>
+    private static List<ConnectionEnd> Looks(List<ConnectionEnd> ends)
+    {
+        for (var i = 0; i < ends.Count; i++)
+            ends[i] = ends[i] with { Reach = Option<Millimetres>.None, GameIndex = Option<int>.None, GameName = Option<string>.None };
+        return ends;
     }
 
     private Option<HashSet<SpotKey>> Spots(PieceFacts piece, Turn turn) =>
