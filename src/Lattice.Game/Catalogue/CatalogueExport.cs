@@ -14,6 +14,9 @@ internal static class GameCatalogue
 {
     /// <summary>A catalogue over the prefabs the game holds now; pieces are read as they are asked for.</summary>
     public static PrefabCatalogue Read() => new(new GamePrefabSource());
+
+    /// <summary>A catalogue over the prefabs the game holds now, its pieces read from <paramref name="reads"/> where they are there already.</summary>
+    public static PrefabCatalogue Read(PrefabReads reads) => new(reads.Over(new GamePrefabSource()));
 }
 
 /// <summary>What an export wrote: the file, what the read found, and how long reading every prefab took.</summary>

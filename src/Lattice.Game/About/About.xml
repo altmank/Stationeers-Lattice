@@ -45,6 +45,12 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.20.0
+- Changed: a merge step names the kit stack the builder holds; a bill lists what a merge holds and gets back.
+- Changed: paint steps name the spray can, and name and setting steps the labeller; bills count the cans and the labeller.
+- Fixed: a builder carrying out a merge that costs no extra kit now has the kit in hand, so the merge no longer fails.
+- Fixed: Lattice reads the game's pieces before a world starts, a little each frame, so a big base can no longer get a wrong or failing piece lookup while it is being checked.
+
 v0.19.1
 - Fixed: a player who joins a game after work was built now sees each plan's progress as the host does.
 - Fixed: after a big plan, placing and drawing runs no longer stall: a small preview answers at once instead of waiting for the whole plan's checks.

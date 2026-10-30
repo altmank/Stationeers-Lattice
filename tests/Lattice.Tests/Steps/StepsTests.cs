@@ -289,7 +289,7 @@ public sealed class StepsTests
         var bill = bench.Bill(TestBoard.Ids(ghost.Id));
 
         Assert.Equal(
-            ValueList.From<Step>([new Step.Merge(old.Ref, junction.Piece, Item("ItemModSnips"), Some("ItemModCoil", 1))]),
+            ValueList.From<Step>([new Step.Merge(old.Ref, junction.Piece, Of("ItemModCoil", 2), Item("ItemModSnips"), Some("ItemModCoil", 1))]),
             plan.Steps);
         Assert.Equal(ValueList.From([Of("ItemModCoil", 1)]), bill.Needed);
         Assert.Equal(ValueSet.Of(Item("ItemModSnips")), bill.Tools);
@@ -325,7 +325,7 @@ public sealed class StepsTests
         var steps = bench.Steps(ghost.Id).Steps;
 
         Assert.IsType<Step.Merge>(steps[0]);
-        Assert.Equal(new Step.Paint(PlacedBy(0), colour), steps[1]);
+        Assert.Equal(new Step.Paint(PlacedBy(0), colour, Item("TestSprayCan3"), 10), steps[1]);
     }
 
     [Fact]
@@ -343,7 +343,7 @@ public sealed class StepsTests
 
         var kit = System.Linq.Enumerable.ToList(steps).FindIndex(static step => step is Step.PlaceKit);
         Assert.True(kit > 0);
-        Assert.Equal(new Step.Paint(PlacedBy(kit), colour), steps[steps.Count - 1]);
+        Assert.Equal(new Step.Paint(PlacedBy(kit), colour, Item("TestSprayCan3"), 10), steps[steps.Count - 1]);
     }
 
     [Fact]
@@ -364,7 +364,8 @@ public sealed class StepsTests
         Assert.Equal(
             ValueList.From<Step>([
                 new Step.PlaceKit(bench.Kit("ItemCableCoil"), OptionOf(0), Of("ItemCableCoil", 1), target),
-                new Step.Paint(cable, colour), new Step.Rename(cable, name), new Step.SetValue(cable, setting)]),
+                new Step.Paint(cable, colour, Item("TestSprayCan3"), 10), new Step.Rename(cable, name, Item("ItemLabeller")),
+                new Step.SetValue(cable, setting, Item("ItemLabeller"))]),
             steps);
     }
 
@@ -380,7 +381,7 @@ public sealed class StepsTests
         var ghost = bench.W.Place(new Intent.FinishOnly(built.Ref, finish));
         bench.Run();
 
-        Assert.Equal(ValueList.From<Step>([new Step.Rename(Standing(built.Ref), name)]), bench.Steps(ghost.Id).Steps);
+        Assert.Equal(ValueList.From<Step>([new Step.Rename(Standing(built.Ref), name, Item("ItemLabeller"))]), bench.Steps(ghost.Id).Steps);
     }
 
     [Fact]

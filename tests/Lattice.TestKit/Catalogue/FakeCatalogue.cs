@@ -22,8 +22,16 @@ internal sealed record NamedPiece(string Name, ValueList<string> KitNames, Piece
 /// <summary>A kit line of the catalogue file: the kit's prefab name, kind, display name and every option's prefab name in order.</summary>
 internal sealed record KitLine(string Name, KitKind Kind, string DisplayName, ValueList<string> Options);
 
-/// <summary>An item line of the catalogue file: the item's prefab name and display name.</summary>
-internal sealed record ItemLine(string Name, string DisplayName);
+/// <summary>
+/// An item line of the catalogue file: the item's prefab name and display name, and for a spray can its colour index and
+/// acts per can (<c>paint=</c>, <c>acts=</c>), for a labeller <c>labeller=yes</c>.
+/// </summary>
+internal sealed record ItemLine(string Name, string DisplayName)
+{
+    public Option<(int Colour, int Acts)> Paint { get; init; }
+
+    public bool Labeller { get; init; }
+}
 
 /// <summary>
 /// <see cref="ICatalogue"/> over pieces read from a catalogue data file (<see cref="CatalogueFile"/>). Knows the
@@ -48,6 +56,18 @@ internal sealed class FakeCatalogue : ICatalogue
         foreach (var name in BrokenToolNames)
             tools.Add(PrefabHash.Item(name));
         BrokenTools = ValueList.From(tools);
+        var cans = new List<PaintCan>();
+        var labellers = new List<ItemKey>();
+        foreach (var line in ItemLines)
+        {
+            if (line.Paint.TryGet(out var paint) && PaintColour.Create(paint.Colour).TryGet(out var colour))
+                cans.Add(new PaintCan(PrefabHash.Item(line.Name), colour, paint.Acts));
+            if (line.Labeller)
+                labellers.Add(PrefabHash.Item(line.Name));
+        }
+
+        PaintCans = ValueList.From(cans);
+        Labellers = ValueList.From(labellers);
         _pieces = new Dictionary<PrefabKey, NamedPiece>(pieces.Count);
         _kitNames = new Dictionary<KitKey, string>();
         var byKit = new Dictionary<KitKey, SortedList<int, PrefabKey>>();
@@ -100,6 +120,12 @@ internal sealed class FakeCatalogue : ICatalogue
     public ValueList<string> BrokenToolNames { get; }
 
     public ValueList<ItemKey> BrokenTools { get; }
+
+    /// <summary>The spray cans of the item lines with <c>paint=</c>, in file order.</summary>
+    public ValueList<PaintCan> PaintCans { get; }
+
+    /// <summary>The labellers of the item lines with <c>labeller=yes</c>, in file order.</summary>
+    public ValueList<ItemKey> Labellers { get; }
 
     /// <summary>The same pieces with other broken tools (none when empty).</summary>
     public FakeCatalogue WithBrokenTools(params string[] tools) => new(Pieces, tools, KitLines, ItemLines);

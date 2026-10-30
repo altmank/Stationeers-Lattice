@@ -7,9 +7,11 @@ namespace Lattice.Core.Steps;
 
 /// <summary>
 /// Bills for the ghosts a selector picks: the sum of each ghost's steps. Needed is what kit placements, build steps
-/// and merges use; given back is what take-apart steps return; net is needed minus given back per item, items whose
-/// counts cancel left out; tools are the tools in hand (a build step done with its material in hand adds no tool) and
-/// the offhand tools of merges. Items appear in the order the steps first name them. Ghosts whose steps are refused
+/// and merges use, and the spray cans paint steps use up: per can, whole cans for all its paint acts (acts over acts per
+/// can, rounded up); given back is what take-apart steps return; net is needed minus given back per item, items whose
+/// counts cancel left out; tools are the tools in hand (a build step done with its material in hand adds no tool), the
+/// offhand tools of merges and the labeller of name and setting steps; held is, per item, the most one merge holds in
+/// hand beyond what it uses up, the largest over the merges. Items appear in the order the steps first name them. Ghosts whose steps are refused
 /// (stale, no kit, no tool) are left out. Cached per selector until the board, its access policies or the world mirror
 /// change. Cost: linear in the ghosts' steps on a miss, constant on a hit. Main thread.
 /// </summary>
@@ -119,6 +121,7 @@ internal sealed class BillMaker(GhostBoard board, StepPlanner planner, WorldMirr
     {
         private readonly Tally _needed = new();
         private readonly Tally _givenBack = new();
+        private readonly Tally _held = new();
         private readonly List<ItemKey> _tools = [];
 
         public void Add(StepPlan plan)
@@ -141,17 +144,33 @@ internal sealed class BillMaker(GhostBoard board, StepPlanner planner, WorldMirr
                         AddOnce(_tools, back.Tool);
                         break;
                     case Step.Merge merge:
+                        var spent = 0;
                         if (merge.Extra.TryGet(out var extra))
+                        {
                             _needed.Add(extra);
+                            spent = extra.Item == merge.Held.Item ? extra.Count : 0;
+                        }
+
+                        _held.Most(merge.Held.Item, merge.Held.Count - spent);
                         AddOnce(_tools, merge.OffhandTool);
                         break;
+                    case Step.Paint paint:
+                        _needed.Paint(paint.Can, paint.ActsPerCan);
+                        break;
+                    case Step.Rename rename:
+                        AddOnce(_tools, rename.Labeller);
+                        break;
+                    case Step.SetValue set:
+                        AddOnce(_tools, set.Labeller);
+                        break;
                     default:
-                        // Paint, name and setting steps use no item; a kind from a newer minor has no cost Lattice knows.
+                        // A kind from a newer minor has no cost Lattice knows.
                         break;
                 }
         }
 
-        public Bill Bill() => new(_needed.Quantities(), _givenBack.Quantities(), Net(_needed, _givenBack), ValueSet.From(_tools));
+        public Bill Bill() =>
+            new(_needed.Quantities(), _givenBack.Quantities(), Net(_needed, _givenBack), ValueSet.From(_tools)) { Held = _held.Quantities() };
     }
 
     private static ValueList<ItemDelta> Net(Tally needed, Tally givenBack)
@@ -172,29 +191,57 @@ internal sealed class BillMaker(GhostBoard board, StepPlanner planner, WorldMirr
             tools.Add(tool);
     }
 
-    /// <summary>Counts per item, in the order items were first added.</summary>
+    /// <summary>
+    /// Counts per item, in the order items were first added; a spray can counts whole cans for its paint acts on top.
+    /// </summary>
     private sealed class Tally
     {
         private readonly Dictionary<ItemKey, int> _counts = [];
+        private readonly Dictionary<ItemKey, (long Acts, int PerCan)> _paints = [];
 
         public List<ItemKey> Items { get; } = [];
 
         public bool Has(ItemKey item) => _counts.ContainsKey(item);
 
-        public int Count(ItemKey item) => _counts.TryGetValue(item, out var count) ? count : 0;
+        public int Count(ItemKey item) =>
+            (_counts.TryGetValue(item, out var count) ? count : 0) +
+            (_paints.TryGetValue(item, out var paint) ? (int)((paint.Acts + paint.PerCan - 1) / paint.PerCan) : 0);
+
+        /// <summary>One paint act with this can, a full one giving <paramref name="perCan"/> acts (at least 1).</summary>
+        public void Paint(ItemKey can, int perCan)
+        {
+            if (!_counts.ContainsKey(can))
+            {
+                Items.Add(can);
+                _counts[can] = 0;
+            }
+
+            var acts = _paints.TryGetValue(can, out var paint) ? paint.Acts : 0;
+            _paints[can] = (acts + 1, System.Math.Max(perCan, 1));
+        }
 
         public void Add(ItemQuantity quantity)
         {
             if (!_counts.ContainsKey(quantity.Item))
                 Items.Add(quantity.Item);
-            _counts[quantity.Item] = Count(quantity.Item) + quantity.Count;
+            _counts[quantity.Item] = (_counts.TryGetValue(quantity.Item, out var count) ? count : 0) + quantity.Count;
+        }
+
+        /// <summary>Keeps the larger of the item's count and <paramref name="count"/>; a count below 1 adds nothing.</summary>
+        public void Most(ItemKey item, int count)
+        {
+            if (count < 1 || count <= Count(item))
+                return;
+            if (!_counts.ContainsKey(item))
+                Items.Add(item);
+            _counts[item] = count;
         }
 
         public ValueList<ItemQuantity> Quantities()
         {
             var quantities = new ItemQuantity[Items.Count];
             for (var i = 0; i < quantities.Length; i++)
-                quantities[i] = ItemQuantity.Create(Items[i], _counts[Items[i]])
+                quantities[i] = ItemQuantity.Create(Items[i], Count(Items[i]))
                     .Match(static quantity => quantity, static why => throw new System.InvalidOperationException(why.ToString()));
             return Lists.Own(quantities);
         }

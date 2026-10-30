@@ -404,8 +404,9 @@ as a player's hands would:
 | `PlaceKit(kit, option, uses, at)` | Place the kit item as the piece at that option, in that cell and turn, using that many items from the stack. For a kit with several pieces the game's own construct call (`MultiConstructor.Construct`) takes the option index. |
 | `Advance(on, tool, material)` | Use the tool, with the material if one is named, on the structure: one build step, as a player's build action. |
 | `TakeBack(on, tool, returns)` | Use the tool to take the structure one step apart; the items in `returns` come back. |
-| `Merge(into, becomes, offhandTool, extra)` | Apply the kit, with the off-hand tool, to the standing structure so it becomes the new piece. |
-| `Paint`, `Rename`, `SetValue` | Paint the structure, name it, or set its labeller value. |
+| `Merge(into, becomes, held, offhandTool, extra)` | Hold the `held` kit stack in the active hand (at least that many, even when the merge is free: the game's placement reads the stack in hand) and the off-hand tool in the other, and place the new piece on the standing structure so it becomes it. The game uses up `extra` from the stack (none when free); the rest stays in hand. |
+| `Paint(on, colour, can, actsPerCan)` | Paint the structure with the `can` (the colour's spray can) in the active hand. Each act uses up part of the can: a full one paints `actsPerCan` times. |
+| `Rename(on, to, labeller)`, `SetValue(on, to, labeller)` | Name the structure or set its value with the `labeller` in the active hand, switched on and with a charged battery (the game refuses an empty one). Nothing is used up. |
 
 To put a kit down where a `PlaceKit` says, `at.ToWorld()` gives the cell's point in metres and, from
 `Lattice.Api.Unity`, `turn.ToRotation()` the rotation the game gives the piece (contract 0.19): the position and
@@ -423,7 +424,9 @@ What to watch for:
   old plan.
 - **Waiting.** Report `Waiting(reason)` so players and agents see why. For the reasons every builder meets, use
   Lattice's codes, so every builder is worded the same; keep your own code for the rest.
-- **Bills.** `Bills.For(selector)` gives the materials for a set of ghosts, to gather them before you start.
+- **Bills.** `Bills.For(selector)` gives the materials for a set of ghosts, to gather them before you start. Gather
+  `Needed` plus `Held` of each item: `Held` is what a merge holds in hand and gets back (contract 0.20). `Needed`
+  counts whole spray cans for the paint steps; `Tools` has the labeller when a step names or sets.
   `Catalogue.ItemName(item)` gives each item's display name to show (contract 0.19).
 
 The builder reason codes (contract 0.19), each with a `Reason` helper that writes its facts:

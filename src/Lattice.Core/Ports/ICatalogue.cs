@@ -335,6 +335,14 @@ internal enum OpeningKind
 internal sealed record KitFacts(KitKey Key, ValueList<PrefabKey> Pieces);
 
 /// <summary>Piece and kit facts from the game's prefabs. Each prefab is read once per load.</summary>
+/// <summary>
+/// A spray can: the paint colour it sprays (its <c>PaintMaterial</c>'s index in the game's colours) and how many paint
+/// acts a full can gives as the game spends it (each act takes the can's <c>UseAmount</c> from its quantity until it is
+/// empty; decompile Assets.Scripts.Objects.Items/SprayCan.cs, Objects.Items/Consumable.cs). <see cref="int.MaxValue"/>
+/// for a can that never empties.
+/// </summary>
+internal sealed record PaintCan(ItemKey Can, PaintColour Colour, int ActsPerCan);
+
 internal interface ICatalogue
 {
     IReadOnlyList<KitKey> Kits { get; }
@@ -351,6 +359,18 @@ internal interface ICatalogue
     /// Read once per load; empty when the catalogue did not read them.
     /// </summary>
     ValueList<ItemKey> BrokenTools { get; }
+
+    /// <summary>
+    /// Every spray can, found by type so a modded one counts, in the game's prefab order. Read once per load; empty when
+    /// the catalogue did not read them.
+    /// </summary>
+    ValueList<PaintCan> PaintCans { get; }
+
+    /// <summary>
+    /// Every labeller, the tool that names a structure and sets its value (<c>Labeller</c>, found by type so a modded one
+    /// counts), in the game's prefab order. Read once per load; empty when the catalogue did not read them.
+    /// </summary>
+    ValueList<ItemKey> Labellers { get; }
 
     /// <summary>
     /// Every piece and kit by name, grid and option order, for the catalogue view (<see cref="IPieceCatalogue"/>);

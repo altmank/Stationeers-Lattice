@@ -15,7 +15,7 @@ namespace Lattice.TestKit.Catalogue;
 /// lattice-catalogue 3
 /// broken-tools &lt;Item&gt;,...                                              the tools that take a broken structure apart; at most once
 /// kit &lt;KitName&gt; kind=single|multi|merge [name=&lt;text&gt;] options=&lt;PrefabName&gt;,...   every option in scroll order; at most once per kit
-/// item &lt;ItemName&gt; [name=&lt;text&gt;]                                      an item prefab (kit, tool, ingot, ...) and its display name; at most once per item
+/// item &lt;ItemName&gt; [name=&lt;text&gt;] [paint=&lt;colour&gt; acts=&lt;n&gt;] [labeller=yes]   an item prefab (kit, tool, ingot, ...) and its display name; a spray can with its colour index and acts per full can; a labeller; at most once per item
 /// piece &lt;PrefabName&gt; [kit=&lt;KitName&gt; option=&lt;n&gt; [also=&lt;KitName&gt;:&lt;n&gt;,...]] grid=small|large [name=&lt;text&gt;] [support=&lt;group&gt;] [pipe=gas|liquid|any] [opening=door|window] [merge=&lt;Item&gt;] [keeps=air,heat,life] [supplies=yes] [control=&lt;direction&gt;] [vents=yes] [family=&lt;key&gt;] [place=face|face-mount] [snap=&lt;sx&gt;,&lt;sy&gt;,&lt;sz&gt;/&lt;ox&gt;,&lt;oy&gt;,&lt;oz&gt;]
 ///   step [entry=&lt;Item&gt;] [material=&lt;Item&gt;*&lt;n&gt;] [exit=&lt;Item&gt;] air=yes|no [gravity=yes|no]   one per build step, in order
 ///   end &lt;x&gt; &lt;y&gt; &lt;z&gt; x+|x-|y+|y-|z+|z- &lt;kinds&gt; [reach=&lt;mm&gt;] [role=input|input2|output|output2|waste] [index=&lt;n&gt;] [game=&lt;text&gt;]   index: in the game's OpenEnds; game: its ConnectionType name
@@ -121,14 +121,32 @@ internal static class CatalogueFile
         if (fields is null)
             return "expected key=value fields";
         foreach (var key in fields.Keys)
-            if (key != "name")
+            if (key is not ("name" or "paint" or "acts" or "labeller"))
                 return $"unknown item field '{key}'";
         if (!seen.Add(words[1]))
             return $"item {words[1]} given twice";
         var displayName = words[1];
         if (fields.TryGetValue("name", out var nameText) && !CatalogueText.ParseName(nameText).TryGet(out displayName))
             return $"bad name '{nameText}'";
-        itemLines.Add(new ItemLine(words[1], displayName));
+        var paint = Option<(int, int)>.None;
+        if (fields.TryGetValue("paint", out var colourText) || fields.ContainsKey("acts"))
+        {
+            if (colourText is null || !int.TryParse(colourText, NumberStyles.None, CultureInfo.InvariantCulture, out var colour))
+                return "a spray can needs paint=<colour index>";
+            if (!fields.TryGetValue("acts", out var actsText) || !int.TryParse(actsText, NumberStyles.None, CultureInfo.InvariantCulture, out var acts))
+                return "a spray can needs acts=<acts per can>";
+            paint = Lattice.Api.Option.Some((colour, acts));
+        }
+
+        var labeller = false;
+        if (fields.TryGetValue("labeller", out var labellerText))
+        {
+            if (labellerText != "yes")
+                return "labeller takes yes";
+            labeller = true;
+        }
+
+        itemLines.Add(new ItemLine(words[1], displayName) { Paint = paint, Labeller = labeller });
         return null;
     }
 
@@ -193,7 +211,9 @@ internal static class CatalogueFile
                              (kit.DisplayName == kit.Name ? "" : $" name={CatalogueText.Name(kit.DisplayName)}") +
                              $" options={string.Join(",", kit.Options)}");
         foreach (var item in catalogue.ItemLines)
-            writer.WriteLine($"item {item.Name}" + (item.DisplayName == item.Name ? "" : $" name={CatalogueText.Name(item.DisplayName)}"));
+            writer.WriteLine($"item {item.Name}" + (item.DisplayName == item.Name ? "" : $" name={CatalogueText.Name(item.DisplayName)}") +
+                             (item.Paint.TryGet(out var paint) ? $" paint={paint.Colour} acts={paint.Acts}" : "") +
+                             (item.Labeller ? " labeller=yes" : ""));
         foreach (var piece in catalogue.Pieces)
         {
             var f = piece.Facts;

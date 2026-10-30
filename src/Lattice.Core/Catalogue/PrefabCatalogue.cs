@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Ports;
+using Lattice.Core.Slices;
 
 namespace Lattice.Core.Catalogue;
 
@@ -16,6 +17,12 @@ internal sealed record ReadReport(int Read, ValueList<Reason> Refused, ValueList
 /// each piece is read from its prefab the first time it is asked for and kept, a refusal included. A piece lists every
 /// kit that places it, the kit its first build step uses first (the game's own choice, Structure.cs:1278), else in
 /// kit order; a structure no kit places is described with no kit.
+/// <para>
+/// Reading a piece calls the game, so it is main-thread only, and until <see cref="Complete"/> the catalogue is too.
+/// <see cref="Complete"/> reads every structure not read yet and freezes it: from then on nothing is written and the
+/// game is never called (a piece that is no structure is refused as the game's source refuses it), so any thread may
+/// ask. The world completes it before anything that runs on a worker is built.
+/// </para>
 /// </summary>
 internal sealed class PrefabCatalogue : ICatalogue
 {
@@ -26,6 +33,8 @@ internal sealed class PrefabCatalogue : ICatalogue
     private readonly Dictionary<PrefabKey, Result<PieceFacts, Reason>> _pieces = new();
     private readonly Dictionary<PrefabKey, PrefabData> _read = new();
     private readonly Dictionary<KitKey, ItemRef> _mergeTools = new();
+    private int _nextStructure;
+    private volatile bool _complete;
     private readonly Dictionary<ItemKey, string> _itemNames = new();
 
     public PrefabCatalogue(IPrefabSource source)
@@ -68,7 +77,47 @@ internal sealed class PrefabCatalogue : ICatalogue
         }
 
         BrokenTools = ValueList.From(tools);
+        var cans = new List<PaintCan>(source.SprayCans.Count);
+        foreach (var can in source.SprayCans)
+            if (PaintColour.Create(can.Colour).TryGet(out var colour))
+            {
+                cans.Add(new PaintCan(can.Can.Key, colour, ActsPerCan(can.UseAmount, can.MaxQuantity)));
+                _itemNames[can.Can.Key] = can.Can.Name;
+            }
+
+        PaintCans = ValueList.From(cans);
+        var labellers = new List<ItemKey>(source.Labellers.Count);
+        foreach (var labeller in source.Labellers)
+        {
+            labellers.Add(labeller.Key);
+            _itemNames[labeller.Key] = labeller.Name;
+        }
+
+        Labellers = ValueList.From(labellers);
         _listing = new Lazy<CatalogueListing>(ListAll);
+    }
+
+    /// <summary>
+    /// How many paint acts a full can gives, as the game spends it: from <paramref name="maxQuantity"/>, each act takes
+    /// <paramref name="useAmount"/> in single-precision steps clamped at 0 (<c>Consumable.Quantity</c>), and a can paints
+    /// while it is not empty (<c>Consumable.IsEmpty</c>: at most <see cref="float.Epsilon"/>). <see cref="int.MaxValue"/>
+    /// for a can that never empties (no use), 0 for one that starts empty.
+    /// </summary>
+    internal static int ActsPerCan(float useAmount, float maxQuantity)
+    {
+        if (!(maxQuantity > float.Epsilon))
+            return 0;
+        if (!(useAmount > 0f))
+            return int.MaxValue;
+        var quantity = maxQuantity;
+        var acts = 0;
+        while (quantity > float.Epsilon && acts < int.MaxValue)
+        {
+            quantity = Math.Min(Math.Max(quantity - useAmount, 0f), maxQuantity);
+            acts++;
+        }
+
+        return acts;
     }
 
     private readonly Lazy<CatalogueListing> _listing;
@@ -82,15 +131,58 @@ internal sealed class PrefabCatalogue : ICatalogue
     /// <inheritdoc />
     public ValueList<ItemKey> BrokenTools { get; }
 
-    /// <summary>The prefab name of a kit's merge tool or of a broken tool.</summary>
+    /// <inheritdoc />
+    public ValueList<PaintCan> PaintCans { get; }
+
+    /// <inheritdoc />
+    public ValueList<ItemKey> Labellers { get; }
+
+    /// <summary>The prefab name of a kit's merge tool, a broken tool, a spray can or a labeller.</summary>
     public Option<string> NameOf(ItemKey item) =>
         _itemNames.TryGetValue(item, out var name) ? Option.Some(name) : Option<string>.None;
+
+    /// <summary>Whether every structure is read and the catalogue is frozen (<see cref="Complete"/>).</summary>
+    public bool IsComplete => _complete;
+
+    /// <summary>
+    /// Reads structures not read yet, in the source's order, until <paramref name="budget"/> has passed on
+    /// <paramref name="clock"/> (at least one); true once every structure is read. Main thread, before
+    /// <see cref="Complete"/>.
+    /// </summary>
+    public bool ReadSome(IClock clock, TimeSpan budget)
+    {
+        var structures = _source.Structures;
+        var until = clock.Now + budget;
+        while (_nextStructure < structures.Count)
+        {
+            Piece(structures[_nextStructure++]);
+            if (clock.Now >= until)
+                break;
+        }
+
+        return _nextStructure >= structures.Count;
+    }
+
+    /// <summary>
+    /// Reads every structure not read yet and freezes the catalogue: afterwards it is read-only and safe on any thread.
+    /// Main thread; once.
+    /// </summary>
+    public void Complete()
+    {
+        var structures = _source.Structures;
+        while (_nextStructure < structures.Count)
+            Piece(structures[_nextStructure++]);
+        _ = Listing;
+        _complete = true;
+    }
 
     /// <inheritdoc />
     public Result<PieceFacts, Reason> Piece(PrefabKey piece)
     {
         if (_pieces.TryGetValue(piece, out var known))
             return known;
+        if (_complete)
+            return NoPrefab(piece);
         var facts = ReadPiece(piece);
         _pieces.Add(piece, facts);
         return facts;
@@ -162,7 +254,7 @@ internal sealed class PrefabCatalogue : ICatalogue
     private Result<PieceFacts, Reason> ReadPiece(PrefabKey piece)
     {
         if (!_source.Read(piece).TryGet(out var data))
-            return Result<PieceFacts, Reason>.Error(CatalogueReasons.Piece(piece.Hash.ToString(), "no-prefab"));
+            return NoPrefab(piece);
         _read.Add(piece, data);
         if (!_homes.TryGetValue(piece, out var homes))
             return PieceMapper.Map(data, ValueList<KitPlace>.Empty);
@@ -188,6 +280,9 @@ internal sealed class PrefabCatalogue : ICatalogue
             items.Add(entry2.Item.Key);
         return ValueList.From(items);
     }
+
+    private static Result<PieceFacts, Reason> NoPrefab(PrefabKey piece) =>
+        Result<PieceFacts, Reason>.Error(CatalogueReasons.Piece(piece.Hash.ToString(), "no-prefab"));
 
     private CatalogueListing ListAll()
     {

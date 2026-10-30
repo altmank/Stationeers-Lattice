@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.20.0
+
+Changed:
+- **`Step.Merge` names the kit stack it holds.** `Step.Merge(Into, Becomes, Held, OffhandTool, Extra)`: `Held` is the
+  kit item and count the active hand holds for the act, as many as placing the new piece uses, even when the merge
+  uses up none of it. `Extra` stays what the act uses up from that stack. Code that builds or deconstructs a
+  `Step.Merge` by position takes the new member.
+- **Paint, name and setting steps name what the act holds.** `Step.Paint(On, Colour, Can, ActsPerCan)`: the colour's
+  spray can in the active hand, used up a share per act, a full can painting `ActsPerCan` times as the game spends
+  it. `Step.Rename(On, To, Labeller)` and `Step.SetValue(On, To, Labeller)`: the labeller in the active hand, switched
+  on and charged, nothing used up. A paint step for a colour with no can, or a name or setting step with no labeller
+  in the catalogue, refuses the ghost's steps with `no-tool` (`way` `paint` or `label`).
+- Contract 0.20: `Step.Merge`, `Step.Paint`, `Step.Rename` and `Step.SetValue` take the members above, so a mod that
+  builds or deconstructs them by position is rebuilt against 0.20; every other answer is as in 0.19.
+
+Added:
+- `Bill.Held`: per item, the most one merge holds in hand and gets back. Have `Needed` plus `Held` of each item.
+- Bills count spray cans in `Needed` (whole cans for the paint acts) and the labeller in `Tools`.
+- The catalogue reads the game's spray cans (each one's colour, and how many acts a full can gives) and labellers,
+  modded ones included.
+
+Fixed:
+- **The game's catalogue is read before the world starts, and only on the main thread.** A piece's facts were read
+  from its prefab the first time anything asked, and Lattice's validation worker asks too, so in a big base two
+  threads could fill the catalogue at once, or the worker could call the game. The structure prefabs are now read a
+  slice a frame from the time the game has loaded them (2 ms a frame, before the first world; the game reads them all
+  in about 127 ms), kept for every world of the session, and each world's catalogue is completed and frozen at start,
+  before the worker can ask it: from then on no thread writes it or calls the game. The answers are the same.
+- **A builder holds the kit for a merge.** A merge that costs nothing more (a 3-way cable becoming a 4-way) named no
+  kit at all, so a builder that gathers what the steps name had none in hand and the act failed every time. Every
+  merge now names its kit stack, for every merging cable and pipe kit, and the bill counts it as held.
+- **A builder has the spray can and the labeller a finish needs.** Paint, name and setting steps named no item, so a
+  builder gathering what the steps and bill name had no can or labeller. They now name them, and the bill counts them.
+
 ## 0.19.1
 
 Fixed:

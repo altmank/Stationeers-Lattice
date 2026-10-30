@@ -10,7 +10,8 @@ namespace Lattice.Core.Catalogue;
 /// <summary>
 /// Writes the catalogue data file the test kit loads (format <c>lattice-catalogue 3</c>, grammar in the test kit's
 /// <c>CatalogueFile</c>): every kit with its kind, display name and every option in scroll order, every item prefab with
-/// its display name, then every piece that
+/// its display name (a spray can with its colour and acts per can, <c>paint=</c> and <c>acts=</c>; a labeller with
+/// <c>labeller=yes</c>), then every piece that
 /// mapped, once, under the kit its first build step uses (its other kits after <c>also=</c>), then the pieces no kit
 /// places, with their display names, build steps, ends, footprint, ratings, support group, family, face placement and
 /// look. Display names, item lines, family, face placement, look, and an end's game index (<c>index=</c>) and kind name
@@ -70,11 +71,19 @@ internal static class CatalogueDataFile
             writer.Write("\n");
         }
 
+        var cans = new Dictionary<ItemKey, PaintCan>(catalogue.PaintCans.Count);
+        foreach (var can in catalogue.PaintCans)
+            cans.TryAdd(can.Can, can);
+        var labellers = new HashSet<ItemKey>(catalogue.Labellers);
         foreach (var item in listing.Items)
         {
             writer.Write("item " + item.PrefabName);
             if (item.Name != item.PrefabName)
                 writer.Write(" name=" + CatalogueText.Name(item.Name));
+            if (cans.TryGetValue(item.Key, out var can))
+                writer.Write(" paint=" + Number(can.Colour.Index) + " acts=" + Number(can.ActsPerCan));
+            if (labellers.Contains(item.Key))
+                writer.Write(" labeller=yes");
             writer.Write("\n");
         }
 

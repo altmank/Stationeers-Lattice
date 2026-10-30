@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 19 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 20 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -117,6 +117,8 @@ Lattice.Api.Bill
 Lattice.Api.Bill.Bill(Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! Needed, Lattice.Api.ValueList<Lattice.Api.ItemQuantity>! GivenBack, Lattice.Api.ValueList<Lattice.Api.ItemDelta>! Net, Lattice.Api.ValueSet<Lattice.Api.ItemKey>! Tools) -> void
 Lattice.Api.Bill.GivenBack.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
 Lattice.Api.Bill.GivenBack.init -> void
+Lattice.Api.Bill.Held.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
+Lattice.Api.Bill.Held.init -> void
 Lattice.Api.Bill.Needed.get -> Lattice.Api.ValueList<Lattice.Api.ItemQuantity>!
 Lattice.Api.Bill.Needed.init -> void
 Lattice.Api.Bill.Net.get -> Lattice.Api.ValueList<Lattice.Api.ItemDelta>!
@@ -1674,17 +1676,23 @@ Lattice.Api.Step.Merge.Becomes.get -> Lattice.Api.PrefabKey
 Lattice.Api.Step.Merge.Becomes.init -> void
 Lattice.Api.Step.Merge.Extra.get -> Lattice.Api.Option<Lattice.Api.ItemQuantity>
 Lattice.Api.Step.Merge.Extra.init -> void
+Lattice.Api.Step.Merge.Held.get -> Lattice.Api.ItemQuantity
+Lattice.Api.Step.Merge.Held.init -> void
 Lattice.Api.Step.Merge.Into.get -> Lattice.Api.StructureRef
 Lattice.Api.Step.Merge.Into.init -> void
-Lattice.Api.Step.Merge.Merge(Lattice.Api.StructureRef Into, Lattice.Api.PrefabKey Becomes, Lattice.Api.ItemKey OffhandTool, Lattice.Api.Option<Lattice.Api.ItemQuantity> Extra) -> void
+Lattice.Api.Step.Merge.Merge(Lattice.Api.StructureRef Into, Lattice.Api.PrefabKey Becomes, Lattice.Api.ItemQuantity Held, Lattice.Api.ItemKey OffhandTool, Lattice.Api.Option<Lattice.Api.ItemQuantity> Extra) -> void
 Lattice.Api.Step.Merge.OffhandTool.get -> Lattice.Api.ItemKey
 Lattice.Api.Step.Merge.OffhandTool.init -> void
 Lattice.Api.Step.Paint
+Lattice.Api.Step.Paint.ActsPerCan.get -> int
+Lattice.Api.Step.Paint.ActsPerCan.init -> void
+Lattice.Api.Step.Paint.Can.get -> Lattice.Api.ItemKey
+Lattice.Api.Step.Paint.Can.init -> void
 Lattice.Api.Step.Paint.Colour.get -> Lattice.Api.PaintColour
 Lattice.Api.Step.Paint.Colour.init -> void
 Lattice.Api.Step.Paint.On.get -> Lattice.Api.StepTarget!
 Lattice.Api.Step.Paint.On.init -> void
-Lattice.Api.Step.Paint.Paint(Lattice.Api.StepTarget! On, Lattice.Api.PaintColour Colour) -> void
+Lattice.Api.Step.Paint.Paint(Lattice.Api.StepTarget! On, Lattice.Api.PaintColour Colour, Lattice.Api.ItemKey Can, int ActsPerCan) -> void
 Lattice.Api.Step.PlaceKit
 Lattice.Api.Step.PlaceKit.At.get -> Lattice.Api.Placement!
 Lattice.Api.Step.PlaceKit.At.init -> void
@@ -1696,15 +1704,19 @@ Lattice.Api.Step.PlaceKit.PlaceKit(Lattice.Api.KitKey Kit, Lattice.Api.KitOption
 Lattice.Api.Step.PlaceKit.Uses.get -> Lattice.Api.ItemQuantity
 Lattice.Api.Step.PlaceKit.Uses.init -> void
 Lattice.Api.Step.Rename
+Lattice.Api.Step.Rename.Labeller.get -> Lattice.Api.ItemKey
+Lattice.Api.Step.Rename.Labeller.init -> void
 Lattice.Api.Step.Rename.On.get -> Lattice.Api.StepTarget!
 Lattice.Api.Step.Rename.On.init -> void
-Lattice.Api.Step.Rename.Rename(Lattice.Api.StepTarget! On, Lattice.Api.ThingName To) -> void
+Lattice.Api.Step.Rename.Rename(Lattice.Api.StepTarget! On, Lattice.Api.ThingName To, Lattice.Api.ItemKey Labeller) -> void
 Lattice.Api.Step.Rename.To.get -> Lattice.Api.ThingName
 Lattice.Api.Step.Rename.To.init -> void
 Lattice.Api.Step.SetValue
+Lattice.Api.Step.SetValue.Labeller.get -> Lattice.Api.ItemKey
+Lattice.Api.Step.SetValue.Labeller.init -> void
 Lattice.Api.Step.SetValue.On.get -> Lattice.Api.StepTarget!
 Lattice.Api.Step.SetValue.On.init -> void
-Lattice.Api.Step.SetValue.SetValue(Lattice.Api.StepTarget! On, Lattice.Api.Setting To) -> void
+Lattice.Api.Step.SetValue.SetValue(Lattice.Api.StepTarget! On, Lattice.Api.Setting To, Lattice.Api.ItemKey Labeller) -> void
 Lattice.Api.Step.SetValue.To.get -> Lattice.Api.Setting
 Lattice.Api.Step.SetValue.To.init -> void
 Lattice.Api.Step.TakeBack

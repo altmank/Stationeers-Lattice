@@ -25,8 +25,28 @@ lattice-catalogue 3
 #   which steps block gravity (the last step of frames, walls and windows).
 # Game facts: any IConstructor tool takes a broken structure apart;
 #   the game's are ItemAngleGrinder, ItemArcWelder and ItemWeldingTorch.
+# Test values (not game claims): one spray can per paint colour 0 to 15, each giving 10 acts.
+# Game facts: the game's labeller is ItemLabeller.
 
 broken-tools ItemAngleGrinder,ItemArcWelder,ItemWeldingTorch
+
+item TestSprayCan0 name=Test%20Spray%20Can%200 paint=0 acts=10
+item TestSprayCan1 name=Test%20Spray%20Can%201 paint=1 acts=10
+item TestSprayCan2 name=Test%20Spray%20Can%202 paint=2 acts=10
+item TestSprayCan3 name=Test%20Spray%20Can%203 paint=3 acts=10
+item TestSprayCan4 name=Test%20Spray%20Can%204 paint=4 acts=10
+item TestSprayCan5 name=Test%20Spray%20Can%205 paint=5 acts=10
+item TestSprayCan6 name=Test%20Spray%20Can%206 paint=6 acts=10
+item TestSprayCan7 name=Test%20Spray%20Can%207 paint=7 acts=10
+item TestSprayCan8 name=Test%20Spray%20Can%208 paint=8 acts=10
+item TestSprayCan9 name=Test%20Spray%20Can%209 paint=9 acts=10
+item TestSprayCan10 name=Test%20Spray%20Can%2010 paint=10 acts=10
+item TestSprayCan11 name=Test%20Spray%20Can%2011 paint=11 acts=10
+item TestSprayCan12 name=Test%20Spray%20Can%2012 paint=12 acts=10
+item TestSprayCan13 name=Test%20Spray%20Can%2013 paint=13 acts=10
+item TestSprayCan14 name=Test%20Spray%20Can%2014 paint=14 acts=10
+item TestSprayCan15 name=Test%20Spray%20Can%2015 paint=15 acts=10
+item ItemLabeller name=Labeller labeller=yes
 
 piece StructureFrame kit=ItemSteelFrames option=0 grid=large
   step entry=ItemSteelFrames material=ItemSteelFrames*1 exit=ItemWrench air=no

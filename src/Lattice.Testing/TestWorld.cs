@@ -330,7 +330,7 @@ public sealed class TestWorld : IDisposable
             all.Add(piece);
         }
 
-        var merged = new FakeCatalogue(all, known.BrokenToolNames, kitLines);
+        var merged = new FakeCatalogue(all, known.BrokenToolNames, kitLines, known.ItemLines);
         return merged.Gap.TryGet(out var gap)
             ? Result<FakeCatalogue, Reason>.Error(TestCodes.Refuse(ReasonCodes.InvalidValue, ValueMap.Of("problem", "kit-option-gap").With("detail", gap)))
             : Result<FakeCatalogue, Reason>.Ok(merged);

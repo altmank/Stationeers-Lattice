@@ -22,14 +22,22 @@ internal sealed class StepsBench
     }
 
     private StepsBench(System.Func<FakeCatalogue, ICatalogue> plannerCatalogue, NamedPiece[] extraPieces)
+        : this(plannerCatalogue, new TestWorld(extraPieces))
     {
-        W = new TestWorld(extraPieces);
+    }
+
+    private StepsBench(System.Func<FakeCatalogue, ICatalogue> plannerCatalogue, TestWorld world)
+    {
+        W = world;
         Planner = new StepPlanner(W.T.Board, W.Mirror, plannerCatalogue(W.T.Catalogue), new Shapes(W.T.Catalogue, W.T.Grid), Order);
         Bills = new BillMaker(W.T.Board, Planner, W.Mirror);
     }
 
     /// <summary>A bench whose planner reads a catalogue that names no tool for broken structures.</summary>
     public static StepsBench WithoutBrokenTools() => new(static catalogue => catalogue.WithBrokenTools(), []);
+
+    /// <summary>A bench over this catalogue alone.</summary>
+    public static StepsBench Over(FakeCatalogue catalogue) => new(static same => same, new TestWorld(catalogue));
 
     public TestWorld W { get; }
 

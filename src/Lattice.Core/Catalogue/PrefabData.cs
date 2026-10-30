@@ -8,6 +8,13 @@ namespace Lattice.Core.Catalogue;
 internal sealed record ItemRef(string Name, ItemKey Key);
 
 /// <summary>
+/// A spray can prefab: the item, the index of its colour in the game's colours (<c>GameManager.GetColorIndex</c> of
+/// its <c>PaintMaterial</c>; -1 when none), the quantity one paint act takes (<c>Consumable.UseAmount</c>) and a full
+/// can's quantity (<c>Consumable.MaxQuantity</c>).
+/// </summary>
+internal sealed record SprayCanData(ItemRef Can, int Colour, float UseAmount, float MaxQuantity);
+
+/// <summary>
 /// One entry item of a build state (<c>ToolEntry</c> or <c>ToolEntry2</c>): the item, the quantity the state asks,
 /// and whether the item is a stack (the game uses up a stack's quantity; any other item is a tool held).
 /// </summary>

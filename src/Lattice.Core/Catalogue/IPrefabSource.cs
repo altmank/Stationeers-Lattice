@@ -30,6 +30,15 @@ internal interface IPrefabSource
     IReadOnlyList<ItemRef> BrokenTools { get; }
 
     /// <summary>
+    /// Every spray can prefab (<c>SprayCan</c>, a modded one included), in the game's prefab order, with the colour it
+    /// sprays and what an act takes from it.
+    /// </summary>
+    IReadOnlyList<SprayCanData> SprayCans { get; }
+
+    /// <summary>Every labeller prefab (<c>Labeller</c>, a modded one included), in the game's prefab order.</summary>
+    IReadOnlyList<ItemRef> Labellers { get; }
+
+    /// <summary>
     /// Every item prefab, kits and tools included, in the game's prefab order, with its display name as
     /// <see cref="Listed"/> gives a piece's. Read once, on first use.
     /// </summary>

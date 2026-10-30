@@ -4,8 +4,8 @@ using Lattice.Testing.Stubs;
 namespace Lattice.Consumer.Tests;
 
 /// <summary>
-/// A builder against the contract alone: where to put a kit down, why it waits in Lattice's words, and the name of the
-/// item it lacks from a stubbed catalogue.
+/// A builder against the contract alone: where to put a kit down, why it waits in Lattice's words, the name of the
+/// item it lacks from a stubbed catalogue, and what to have in hand for a merge, a paint, a name or a setting.
 /// </summary>
 public sealed class BuilderHelpersTests
 {
@@ -52,6 +52,56 @@ public sealed class BuilderHelpersTests
         Assert.Equal(ReasonCodes.Blocked, byGhost.Code);
         Assert.Equal("ghost", byGhost.Facts["by"]);
         Assert.Equal("3", byGhost.Facts["ghost"]);
+    }
+
+    [Fact]
+    public void A_builder_has_a_merges_held_stack_in_hand_and_gathers_needed_plus_held()
+    {
+        var coil = new ItemKey(21);
+        var merge = new Step.Merge(new StructureRef(new ReferenceId(5), new PrefabKey(31), new Cell(0, 0, 0)), new PrefabKey(32),
+            Must(ItemQuantity.Create(coil, 2)), new ItemKey(41), Option<ItemQuantity>.None);
+        var bill = new Bill(ValueList<ItemQuantity>.Empty, ValueList<ItemQuantity>.Empty, ValueList<ItemDelta>.Empty, ValueSet.Of(new ItemKey(41)))
+        {
+            Held = ValueList.Of(Must(ItemQuantity.Create(coil, 2))),
+        };
+
+        var (_, _, held, tool, extra) = merge;
+
+        Assert.Equal(coil, held.Item);
+        Assert.Equal(2, held.Count);
+        Assert.Equal(new ItemKey(41), tool);
+        Assert.True(extra.IsNone);
+        Assert.Equal(held, Assert.Single(bill.Held));
+        Assert.Empty(new Bill(ValueList<ItemQuantity>.Empty, ValueList<ItemQuantity>.Empty, ValueList<ItemDelta>.Empty, ValueSet<ItemKey>.Empty).Held);
+    }
+
+    [Fact]
+    public void A_builder_reads_the_can_a_paint_step_uses_and_the_labeller_a_name_or_setting_step_holds()
+    {
+        var on = new StepTarget.PlacedBy(0);
+        var steps = new Step[]
+        {
+            new Step.Paint(on, Must(PaintColour.Create(3)), new ItemKey(51), 10),
+            new Step.Rename(on, Must(ThingName.Create("Main bus")), new ItemKey(61)),
+            new Step.SetValue(on, Must(Setting.Create(2)), new ItemKey(61)),
+        };
+
+        var held = new System.Collections.Generic.List<(ItemKey Item, int ActsPerCan)>();
+        foreach (var step in steps)
+            switch (step)
+            {
+                case Step.Paint(_, _, var can, var acts):
+                    held.Add((can, acts));
+                    break;
+                case Step.Rename(_, _, var labeller):
+                    held.Add((labeller, 0));
+                    break;
+                case Step.SetValue(_, _, var labeller):
+                    held.Add((labeller, 0));
+                    break;
+            }
+
+        Assert.Equal([(new ItemKey(51), 10), (new ItemKey(61), 0), (new ItemKey(61), 0)], held);
     }
 
     private static T Must<T>(Result<T, Reason> result) where T : notnull =>

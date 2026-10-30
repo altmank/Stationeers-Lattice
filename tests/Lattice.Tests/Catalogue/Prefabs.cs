@@ -74,13 +74,19 @@ internal sealed class CountingSource(
     PrefabData[] pieces,
     ItemRef[]? brokenTools = null,
     Dictionary<PrefabKey, string>? displayNames = null,
-    ListedItem[]? items = null) : IPrefabSource
+    ListedItem[]? items = null,
+    SprayCanData[]? sprayCans = null,
+    ItemRef[]? labellers = null) : IPrefabSource
 {
     private readonly Dictionary<PrefabKey, int> _reads = [];
 
     public IReadOnlyList<KitData> Kits { get; } = kits;
 
     public IReadOnlyList<ItemRef> BrokenTools { get; } = brokenTools ?? [];
+
+    public IReadOnlyList<SprayCanData> SprayCans { get; } = sprayCans ?? [];
+
+    public IReadOnlyList<ItemRef> Labellers { get; } = labellers ?? [];
 
     public IReadOnlyList<PrefabKey> Structures { get; } = Keys(pieces);
 

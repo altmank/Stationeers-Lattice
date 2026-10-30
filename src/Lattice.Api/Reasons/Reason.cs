@@ -341,7 +341,8 @@ public static class ReasonCodes
 
     /// <summary>
     /// The catalogue names no tool for a step; facts <c>piece</c> (prefab hash), <c>way</c> (<c>build</c>,
-    /// <c>take-apart</c> or <c>broken</c>) and, for build and take-apart, <c>step</c> (the build state index).
+    /// <c>take-apart</c>, <c>broken</c>, <c>paint</c>: no spray can of the colour, or <c>label</c>: no labeller) and,
+    /// for build and take-apart, <c>step</c> (the build state index); for paint, <c>colour</c> (its index).
     /// </summary>
     public static readonly ReasonCode NoTool = ReasonCode.Known("no-tool");
 

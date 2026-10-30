@@ -20,12 +20,23 @@ internal sealed class TestBoard
     private int _commands;
 
     public TestBoard(Option<BoardSeed> seed = default, params NamedPiece[] extraPieces)
+        : this(WithExtra(extraPieces), seed)
+    {
+    }
+
+    /// <summary>A board over this catalogue alone.</summary>
+    public TestBoard(FakeCatalogue catalogue, Option<BoardSeed> seed = default)
+    {
+        Catalogue = catalogue;
+        Board = new GhostBoard(new Shapes(Catalogue, Grid), Time, Policies, Limit, Events, seed);
+    }
+
+    private static FakeCatalogue WithExtra(NamedPiece[] extraPieces)
     {
         var hand = FakeCatalogue.Hand();
         var pieces = new List<NamedPiece>(hand.Pieces);
         pieces.AddRange(extraPieces);
-        Catalogue = new FakeCatalogue(pieces, hand.BrokenToolNames);
-        Board = new GhostBoard(new Shapes(Catalogue, Grid), Time, Policies, Limit, Events, seed);
+        return new FakeCatalogue(pieces, hand.BrokenToolNames, itemLines: hand.ItemLines);
     }
 
     public FakeCatalogue Catalogue { get; }

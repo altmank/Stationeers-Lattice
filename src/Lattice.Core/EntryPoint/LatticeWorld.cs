@@ -274,6 +274,8 @@ internal sealed class LatticeWorld : IGhostSystem
     private void Compose(WorldPorts ports, WorldRuntime runtime)
     {
         var catalogue = ports.Catalogue;
+        if (catalogue is PrefabCatalogue { IsComplete: false } prefabs)
+            prefabs.Complete();
         var grid = ports.Grid;
         var on = ports.Modules;
         var host = ports.Seat == WorldSeat.Host;

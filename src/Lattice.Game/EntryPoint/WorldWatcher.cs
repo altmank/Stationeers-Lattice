@@ -28,6 +28,11 @@ namespace Lattice.Game.EntryPoint;
 /// stop), when the game quits and when this object goes. Once a frame, while a world runs: sync's poll, then Lattice's
 /// frame. Lattice's frame runs in Update and raises the world bridge's signals first, so each frame reads the signals
 /// the game gave since the last one, inside the frame's time.
+/// <para>
+/// Outside a world it reads the structure prefabs a slice a frame (<see cref="MenuPrefabReads"/>), when the game has the
+/// catalogue's members, so a world's catalogue is mostly read before the world starts; the world's start reads what is
+/// left and freezes the catalogue before Lattice's worker can ask it.
+/// </para>
 /// </summary>
 internal sealed class WorldWatcher : MonoBehaviour
 {
@@ -39,12 +44,15 @@ internal sealed class WorldWatcher : MonoBehaviour
     private LatticeWorld? _world;
     private WorldBridge? _bridge;
     private RenderHost? _render;
+    private MenuPrefabReads? _prefabs;
 
     public void Prepare(CachedGameMembers members, bool networking, Action<string> log)
     {
         _members = members;
         _networking = networking;
         _log = log;
+        if (members.Missing(CatalogueManifest.Module).Count == 0)
+            _prefabs = MenuPrefabReads.Start();
     }
 
     private void Update()
@@ -56,6 +64,7 @@ internal sealed class WorldWatcher : MonoBehaviour
             if (_inWorld)
                 EndWorld();
             _inWorld = false;
+            _prefabs?.Step();
             return;
         }
 
@@ -74,7 +83,11 @@ internal sealed class WorldWatcher : MonoBehaviour
 
     private void OnApplicationQuit() => EndWorld();
 
-    private void OnDestroy() => EndWorld();
+    private void OnDestroy()
+    {
+        _prefabs?.End();
+        EndWorld();
+    }
 
     private void StartWorld()
     {
@@ -106,8 +119,9 @@ internal sealed class WorldWatcher : MonoBehaviour
         }
 
         var listing = System.Diagnostics.Stopwatch.StartNew();
-        var catalogue = GameCatalogue.Read();
-        _ = catalogue.Listing;
+        var readBefore = MenuPrefabReads.Reads.Count;
+        var catalogue = GameCatalogue.Read(MenuPrefabReads.Reads);
+        catalogue.Complete();
         listing.Stop();
         var ports = new WorldPorts(catalogue, new CubeGrid(), modules, seat, Viewer(), new GameClock())
         {
@@ -156,7 +170,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         foreach (var module in world.Modules)
             if (module.State is ModuleState.Off)
                 off++;
-        _log($"Lattice: catalogue listed in {(long)listing.Elapsed.TotalMilliseconds} ms: {CatalogueSummary.Of(world.Catalogue)}.");
+        _log($"Lattice: catalogue listed in {(long)listing.Elapsed.TotalMilliseconds} ms ({readBefore} prefabs read before the world started): {CatalogueSummary.Of(world.Catalogue)}.");
         _log($"Lattice: started for this world ({seat}, {(GameManager.IsBatchMode ? "dedicated" : "with a local player")}): {world.Modules.Count - off} modules on, {off} off.");
         if (modules.IsOn(LatticeModules.Render))
             OpenRender(world);

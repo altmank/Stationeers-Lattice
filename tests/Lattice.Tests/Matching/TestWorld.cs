@@ -23,8 +23,19 @@ internal sealed class TestWorld
     private long _nextId = 1000;
 
     public TestWorld(params NamedPiece[] extraPieces)
+        : this(new TestBoard(default, extraPieces))
     {
-        T = new TestBoard(default, extraPieces);
+    }
+
+    /// <summary>A world over this catalogue alone.</summary>
+    public TestWorld(FakeCatalogue catalogue)
+        : this(new TestBoard(catalogue))
+    {
+    }
+
+    private TestWorld(TestBoard board)
+    {
+        T = board;
         World = new FakeWorld(T.Catalogue);
         Reads = new CountingWorld(World);
         var shapes = new Shapes(T.Catalogue, T.Grid);

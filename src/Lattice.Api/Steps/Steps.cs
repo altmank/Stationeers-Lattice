@@ -29,28 +29,50 @@ public abstract record Step
 
     /// <summary>
     /// Merges a kit into a structure standing now so it becomes another piece (a straight becoming a T, for example).
-    /// Later steps name the piece it becomes by <see cref="StepTarget.PlacedBy"/> this step.
+    /// The kit stack is in the active hand and the tool in the other; the act uses up <paramref name="Extra"/> from that
+    /// stack and the rest stays in hand. Later steps name the piece it becomes by <see cref="StepTarget.PlacedBy"/> this
+    /// step. Held added in contract 0.20.
     /// </summary>
     /// <param name="Into">The structure.</param>
     /// <param name="Becomes">The piece it becomes.</param>
+    /// <param name="Held">
+    /// The kit stack in the active hand when the act starts: the new piece's kit item, as many as placing that piece
+    /// uses (at least 1), even when the merge uses up none of it.
+    /// </param>
     /// <param name="OffhandTool">The tool in the other hand.</param>
-    /// <param name="Extra">Extra kit items used, if any.</param>
-    public sealed record Merge(StructureRef Into, PrefabKey Becomes, ItemKey OffhandTool, Option<ItemQuantity> Extra) : Step;
+    /// <param name="Extra">The kit items the act uses up from the held stack, if any; none when the merge is free.</param>
+    public sealed record Merge(StructureRef Into, PrefabKey Becomes, ItemQuantity Held, ItemKey OffhandTool, Option<ItemQuantity> Extra) : Step;
 
-    /// <summary>Paints a structure.</summary>
+    /// <summary>
+    /// Paints a structure with a spray can of the colour in the active hand; the act uses up part of the can. Can and
+    /// ActsPerCan added in contract 0.20.
+    /// </summary>
     /// <param name="On">The structure: one standing now, or the one an earlier step places.</param>
     /// <param name="Colour">The colour.</param>
-    public sealed record Paint(StepTarget On, PaintColour Colour) : Step;
+    /// <param name="Can">The spray can item that sprays the colour.</param>
+    /// <param name="ActsPerCan">
+    /// How many paint acts a full can gives: each act takes the same share of the can, as the game spends it, so one
+    /// act uses up 1/ActsPerCan of a full can. <see cref="int.MaxValue"/> for a can that never empties.
+    /// </param>
+    public sealed record Paint(StepTarget On, PaintColour Colour, ItemKey Can, int ActsPerCan) : Step;
 
-    /// <summary>Names a structure.</summary>
+    /// <summary>
+    /// Names a structure with a labeller in the active hand, switched on and charged; nothing is used up. Labeller added
+    /// in contract 0.20.
+    /// </summary>
     /// <param name="On">The structure: one standing now, or the one an earlier step places.</param>
     /// <param name="To">The name.</param>
-    public sealed record Rename(StepTarget On, ThingName To) : Step;
+    /// <param name="Labeller">The labeller item.</param>
+    public sealed record Rename(StepTarget On, ThingName To, ItemKey Labeller) : Step;
 
-    /// <summary>Sets a device's labeller value.</summary>
+    /// <summary>
+    /// Sets a device's labeller value with a labeller in the active hand, switched on and charged; nothing is used up.
+    /// Labeller added in contract 0.20.
+    /// </summary>
     /// <param name="On">The structure: one standing now, or the one an earlier step places.</param>
     /// <param name="To">The setting.</param>
-    public sealed record SetValue(StepTarget On, Setting To) : Step;
+    /// <param name="Labeller">The labeller item.</param>
+    public sealed record SetValue(StepTarget On, Setting To, ItemKey Labeller) : Step;
 }
 
 /// <summary>
@@ -95,7 +117,10 @@ public abstract record Constraint
 /// <param name="Constraints">The conditions on carrying them out.</param>
 public sealed record StepPlan(GhostId Ghost, ValueList<Step> Steps, ValueList<Constraint> Constraints);
 
-/// <summary>Materials and tools for a set of ghosts.</summary>
+/// <summary>
+/// Materials and tools for a set of ghosts. A builder has <see cref="Needed"/> plus <see cref="Held"/> of each item; the
+/// steps use up only <see cref="Needed"/>.
+/// </summary>
 /// <param name="Needed">Items used.</param>
 /// <param name="GivenBack">Items returned by take-apart steps.</param>
 /// <param name="Net">Needed minus given back, per item.</param>
@@ -104,7 +129,16 @@ public sealed record Bill(
     ValueList<ItemQuantity> Needed,
     ValueList<ItemQuantity> GivenBack,
     ValueList<ItemDelta> Net,
-    ValueSet<ItemKey> Tools);
+    ValueSet<ItemKey> Tools)
+{
+    /// <summary>
+    /// Items a step holds in hand and gets back, on top of <see cref="Needed"/>: per item, the most any one step holds
+    /// beyond what it uses up (a <see cref="Step.Merge"/>'s <see cref="Step.Merge.Held"/> minus its
+    /// <see cref="Step.Merge.Extra"/>), the largest over the steps, not their sum, as each comes back before the next.
+    /// Empty when no step holds anything back. Added in contract 0.20.
+    /// </summary>
+    public ValueList<ItemQuantity> Held { get; init; } = ValueList<ItemQuantity>.Empty;
+}
 
 /// <summary>
 /// Steps for one ghost. Main thread. Lattice implements this; consumers call it. A minor may add members: to fake it in

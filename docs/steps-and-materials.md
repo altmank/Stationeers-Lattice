@@ -19,8 +19,9 @@ if (lattice.Steps.For(ghost).TryGet(out var plan))
 | `Step.PlaceKit(kit, option, uses, at)` | Places a kit as the piece at that option, using that many kit items, at a placement. |
 | `Step.Advance(on, tool, material)` | Does one build step on a structure with a tool, using a material if one is named. |
 | `Step.TakeBack(on, tool, returns)` | Does one take-apart step and gets those items back. |
-| `Step.Merge(into, becomes, offhandTool, extra)` | Merges a kit into a standing structure so it becomes another piece (a straight becoming a T). |
-| `Step.Paint(on, colour)`, `Step.Rename(on, to)`, `Step.SetValue(on, to)` | Finishes a structure. |
+| `Step.Merge(into, becomes, held, offhandTool, extra)` | Merges a kit into a standing structure so it becomes another piece (a straight becoming a T): the `held` kit stack in the active hand, the tool in the other, using up `extra` from the stack (none when free). |
+| `Step.Paint(on, colour, can, actsPerCan)` | Paints a structure with the colour's spray can in the active hand, using up a share of it: a full can paints `actsPerCan` times. |
+| `Step.Rename(on, to, labeller)`, `Step.SetValue(on, to, labeller)` | Names a structure or sets its value with a labeller in the active hand, on and charged; nothing is used up. |
 
 `Advance`, `Paint`, `Rename` and `SetValue` name their structure with a `StepTarget`:
 
@@ -49,7 +50,10 @@ var bill = Must(lattice.Bills.For(new Selector.InPlan(plan)));
 ```
 
 A `Bill` has the items `Needed`, the items `GivenBack` by take-apart steps, the `Net` per item (positive needed,
-negative given back) and the `Tools` used. It is linear in the ghosts and cached per revision. `Plans.Facts(plan)`
+negative given back), the `Tools` used and the items `Held`: what a merge holds in hand and gets back, per item the
+most any one step holds beyond what it uses up (contract 0.20). Spray cans count in `Needed` as whole cans for the
+paint steps (acts over acts per can, rounded up); the labeller counts in `Tools`. Have `Needed` plus `Held` of each item; the steps
+use up only `Needed`. It is linear in the ghosts and cached per revision. `Plans.Facts(plan)`
 carries the same bill for what is still to build, as `Cost`.
 
 Items are `ItemKey`s (the game's prefab hash), with counts in `ItemQuantity` and changes in `ItemDelta`.

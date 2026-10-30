@@ -23,8 +23,10 @@ namespace Lattice.Game.Catalogue;
 /// it is built, so every prefab the game holds at that moment counts, modded ones included; each structure's data
 /// comes from its own prefab fields (decompile Assets.Scripts.Objects/Prefab.cs, Structure.cs,
 /// MultiConstructor.cs, MultiMergeConstructor.cs, Constructor.cs, SmallGrid.cs, Connection.cs). The broken tools are the
-/// item prefabs that are an <c>IConstructor</c> (Assets.Scripts.Objects.Items/IConstructor.cs). Build it after the
-/// game's prefabs are loaded.
+/// item prefabs that are an <c>IConstructor</c> (Assets.Scripts.Objects.Items/IConstructor.cs). The spray cans are the
+/// <c>SprayCan</c> prefabs, each with its <c>PaintMaterial</c>'s colour index (Assets.Scripts/GameManager.cs
+/// <c>GetColorIndex</c>) and its <c>UseAmount</c> and <c>MaxQuantity</c> (Objects.Items/Consumable.cs); the labellers are
+/// the <c>Labeller</c> prefabs (Assets.Scripts.Objects.Items/Labeller.cs). Build it after the game's prefabs are loaded.
 /// </summary>
 internal sealed class GamePrefabSource : IPrefabSource
 {
@@ -38,6 +40,8 @@ internal sealed class GamePrefabSource : IPrefabSource
         var structures = new List<PrefabKey>(prefabs.Count / 2);
         _structures = new List<Structure>(prefabs.Count / 2);
         var brokenTools = new List<ItemRef>(8);
+        var sprayCans = new List<SprayCanData>(24);
+        var labellers = new List<ItemRef>(2);
         _items = new List<Item>(prefabs.Count / 2);
         foreach (var thing in prefabs)
         {
@@ -45,6 +49,10 @@ internal sealed class GamePrefabSource : IPrefabSource
                 _items.Add(item);
             if (thing is Item tool && tool is IConstructor)
                 brokenTools.Add(Item(tool));
+            if (thing is SprayCan can)
+                sprayCans.Add(new SprayCanData(Item(can), ColourOf(can.PaintMaterial), can.UseAmount, can.MaxQuantity));
+            if (thing is Labeller labeller)
+                labellers.Add(Item(labeller));
             if (thing is MultiMergeConstructor merging)
                 kits.Add(Kit(thing, merging.Constructables, KitKind.Merge) with
                 {
@@ -64,6 +72,8 @@ internal sealed class GamePrefabSource : IPrefabSource
         Kits = kits;
         Structures = structures;
         BrokenTools = brokenTools;
+        SprayCans = sprayCans;
+        Labellers = labellers;
         _listed = new Lazy<IReadOnlyList<ListedPiece>>(ListAll);
         _listedItems = new Lazy<IReadOnlyList<ListedItem>>(ListItems);
     }
@@ -87,6 +97,12 @@ internal sealed class GamePrefabSource : IPrefabSource
 
     /// <inheritdoc />
     public IReadOnlyList<ItemRef> BrokenTools { get; }
+
+    /// <inheritdoc />
+    public IReadOnlyList<SprayCanData> SprayCans { get; }
+
+    /// <inheritdoc />
+    public IReadOnlyList<ItemRef> Labellers { get; }
 
     /// <inheritdoc />
     public Option<PrefabData> Read(PrefabKey piece)
@@ -361,6 +377,15 @@ internal sealed class GamePrefabSource : IPrefabSource
         item == null ? Option<EntryItem>.None : Option.Some(new EntryItem(Item(item), quantity, item is Stackable));
 
     private static ItemRef Item(Item item) => new(item.PrefabName, new ItemKey(item.PrefabHash));
+
+    // GameManager.GetColorIndex reads the game manager's colours; -1 before it is there or for a material it does not hold.
+    private static int ColourOf(Material material)
+    {
+        var manager = Assets.Scripts.Util.Singleton<Assets.Scripts.GameManager>.Instance;
+        if (material == null || manager == null || manager.CustomColors == null)
+            return -1;
+        return Assets.Scripts.GameManager.GetColorIndex(material);
+    }
 
     private static ValueList<EndData> Ends(Structure structure)
     {

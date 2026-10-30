@@ -93,6 +93,36 @@ public sealed class EqualityTests
     {
         AssertEqualPair(Plan(), Plan());
         AssertEqualPair(Bill(), Bill());
+        var held = Bill() with { Held = ValueList.Of(Ok(ItemQuantity.Create(new ItemKey(1), 2))) };
+        AssertEqualPair(held, Bill() with { Held = ValueList.Of(Ok(ItemQuantity.Create(new ItemKey(1), 2))) });
+        Assert.NotEqual(Bill(), held);
+    }
+
+    [Fact]
+    public void Merge_steps_compare_by_their_held_stack()
+    {
+        var into = new StructureRef(new ReferenceId(5), new PrefabKey(10), new Cell(0, 0, 0));
+        Step Merge(int held) => new Step.Merge(into, new PrefabKey(11), Ok(ItemQuantity.Create(new ItemKey(1), held)), new ItemKey(7), Option<ItemQuantity>.None);
+
+        AssertEqualPair(Merge(2), Merge(2));
+        Assert.NotEqual(Merge(1), Merge(2));
+    }
+
+    [Fact]
+    public void Finish_steps_compare_by_the_can_and_the_labeller_they_name()
+    {
+        var on = new StepTarget.PlacedBy(0);
+        var colour = Ok(PaintColour.Create(3));
+        var name = Ok(ThingName.Create("Main bus"));
+        var setting = Ok(Setting.Create(2));
+
+        AssertEqualPair(new Step.Paint(on, colour, new ItemKey(1), 10), new Step.Paint(on, colour, new ItemKey(1), 10));
+        Assert.NotEqual(new Step.Paint(on, colour, new ItemKey(1), 10), new Step.Paint(on, colour, new ItemKey(2), 10));
+        Assert.NotEqual(new Step.Paint(on, colour, new ItemKey(1), 10), new Step.Paint(on, colour, new ItemKey(1), 11));
+        AssertEqualPair(new Step.Rename(on, name, new ItemKey(5)), new Step.Rename(on, name, new ItemKey(5)));
+        Assert.NotEqual(new Step.Rename(on, name, new ItemKey(5)), new Step.Rename(on, name, new ItemKey(6)));
+        AssertEqualPair(new Step.SetValue(on, setting, new ItemKey(5)), new Step.SetValue(on, setting, new ItemKey(5)));
+        Assert.NotEqual(new Step.SetValue(on, setting, new ItemKey(5)), new Step.SetValue(on, setting, new ItemKey(6)));
     }
 
     [Fact]

@@ -74,20 +74,17 @@ internal sealed class StepPlanner(GhostBoard board, WorldMirror mirror, ICatalog
             var standing = new StepTarget.Standing(partBuilt.Ref);
             return Advance(piece, standing, next, steps).TryGet(out var stuck)
                 ? Option.Some(stuck)
-                : Finishing(standing, finish, Option.Some(partBuilt), steps);
+                : Finishing(piece.Key, standing, finish, Option.Some(partBuilt), steps);
         }
 
         if (piece.Kits.Count == 0)
             return Option.Some(NoPiece(target.Piece));
         var place = piece.Kits[0];
-        var uses = piece.Steps.Count > 0 && piece.Steps[0].Material.TryGet(out var material)
-            ? material
-            : Quantity(new ItemKey(place.Kit.Hash), 1);
         var placed = new StepTarget.PlacedBy(steps.Count);
-        steps.Add(new Step.PlaceKit(place.Kit, place.Option, uses, target));
+        steps.Add(new Step.PlaceKit(place.Kit, place.Option, Placing(piece), target));
         return Advance(piece, placed, 1, steps).TryGet(out var cannot)
             ? Option.Some(cannot)
-            : Finishing(placed, finish, Option<StructureInfo>.None, steps);
+            : Finishing(piece.Key, placed, finish, Option<StructureInfo>.None, steps);
     }
 
     private Option<Reason> Advance(PieceFacts piece, StepTarget on, int from, List<Step> steps)
@@ -152,7 +149,7 @@ internal sealed class StepPlanner(GhostBoard board, WorldMirror mirror, ICatalog
                 return Option.Some(NoPiece(swap.New.Piece));
             return Advance(piece, merged, 1, steps).TryGet(out var cannot)
                 ? Option.Some(cannot)
-                : Finishing(merged, swap.Finish, Option<StructureInfo>.None, steps);
+                : Finishing(swap.New.Piece, merged, swap.Finish, Option<StructureInfo>.None, steps);
         }
 
         return Remove(old.Ref, steps).TryGet(out var why)
@@ -160,7 +157,18 @@ internal sealed class StepPlanner(GhostBoard board, WorldMirror mirror, ICatalog
             : Build(swap.New, swap.Finish, new GhostState.Planned(), steps);
     }
 
-    /// <summary>The one merge that turns the standing piece into the new one, or null when the game would not merge them.</summary>
+    /// <summary>What placing a piece's first kit uses: its first step's material, else one kit.</summary>
+    private static ItemQuantity Placing(PieceFacts piece) =>
+        piece.Steps.Count > 0 && piece.Steps[0].Material.TryGet(out var material)
+            ? material
+            : Quantity(new ItemKey(piece.Kits[0].Kit.Hash), 1);
+
+    /// <summary>
+    /// The one merge that turns the standing piece into the new one, or null when the game would not merge them. The
+    /// kit stack in hand holds what placing the new piece uses (the game's placement reads the stack in hand against
+    /// the placed option's entry quantity); the act uses up the new piece's cost minus the old one's
+    /// (MultiMergeConstructor.Construct).
+    /// </summary>
     private Step.Merge? Merge(StructureInfo old, Placement next)
     {
         if (old.State is not BuildState.Built || old.Ref.At != next.At)
@@ -183,7 +191,7 @@ internal sealed class StepPlanner(GhostBoard board, WorldMirror mirror, ICatalog
                 extra = Option.Some(Quantity(cost.Item, cost.Count - paid));
         }
 
-        return new Step.Merge(old.Ref, next.Piece, merging.OffhandTool, extra);
+        return new Step.Merge(old.Ref, next.Piece, Placing(becomes), merging.OffhandTool, extra);
     }
 
     private static bool InKit(PieceFacts piece, KitKey kit)
@@ -206,21 +214,46 @@ internal sealed class StepPlanner(GhostBoard board, WorldMirror mirror, ICatalog
     {
         if (!mirror.Find(finish.Target).TryGet(out var standing))
             return Option.Some(Reason.Of(ReasonCodes.TargetGone, StepCodes.Steps, ValueMap.Of("structure", Text(finish.Target.Id.Value))));
-        return Finishing(new StepTarget.Standing(standing.Ref), Option.Some(finish.Finish), Option.Some(standing), steps);
+        return Finishing(standing.Ref.Piece, new StepTarget.Standing(standing.Ref), Option.Some(finish.Finish), Option.Some(standing), steps);
     }
 
-    private static Option<Reason> Finishing(StepTarget on, Option<Finish> finish, Option<StructureInfo> standing, List<Step> steps)
+    /// <summary>
+    /// The paint, name and setting steps a finish still needs: paint with the first spray can of the colour, name and
+    /// set with the first labeller. Refused (no-tool) when the catalogue holds no such can or no labeller.
+    /// </summary>
+    private Option<Reason> Finishing(PrefabKey piece, StepTarget on, Option<Finish> finish, Option<StructureInfo> standing, List<Step> steps)
     {
         if (!finish.TryGet(out var wanted))
             return Option<Reason>.None;
         var has = standing.TryGet(out var info) ? info : null;
         if (wanted.Colour.TryGet(out var colour) && (has is null || has.Colour != wanted.Colour))
-            steps.Add(new Step.Paint(on, colour));
-        if (wanted.Name.TryGet(out var name) && (has is null || has.Name != wanted.Name))
-            steps.Add(new Step.Rename(on, name));
-        if (wanted.Setting.TryGet(out var setting) && (has is null || has.Setting != wanted.Setting))
-            steps.Add(new Step.SetValue(on, setting));
+        {
+            if (!CanOf(colour).TryGet(out var can))
+                return Option.Some(Reason.Of(ReasonCodes.NoTool, StepCodes.Steps,
+                    ValueMap.Of("piece", Text(piece.Hash)).With("way", "paint").With("colour", Text(colour.Index))));
+            steps.Add(new Step.Paint(on, colour, can.Can, can.ActsPerCan));
+        }
+
+        var renames = wanted.Name.TryGet(out var name) && (has is null || has.Name != wanted.Name);
+        var sets = wanted.Setting.TryGet(out var setting) && (has is null || has.Setting != wanted.Setting);
+        if (!renames && !sets)
+            return Option<Reason>.None;
+        if (catalogue.Labellers.Count == 0)
+            return Option.Some(NoTool(piece, "label", Option<int>.None));
+        var labeller = catalogue.Labellers[0];
+        if (renames)
+            steps.Add(new Step.Rename(on, name, labeller));
+        if (sets)
+            steps.Add(new Step.SetValue(on, setting, labeller));
         return Option<Reason>.None;
+    }
+
+    private Option<PaintCan> CanOf(PaintColour colour)
+    {
+        foreach (var can in catalogue.PaintCans)
+            if (can.Colour == colour)
+                return Option.Some(can);
+        return Option<PaintCan>.None;
     }
 
     private ValueList<Constraint> Constraints(GhostId ghost)

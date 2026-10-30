@@ -22,13 +22,6 @@ public sealed class BuilderHelpersTests
 
     private static readonly RuleId From = Ok(RuleId.Create(Ok(ModId.Create("builder")), "orb"));
 
-    [Fact]
-    public void The_contract_is_zero_nineteen()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(19, ApiVersion.ContractMinor);
-    }
-
     [Theory]
     [InlineData(0f, 0f, 0f)]
     [InlineData(0.99f, -0.3f, 2.01f)]

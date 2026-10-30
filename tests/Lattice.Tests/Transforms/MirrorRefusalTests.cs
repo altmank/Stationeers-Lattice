@@ -70,7 +70,7 @@ public sealed class MirrorRefusalTests
     public void A_piece_with_no_mirror_and_a_piece_the_catalogue_lacks_give_two_refusals_each_with_its_own_ghosts()
     {
         var c = new TestCommands(null, [.. TestSelect.Pieces(ModdedText)]);
-        var known = new FakeCatalogue(c.T.Catalogue.Pieces.Where(static p => p.Name != "ModHandLeft").ToList(), c.T.Catalogue.BrokenToolNames);
+        var known = new FakeCatalogue(c.T.Catalogue.Pieces.Where(static p => p.Name != "ModHandLeft").ToList(), c.T.Catalogue.BrokenToolNames, itemLines: c.T.Catalogue.ItemLines);
         Assert.True(c.Expanders.RegisterSliced(new TransformExpander(new Placements(known, c.T.Grid, new CatalogueAdditions(known))).Descriptor).IsOk);
         var outcomes = new List<Outcome>();
         c.T.Events.Answered += (_, outcome) => outcomes.Add(outcome);
