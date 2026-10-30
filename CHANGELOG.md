@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.4
+
+Added:
+- **The contract's patch.** `ApiVersion.ContractPatch` is the patch a mod compiled against (a constant) and
+  `ApiVersion.CurrentPatch` the running one; both are Lattice's patch number. A patch only adds members or makes
+  behaviour follow the game's own rule, and each member it adds says "Added in 0.M.P": compare `CurrentPatch` before
+  calling one. Before 1.0 a minor may change or remove members, named under Changed. Contract 0.22 is unchanged.
+
 ## 0.22.3
 
 Fixed:

@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.22.4
+- Added: mods can read Lattice's patch number, so they can tell which small additions are there.
+
 v0.22.3
 - Fixed: a wall, window, floor or door planned on a face but turned to face along it now shows as off-snap, as the game never builds it that way.
 

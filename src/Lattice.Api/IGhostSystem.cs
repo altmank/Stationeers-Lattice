@@ -104,7 +104,11 @@ public static class LatticeSystem
     internal static void Clear() => _current = null;
 }
 
-/// <summary>A contract version. Majors break, minors only add.</summary>
+/// <summary>
+/// A contract version. A major may break. Before 1.0 a minor may change or remove members, each named under Changed in
+/// the changelog; a patch only adds members or makes behaviour follow the game's own rule. A patch's members each say
+/// "Added in 0.M.P": compare <see cref="CurrentPatch"/> with the patch named before calling one.
+/// </summary>
 /// <param name="Major">The major version.</param>
 /// <param name="Minor">The minor version.</param>
 public readonly record struct ApiVersion(int Major, int Minor)
@@ -115,8 +119,23 @@ public readonly record struct ApiVersion(int Major, int Minor)
     /// <summary>The minor of this contract. A constant, so a consumer's build keeps the value it compiled against.</summary>
     public const int ContractMinor = 22;
 
+    /// <summary>
+    /// The patch of this contract, Lattice's own patch number. A constant, so a consumer's build keeps the value it
+    /// compiled against. A patch may add members; each names "Added in 0.M.P": compare <see cref="CurrentPatch"/>
+    /// before calling one. Added in 0.22.4.
+    /// </summary>
+    public const int ContractPatch = 4;
+
     /// <summary>The running contract's version.</summary>
     public static ApiVersion Current => new(ContractMajor, ContractMinor);
+
+    /// <summary>
+    /// The running contract's patch, read from the Lattice that runs, beside <see cref="Current"/>. Lattice 0.22.0 to
+    /// 0.22.3 lack it: there the runtime throws <see cref="MissingMethodException"/> as the method that reads it is
+    /// compiled, so a consumer that runs on those reads it in a method of its own, called inside a try, and takes a
+    /// missing member as patch 3 or below. Added in 0.22.4.
+    /// </summary>
+    public static int CurrentPatch => ContractPatch;
 }
 
 /// <summary>Whether a Lattice module runs in this world.</summary>

@@ -151,9 +151,15 @@ void OnWorld(IGhostSystem lattice)
 
 ## 4. Versions and features
 
-- `lattice.Version` is the running contract; `ApiVersion.Current` is the one you compiled against. A minor only adds;
-  a major may break. A member added after the first contract says in its XML doc which minor added it ("Added in
-  contract 0.3"), so compare before you call it.
+- `lattice.Version` and `ApiVersion.Current` are the running contract, `ApiVersion.CurrentPatch` its patch (Lattice
+  0.22.4). The constants `ApiVersion.ContractMajor`, `ContractMinor` and `ContractPatch` are the one you compiled
+  against.
+- A major may break. Before 1.0 a minor may change or remove members, each named under Changed in the changelog. A
+  patch only adds members, or makes behaviour follow the game's own rule (named under Fixed).
+- A member added after the first contract says in its XML doc which version added it: "Added in contract 0.3" for a
+  minor, "Added in 0.22.1" for a patch. Compare `Version`, and for a patch `CurrentPatch`, before you call it. Lattice
+  0.22.0 to 0.22.3 lack `CurrentPatch`: if you run on those, read it in a method of its own, called inside a try, and
+  take a `MissingMethodException` as patch 3 or below.
 - Every interface in the contract is Lattice's to implement. A minor may add members to any of them, so a class of
   yours that implements one can stop compiling against a newer minor. To fake one in a test, inherit its stub in
   `Lattice.Testing.Stubs` (`StubPlans` for `IPlans`): a minor adds its new members there too, so your fake keeps
