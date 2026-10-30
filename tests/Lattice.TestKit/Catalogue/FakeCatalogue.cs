@@ -72,8 +72,15 @@ internal sealed class FakeCatalogue : ICatalogue
         _kitNames = new Dictionary<KitKey, string>();
         var byKit = new Dictionary<KitKey, SortedList<int, PrefabKey>>();
         var kitOrder = new List<KitKey>();
+        var limits = new List<TurnLimits>(pieces.Count);
         foreach (var piece in pieces)
+            limits.Add(piece.Facts.Turning);
+        var shared = BuilderTurns.Shared(limits);
+        var adjusted = new List<NamedPiece>(pieces.Count);
+        foreach (var listed in pieces)
         {
+            var piece = listed.Facts.Turning.IsFree ? listed : listed with { Facts = listed.Facts with { AllowedTurns = shared(listed.Facts.Turning) } };
+            adjusted.Add(piece);
             _pieces.Add(piece.Facts.Key, piece);
             for (var i = 0; i < piece.Facts.Kits.Count; i++)
             {
@@ -93,7 +100,7 @@ internal sealed class FakeCatalogue : ICatalogue
         foreach (var (kit, options) in byKit)
             _kits.Add(kit, new KitFacts(kit, ValueList.From(options.Values)));
         Kits = ValueList.From(kitOrder);
-        Pieces = pieces;
+        Pieces = adjusted;
         _listing = new System.Lazy<CatalogueListing>(ListAll);
     }
 
@@ -199,7 +206,7 @@ internal sealed class FakeCatalogue : ICatalogue
             var firstStep = piece.Facts.Kits.Count > 0
                 ? ValueList.Of(new ItemKey(piece.Facts.Kits[0].Kit.Hash))
                 : ValueList<ItemKey>.Empty;
-            pieces.Add(new ListedPiece(piece.Facts.Key, piece.Name, piece.DisplayName, piece.Facts.Grid.ToPiece(), firstStep) { Snap = piece.Facts.Snap });
+            pieces.Add(new ListedPiece(piece.Facts.Key, piece.Name, piece.DisplayName, piece.Facts.Grid.ToPiece(), firstStep) { Snap = piece.Facts.Snap, Turning = piece.Facts.Turning });
         }
 
         var kits = new List<ListedKit>(Kits.Count + KitLines.Count);

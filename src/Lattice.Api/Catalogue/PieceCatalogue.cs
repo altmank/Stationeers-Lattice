@@ -120,6 +120,15 @@ public sealed record PieceEntry(PrefabKey Key, string PrefabName, string Name, P
     /// true. Added in contract 0.18.
     /// </summary>
     public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid);
+
+    /// <summary>
+    /// The turns the game's builder can give the piece, read from its prefab at load (its <c>RotationAxis</c> and
+    /// <c>AllowedRotations</c>): all 24 (the default for an entry built without one) for a piece the builder turns
+    /// freely, fewer for a piece it turns about some axes only, such as one that only turns about up. A ghost of the
+    /// piece in another turn fails <see cref="ReasonCodes.TurnNotAllowed"/>; place it in one of these. Added in contract
+    /// 0.21.
+    /// </summary>
+    public TurnSet AllowedTurns { get; init; } = TurnSet.All;
 }
 
 /// <summary>One kit. Added in contract 0.3.</summary>

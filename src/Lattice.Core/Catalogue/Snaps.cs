@@ -60,13 +60,17 @@ internal sealed class SnapRule(ICatalogue catalogue)
 }
 
 /// <summary>
-/// A placement check that refuses a piece off its snap (<see cref="Snaps.Off"/>) before it asks the game's: what a run
-/// or route lays through, so its first failure names an off-snap piece as the game's own refusals are named.
+/// A placement check that refuses a piece off its snap (<see cref="Snaps.Off"/>) or in a turn the game's builder cannot
+/// give it (<see cref="BuilderTurnChecks.NotAllowed"/>) before it asks the game's: what a run or route lays through, so
+/// its first failure names such a piece as the game's own refusals are named.
 /// </summary>
 internal sealed class SnapFirst(ICatalogue catalogue, IPlacementCheck game) : IPlacementCheck
 {
-    public Result<Unit, Reason> Check(Placement placement) =>
-        catalogue.Piece(placement.Piece).TryGet(out var piece) && Snaps.Off(piece, placement.At).TryGet(out var why)
-            ? Result<Unit, Reason>.Error(why)
-            : game.Check(placement);
+    public Result<Unit, Reason> Check(Placement placement)
+    {
+        if (catalogue.Piece(placement.Piece).TryGet(out var piece) &&
+            (Snaps.Off(piece, placement.At).TryGet(out var why) || BuilderTurnChecks.NotAllowed(piece, placement).TryGet(out why)))
+            return Result<Unit, Reason>.Error(why);
+        return game.Check(placement);
+    }
 }

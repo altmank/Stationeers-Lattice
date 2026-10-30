@@ -6,9 +6,11 @@ using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.Networks;
 using Assets.Scripts.Objects.Pipes;
+using Assets.Scripts.Util;
 using Lattice.Api;
 using Lattice.Core.Catalogue;
 using Lattice.Core.Ports;
+using Lattice.Core.World;
 using Lattice.Game.Looks;
 using Objects.Rockets;
 using UnityEngine;
@@ -134,6 +136,7 @@ internal sealed class GamePrefabSource : IPrefabSource
             BlockingPoints = BlockingPointsOf(structure),
             BoundsCentre = BoundsCentreOf(structure),
             Snap = Option.Some(SnapOf(structure)),
+            Turning = TurningOf(structure),
         });
     }
 
@@ -148,6 +151,36 @@ internal sealed class GamePrefabSource : IPrefabSource
             return new PieceSnap(new AxisSnap(size.x, offset.x), new AxisSnap(size.y, offset.y), new AxisSnap(size.z, offset.z));
         var axis = new AxisSnap(structure.GridSize, structure.GridOffset);
         return new PieceSnap(axis, axis, axis);
+    }
+
+    // What limits the builder's turns (decompile Assets.Scripts.Objects/Structure.cs RotationAxis, AllowedRotations;
+    // Assets.Scripts.Inventory/InventoryManager.cs PlacementMode, UpdatePlacement): prefab fields with the game's flag
+    // values, so a modded prefab gives its own. The game tests one bit at a time, so bits past the three it names (a
+    // prefab set to Unity's "Everything") are dropped. A smart-rotated piece also steps through its connection type's
+    // rotations (Assets.Scripts.Util/SmartRotate.cs RotationsList, _GetNext), read here from the game's own table.
+    private static TurnLimits TurningOf(Structure structure) =>
+        new(
+            (PlacedBy)(int)structure.PlacementType,
+            (RotationAxes)((int)structure.RotationAxis & (int)RotationAxes.All),
+            (StartFaces)((int)structure.AllowedRotations & (int)StartFaces.All),
+            structure is IMounted)
+        {
+            Smart = structure is ISmartRotatable smart ? SmartTurns(smart) : TurnSet.None,
+        };
+
+    private static TurnSet SmartTurns(ISmartRotatable smart)
+    {
+        if (!SmartRotate.RotationsList.TryGetValue(smart.GetConnectionType(), out var steps) || steps == null)
+            return TurnSet.None;
+        var turns = TurnSet.None;
+        foreach (var step in steps)
+        {
+            var q = step.Rotation;
+            if (TurnReading.FromGame(new GameRotation(q.x, q.y, q.z, q.w)).TryGet(out var turn))
+                turns = turns.With(turn);
+        }
+
+        return turns;
     }
 
     private static readonly FieldInfo? AxisIndependentField =
@@ -244,6 +277,7 @@ internal sealed class GamePrefabSource : IPrefabSource
                 listed.Add(new ListedPiece(new PrefabKey(structure.PrefabHash), structure.PrefabName, NameOf(structure), grid, FirstStep(structure))
                 {
                     Snap = SnapOf(structure),
+                    Turning = TurningOf(structure),
                 });
         return listed;
     }

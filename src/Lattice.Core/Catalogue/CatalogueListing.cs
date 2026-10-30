@@ -25,6 +25,9 @@ internal enum KitKind
 internal sealed record ListedPiece(PrefabKey Key, string PrefabName, string Name, PieceGrid Grid, ValueList<ItemKey> FirstStep)
 {
     public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid);
+
+    /// <summary>What limits the turns the game's builder gives it; the game's defaults unless the source read others.</summary>
+    public TurnLimits Turning { get; init; } = TurnLimits.Free;
 }
 
 /// <summary>A kit prefab as the catalogue lists it: names, kind and the piece at each option, in the game's scroll order.</summary>

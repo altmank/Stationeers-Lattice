@@ -340,6 +340,14 @@ public static class ReasonCodes
     public static readonly ReasonCode OffSnap = ReasonCode.Known("off-snap");
 
     /// <summary>
+    /// A piece placed in a turn the game's builder cannot give it (<see cref="PieceEntry.AllowedTurns"/>), so the game
+    /// will not build it so: a piece that only turns about up, tilted. Facts <c>piece</c> (prefab hash), <c>cell</c>
+    /// ("x,y,z") and <c>turn</c> (its index). A ghost so fails with it; a run, route or transform that would put a piece
+    /// so is refused with it. Added in contract 0.21.
+    /// </summary>
+    public static readonly ReasonCode TurnNotAllowed = ReasonCode.Known("turn-not-allowed");
+
+    /// <summary>
     /// The catalogue names no tool for a step; facts <c>piece</c> (prefab hash), <c>way</c> (<c>build</c>,
     /// <c>take-apart</c>, <c>broken</c>, <c>paint</c>: no spray can of the colour, or <c>label</c>: no labeller) and,
     /// for build and take-apart, <c>step</c> (the build state index); for paint, <c>colour</c> (its index).

@@ -182,6 +182,36 @@ Lattice keeps to the snap itself: a ghost placed off its piece's snap fails `off
 ([validation](validation.md#what-lattice-checks)), and a run, route or transform that would put a piece off its snap says so with
 the same code. A ghost off its snap stays where it is placed; Lattice never moves it.
 
+## Allowed turns
+
+The game's builder does not turn every piece every way. Each prefab says which axes the rotate keys turn it about
+(`RotationAxis`) and which faces its cursor may start on (`AllowedRotations`). A piece that turns about up only can be
+turned to face four ways and never tilted; a mounted piece flips a half turn where others tilt a quarter. Holding the
+build key and scrolling smart-rotates a piece with connections through its connection type's turns, which can tilt
+even a piece whose rotate keys only turn it about up. Choosing another piece with the same placement and limits keeps
+the cursor's turn, so such pieces share what any of them reaches. Most devices reach every turn; doors, airlocks,
+railings and floor hatches do not.
+
+`PieceEntry.AllowedTurns` (contract 0.21) is the set of turns the builder can give a piece, read from its prefab at
+load: a `TurnSet` of the 24 `Turn`s. A piece the builder turns freely has all 24 (`TurnSet.All`, also the value of an
+entry built without one). `Contains(turn)` says whether a turn is allowed; `ToList()` gives them by index.
+
+```csharp
+var entry = lattice.Catalogue.Piece(piece).Match(static e => e, static _ => null!);
+foreach (var turn in entry.AllowedTurns.ToList())
+    Offer(new Placement(piece, at, turn));
+```
+
+Lattice keeps to the allowed turns itself:
+
+- A ghost in a turn the builder cannot give its piece fails `turn-not-allowed`
+  ([validation](validation.md#what-lattice-checks)) and is never built so. A piece with no direction (a frame) passes
+  in any turn: the game builds it in an allowed one, and it matches.
+- A transform that would land a piece in such a turn takes the allowed turn that gives it the same cells and ends (a
+  straight flipped end for end) or is refused `turn-not-allowed`.
+- A run or route lays each piece in an allowed turn where one fits, and reports `turn-not-allowed` at the first cell
+  where none does.
+
 ## Modded pieces
 
 Lattice finds everything by type from the prefabs the game loads: a mod's kit is a kit with its options in its own

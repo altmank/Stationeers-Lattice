@@ -412,6 +412,7 @@ internal sealed class LatticeWorld : IGhostSystem
             supportRules = new SupportRules(new RuleGuard(runtime.RuleLimit, RuleCalls(runtime), main));
             rules = new ValidationRules(new RuleGuard(runtime.RuleLimit, RuleCalls(runtime), main));
             Must(rules.Register(new SnapRule(catalogue).Descriptor, SnapRule.Applies, inline: true));
+            Must(rules.Register(new TurnRule(catalogue, new TurnFreePieces(catalogue, grid, new Shapes(catalogue, grid))).Descriptor, TurnRule.Applies, inline: true));
             if (swaps is not null)
                 Must(rules.Register(new SwapFaceRule(swaps).Descriptor, SwapFaceRule.Applies, inline: false));
             var judge = new SupportJudge(supportRules, new SupportGeometry(grid, supportFacts, shapes));

@@ -56,12 +56,13 @@ internal sealed class PieceCatalogue : IPieceCatalogue
         _pieces = new Dictionary<PrefabKey, PieceEntry>(listing.Pieces.Count);
         _kitOf = new Dictionary<PrefabKey, Result<KitPlace, Reason>>(listing.Pieces.Count);
         var pieceEntries = new List<PieceEntry>(listing.Pieces.Count);
+        var turns = PrefabCatalogue.SharedTurns(listing);
         foreach (var piece in listing.Pieces)
         {
             if (_pieces.ContainsKey(piece.Key))
                 continue;
             var places = homes.TryGetValue(piece.Key, out var found) ? Ordered(found, piece.FirstStep, rank) : ValueList<KitPlace>.Empty;
-            var entry = new PieceEntry(piece.Key, piece.PrefabName, piece.Name, piece.Grid, places) { Snap = piece.Snap };
+            var entry = new PieceEntry(piece.Key, piece.PrefabName, piece.Name, piece.Grid, places) { Snap = piece.Snap, AllowedTurns = turns(piece.Turning) };
             _pieces.Add(piece.Key, entry);
             pieceEntries.Add(entry);
             _kitOf.Add(piece.Key, places.Count > 0

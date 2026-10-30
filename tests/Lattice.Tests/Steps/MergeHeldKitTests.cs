@@ -61,13 +61,6 @@ public sealed class MergeHeldKitTests
     }
 
     [Fact]
-    public void The_contract_is_zero_twenty()
-    {
-        Assert.Equal(0, ApiVersion.ContractMajor);
-        Assert.Equal(20, ApiVersion.ContractMinor);
-    }
-
-    [Fact]
     public void A_free_merge_holds_the_new_pieces_kit_stack_and_uses_none_of_it()
     {
         var bench = Mod();

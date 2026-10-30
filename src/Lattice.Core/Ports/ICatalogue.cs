@@ -292,6 +292,25 @@ internal sealed record PieceFacts(
     /// <summary>How the game snaps the piece's position on each world axis; the grid's own unless the source read another.</summary>
     public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid == GridSize.Large ? PieceGrid.Large : PieceGrid.Small);
 
+    private readonly Lattice.Core.Catalogue.TurnLimits _turning = Lattice.Core.Catalogue.TurnLimits.Free;
+
+    /// <summary>
+    /// What limits the turns the game's builder gives the piece; the game's defaults unless the source read others.
+    /// Setting it works out <see cref="AllowedTurns"/>.
+    /// </summary>
+    public Lattice.Core.Catalogue.TurnLimits Turning
+    {
+        get => _turning;
+        init
+        {
+            _turning = value;
+            AllowedTurns = value.Turns;
+        }
+    }
+
+    /// <summary>The turns the game's builder reaches for the piece (<see cref="Lattice.Core.Catalogue.BuilderTurns"/>). Constant cost.</summary>
+    public TurnSet AllowedTurns { get; init; } = TurnSet.All;
+
     /// <summary>How the piece is drawn as a ghost; none when the catalogue did not read it (a file or fake without looks).</summary>
     public Option<LookFacts> Look { get; init; }
 }

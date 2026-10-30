@@ -36,6 +36,9 @@ var turned = new Command.Transform(
 - A piece mirrors by its own ends and footprint, modded pieces included. Where the mirror image is another piece (a
   left-hand piece and its right-hand partner), a mod declares it with `CatalogueAddition.MirrorPartner(piece, mirror)`.
   A piece with neither is refused `no-mirror-image`.
+- A piece lands only in a turn the game's builder can give it ([allowed turns](catalogue.md#allowed-turns)). Where
+  the transform's turn is not one, the allowed turn that gives it the same cells and ends is used; with none, the
+  command is refused `turn-not-allowed`.
 - A large selection is worked out over several frames, so `Submit` may answer `Submission.Sent` even on the host.
   The outcome then arrives as `Events.Answered`.
 - To move ghosts to placements you computed yourself, use `Command.Move(map, unchangedSince)` directly.

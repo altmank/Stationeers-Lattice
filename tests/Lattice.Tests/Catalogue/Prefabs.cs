@@ -113,6 +113,7 @@ internal sealed class CountingSource(
                 listed.Add(new ListedPiece(prefab.Key, prefab.Name, displayNames?.GetValueOrDefault(prefab.Key) ?? prefab.Name, grid, PrefabCatalogue.FirstStep(prefab))
                 {
                     Snap = prefab.Snap.Reduce(PieceSnap.Of(grid)),
+                    Turning = prefab.Turning,
                 });
         return listed;
     }

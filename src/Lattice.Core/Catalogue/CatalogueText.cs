@@ -217,6 +217,98 @@ internal static class CatalogueText
             new AxisSnap(values[0], values[3]), new AxisSnap(values[1], values[4]), new AxisSnap(values[2], values[5])));
     }
 
+    /// <summary>
+    /// What limits a piece's turns as the file writes it: how it is placed, the axes it turns about, the faces it starts
+    /// on, <c>/mounted</c> for a mounted piece, and <c>/smart-</c> with the smart-rotate turns' indexes joined by dots
+    /// for a smart-rotated piece (<c>grid/y/w</c>, <c>face/xz/wcf/mounted</c>, <c>grid/y/wcf/smart-1.4.8</c>); <c>none</c>
+    /// for no axis or no face.
+    /// </summary>
+    public static string Turning(TurnLimits limits) =>
+        Placed(limits.Placement) + "/" +
+        Letters((int)limits.Axes, "xyz") + "/" +
+        Letters((int)limits.Faces, "wcf") +
+        (limits.Mounted ? "/mounted" : "") +
+        (limits.Smart.Count > 0 ? "/smart-" + limits.Smart.ToString().Replace(',', '.') : "");
+
+    /// <summary>What limits a piece's turns, read back from <see cref="Turning(TurnLimits)"/>'s text; none when it does not read.</summary>
+    public static Option<TurnLimits> ParseTurning(string text)
+    {
+        var parts = text.Split('/');
+        if (parts.Length is < 3 or > 5)
+            return Option<TurnLimits>.None;
+        var mounted = false;
+        var smart = TurnSet.None;
+        for (var i = 3; i < parts.Length; i++)
+        {
+            if (parts[i] == "mounted" && i == 3 && !mounted)
+                mounted = true;
+            else if (parts[i].StartsWith("smart-", StringComparison.Ordinal) && i == parts.Length - 1 && ParseTurns(parts[i].Substring(6)).TryGet(out var steps))
+                smart = steps;
+            else
+                return Option<TurnLimits>.None;
+        }
+
+        PlacedBy? placed = parts[0] switch
+        {
+            "grid" => PlacedBy.Grid,
+            "face" => PlacedBy.Face,
+            "face-mount" => PlacedBy.FaceMount,
+            _ => null,
+        };
+        var axes = FromLetters(parts[1], "xyz");
+        var faces = FromLetters(parts[2], "wcf");
+        if (placed is null || axes < 0 || faces < 0)
+            return Option<TurnLimits>.None;
+        return Option.Some(new TurnLimits(placed.Value, (RotationAxes)axes, (StartFaces)faces, mounted) { Smart = smart });
+    }
+
+    private static Option<TurnSet> ParseTurns(string text)
+    {
+        var turns = TurnSet.None;
+        foreach (var index in text.Split('.'))
+        {
+            if (!int.TryParse(index, NumberStyles.None, CultureInfo.InvariantCulture, out var value) || !Turn.Create(value).TryGet(out var turn) || turns.Contains(turn))
+                return Option<TurnSet>.None;
+            turns = turns.With(turn);
+        }
+
+        return Option.Some(turns);
+    }
+
+    private static string Placed(PlacedBy placed) => placed switch
+    {
+        PlacedBy.Face => "face",
+        PlacedBy.FaceMount => "face-mount",
+        _ => "grid",
+    };
+
+    private static string Letters(int bits, string letters)
+    {
+        if (bits == 0)
+            return "none";
+        var text = "";
+        for (var i = 0; i < letters.Length; i++)
+            if ((bits & (1 << i)) != 0)
+                text += letters[i];
+        return text;
+    }
+
+    private static int FromLetters(string text, string letters)
+    {
+        if (text == "none")
+            return 0;
+        var bits = 0;
+        foreach (var letter in text)
+        {
+            var at = letters.IndexOf(letter);
+            if (at < 0 || (bits & (1 << at)) != 0)
+                return -1;
+            bits |= 1 << at;
+        }
+
+        return text.Length == 0 ? -1 : bits;
+    }
+
     private static string Metres(float value) => value.ToString("R", CultureInfo.InvariantCulture);
 
     public static PipeContent? ParsePipe(string text) => text switch

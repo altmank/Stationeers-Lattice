@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.21.0
+
+Added:
+- **Each piece's allowed turns.** `PieceEntry.AllowedTurns` is the set of turns the game's builder can give a piece
+  (`TurnSet`), read from its prefab's `RotationAxis` and `AllowedRotations`: all 24 for a piece the builder turns
+  freely, fewer for one it turns about some axes only. The new reason code `ReasonCodes.TurnNotAllowed`
+  (`turn-not-allowed`, facts `piece`, `cell`, `turn`) names a turn outside it.
+- Contract 0.21: a mod written for 0.20 sees the same answers, except for the changes below.
+
+Changed:
+- **Turns the game will not build fail.** A ghost accepted before can now fail: a build or swap ghost in a turn its
+  piece's builder cannot give fails `turn-not-allowed`. A piece with no direction (a frame) still passes in any turn.
+- A transform that would land a piece in such a turn takes the allowed turn that gives the same cells and ends, or is
+  refused `turn-not-allowed`; it was applied before.
+- Runs and routes lay each piece in an allowed turn where one fits, and report `turn-not-allowed` at the first cell
+  where none does; they laid the lowest turn before.
+
 ## 0.20.0
 
 Changed:

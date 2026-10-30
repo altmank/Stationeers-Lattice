@@ -13,7 +13,11 @@ internal readonly record struct PieceTurn(PrefabKey Piece, Turn Turn, Directions
 /// <see cref="Near"/> one leaving the piece's own cell. The game's long straights: the pivot cell plus N-1 cells along
 /// local -z, ends +z at the pivot and -z at the far cell.
 /// </summary>
-internal sealed record LongStraight(PrefabKey Piece, int Cells, ConnectionEnd Near, ConnectionEnd Far);
+internal sealed record LongStraight(PrefabKey Piece, int Cells, ConnectionEnd Near, ConnectionEnd Far)
+{
+    /// <summary>The turns the game's builder can give the piece (<see cref="PieceFacts.AllowedTurns"/>).</summary>
+    public TurnSet Allowed { get; init; } = TurnSet.All;
+}
 
 /// <summary>
 /// The run pieces of one kit, read from the catalogue's ends and nothing else, so a modded kit works the same as the
@@ -24,6 +28,7 @@ internal sealed record LongStraight(PrefabKey Piece, int Cells, ConnectionEnd Ne
 internal sealed class KitShapes
 {
     private readonly PieceTurn?[] _byShape = new PieceTurn?[64];
+    private readonly bool[] _shapeAllowed = new bool[64];
     private readonly List<NetworkType> _kinds = new(4);
     private readonly List<LongStraight> _longs = new(4);
     private readonly IGrid _grid;
@@ -131,13 +136,14 @@ internal sealed class KitShapes
 
     /// <summary>
     /// The placement of a long straight that fills the cells from <paramref name="first"/> to <paramref name="last"/>
-    /// (a line of its length), its ends leaving them outward; the lowest turn that does.
+    /// (a line of its length), its ends leaving them outward; the lowest turn its builder can give that does, else the
+    /// lowest turn that does (which the run's placement check refuses as a turn not allowed).
     /// </summary>
     public Option<Placement> Lay(LongStraight piece, Cell first, Cell last, Direction along)
     {
-        for (var index = 0; index < Turn.Count; index++)
+        for (var index = 0; index < Turn.Count * 2; index++)
         {
-            if (!Turn.Create(index).TryGet(out var turn))
+            if (!Turn.Create(index % Turn.Count).TryGet(out var turn) || piece.Allowed.Contains(turn) != index < Turn.Count)
                 continue;
             var near = _grid.Apply(turn, piece.Near.Facing);
             var far = _grid.Apply(turn, piece.Far.Facing);
@@ -176,11 +182,18 @@ internal sealed class KitShapes
             shape = shape.With(end.Facing);
         if (shape.Count != piece.Ends.Count)
             return;
+        // Each end shape takes a piece and turn its builder can give where one makes it; another only where none does,
+        // so the run's placement check refuses it as a turn not allowed.
         for (var index = 0; index < Turn.Count; index++)
             if (Turn.Create(index).TryGet(out var turn))
             {
                 var turned = shape.Turned(_grid, turn);
-                _byShape[turned.Bits] ??= new PieceTurn(piece.Key, turn, turned);
+                var allowed = piece.AllowedTurns.Contains(turn);
+                if (_byShape[turned.Bits] is null || (allowed && !_shapeAllowed[turned.Bits]))
+                {
+                    _byShape[turned.Bits] = new PieceTurn(piece.Key, turn, turned);
+                    _shapeAllowed[turned.Bits] = allowed;
+                }
             }
     }
 
@@ -205,7 +218,7 @@ internal sealed class KitShapes
         var length = delta.On(axis) * (DirectionMath.Along(axis, 1) == far.Facing ? 1 : -1);
         if (delta.Add(far.Facing.Unit().Times(-length)) != default || length <= 0 || length % Step != 0)
             return null;
-        return new LongStraight(piece.Key, length / Step + 1, near, far);
+        return new LongStraight(piece.Key, length / Step + 1, near, far) { Allowed = piece.AllowedTurns };
     }
 
     private static bool IsRunPiece(PieceFacts piece)

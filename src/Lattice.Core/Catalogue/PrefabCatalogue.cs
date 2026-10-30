@@ -95,6 +95,7 @@ internal sealed class PrefabCatalogue : ICatalogue
 
         Labellers = ValueList.From(labellers);
         _listing = new Lazy<CatalogueListing>(ListAll);
+        _sharedTurns = new Lazy<Func<TurnLimits, TurnSet>>(() => SharedTurns(Listing));
     }
 
     /// <summary>
@@ -121,6 +122,18 @@ internal sealed class PrefabCatalogue : ICatalogue
     }
 
     private readonly Lazy<CatalogueListing> _listing;
+
+    // Each piece's allowed turns, shared with the pieces that share its builder cursor (BuilderTurns.Shared).
+    private readonly Lazy<Func<TurnLimits, TurnSet>> _sharedTurns;
+
+    /// <summary>Each listed piece's allowed turns, shared with the pieces that share its builder cursor (<see cref="BuilderTurns.Shared"/>).</summary>
+    public static Func<TurnLimits, TurnSet> SharedTurns(CatalogueListing listing)
+    {
+        var limits = new List<TurnLimits>(listing.Pieces.Count);
+        foreach (var piece in listing.Pieces)
+            limits.Add(piece.Turning);
+        return BuilderTurns.Shared(limits);
+    }
 
     /// <inheritdoc />
     public CatalogueListing Listing => _listing.Value;
@@ -183,7 +196,7 @@ internal sealed class PrefabCatalogue : ICatalogue
             return known;
         if (_complete)
             return NoPrefab(piece);
-        var facts = ReadPiece(piece);
+        var facts = ReadPiece(piece).Map(read => read.Turning.IsFree ? read : read with { AllowedTurns = _sharedTurns.Value(read.Turning) });
         _pieces.Add(piece, facts);
         return facts;
     }

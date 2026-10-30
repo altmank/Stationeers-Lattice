@@ -1,7 +1,7 @@
 #nullable enable
 abstract Lattice.Api.Intent.Kind.get -> Lattice.Api.IntentKind
 const Lattice.Api.ApiVersion.ContractMajor = 0 -> int
-const Lattice.Api.ApiVersion.ContractMinor = 20 -> int
+const Lattice.Api.ApiVersion.ContractMinor = 21 -> int
 const Lattice.Api.Turn.Count = 24 -> int
 Lattice.Api.AccessPolicy
 Lattice.Api.AccessPolicy.AccessPolicy(System.Func<Lattice.Api.Actor!, Lattice.Api.Ghost!, bool>! MaySeeGhost, System.Func<Lattice.Api.Actor!, Lattice.Api.Plan!, bool>! MaySeePlan, System.Func<Lattice.Api.AccessRequest!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>! MayChange) -> void
@@ -2730,3 +2730,17 @@ static readonly Lattice.Api.ReasonCodes.Blocked -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.NeedsItems -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.NoPower -> Lattice.Api.ReasonCode
 static readonly Lattice.Api.ReasonCodes.OutOfReach -> Lattice.Api.ReasonCode
+Lattice.Api.PieceEntry.AllowedTurns.get -> Lattice.Api.TurnSet
+Lattice.Api.PieceEntry.AllowedTurns.init -> void
+Lattice.Api.TurnSet
+Lattice.Api.TurnSet.Contains(Lattice.Api.Turn turn) -> bool
+Lattice.Api.TurnSet.Count.get -> int
+Lattice.Api.TurnSet.IsAll.get -> bool
+Lattice.Api.TurnSet.ToList() -> Lattice.Api.ValueList<Lattice.Api.Turn>!
+Lattice.Api.TurnSet.TurnSet() -> void
+Lattice.Api.TurnSet.With(Lattice.Api.Turn turn) -> Lattice.Api.TurnSet
+override Lattice.Api.TurnSet.ToString() -> string!
+static Lattice.Api.TurnSet.All.get -> Lattice.Api.TurnSet
+static Lattice.Api.TurnSet.None.get -> Lattice.Api.TurnSet
+static Lattice.Api.TurnSet.From(System.Collections.Generic.IEnumerable<Lattice.Api.Turn>! turns) -> Lattice.Api.TurnSet
+static readonly Lattice.Api.ReasonCodes.TurnNotAllowed -> Lattice.Api.ReasonCode

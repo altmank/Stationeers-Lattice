@@ -43,6 +43,24 @@ internal sealed class TurnFreePieces(ICatalogue catalogue, IGrid grid, Shapes sh
         return ValueList.From(free);
     }
 
+    /// <summary>
+    /// A turn the game's builder can give the piece (<see cref="PieceFacts.AllowedTurns"/>) that gives it the same
+    /// spots and ends as <paramref name="turn"/>, the lowest such; <paramref name="turn"/> itself when allowed; none when
+    /// no allowed turn looks the same. Up to 24 shapes for a turn that is not allowed.
+    /// </summary>
+    public Option<Turn> AllowedTwin(PieceFacts piece, Turn turn)
+    {
+        if (piece.AllowedTurns.Contains(turn))
+            return Option.Some(turn);
+        if (!Spots(piece, turn).TryGet(out var wanted))
+            return Option<Turn>.None;
+        var ends = Ends(piece, turn);
+        foreach (var allowed in piece.AllowedTurns.ToList())
+            if (Spots(piece, allowed).TryGet(out var spots) && spots.SetEquals(wanted) && SameEnds(ends, Ends(piece, allowed)))
+                return Option.Some(allowed);
+        return Option<Turn>.None;
+    }
+
     private bool WorkOut(PieceFacts piece)
     {
         if (piece.Face.IsSome || !Spots(piece, Turn.None).TryGet(out var unturned))

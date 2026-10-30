@@ -159,6 +159,12 @@ internal sealed record PrefabData(
     /// <c>_useAxisIndependentGridSnapping</c>; none when the source did not read it, and the grid's own stands in.
     /// </summary>
     public Option<PieceSnap> Snap { get; init; }
+
+    /// <summary>
+    /// What limits the turns the game's builder gives the prefab (<c>Structure.RotationAxis</c>,
+    /// <c>Structure.AllowedRotations</c>, <c>IMounted</c>); the game's defaults when the source did not read them.
+    /// </summary>
+    public TurnLimits Turning { get; init; } = TurnLimits.Free;
 }
 
 /// <summary>
