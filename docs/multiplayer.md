@@ -14,7 +14,8 @@ code for single player, a listen host, a client and a dedicated server.
 Every player and the host need Lattice at the same version; LaunchPadBooster refuses a player whose version differs.
 
 A joining player gets the host's whole board: plans, ghosts and each plan's done count, so `IPlans.Facts` and
-`IPlans.State` give the host's answers from the first frame.
+`IPlans.State` give the host's answers from the first frame. A change that sets a plan's done count (a catch-up or a
+reopen) carries it to every player, so they keep giving the host's answers.
 
 ## Commands from a client
 

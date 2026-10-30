@@ -25,7 +25,14 @@ public sealed record ChangeSet(
     ValueList<GhostRemoval> Removed,
     ValueList<Plan> PlansOpened,
     ValueList<PlanChange> PlansChanged,
-    ValueList<PlanId> PlansFinished);
+    ValueList<PlanId> PlansFinished)
+{
+    /// <summary>
+    /// The done counts the set gives plans outright (a catch-up or a reopen), each plan's count after the set; a ghost
+    /// removed as done is counted, not listed here. Lattice's own: sync carries it so every seat counts the same.
+    /// </summary>
+    internal ValueMap<PlanId, int> DoneSet { get; init; } = ValueMap<PlanId, int>.Empty;
+}
 
 /// <summary>A ghost before and after a change.</summary>
 /// <param name="Before">As it was.</param>

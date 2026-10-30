@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.1
+
+Fixed:
+- **A joined player sees the host's progress after a catch-up or a reopen.** A catch-up or a reopen gives a plan its
+  done count outright, and only the host took it, so a player already in the game counted from the old value until
+  they joined again. The change set now carries the count, and every seat counts the same from that set on. A reopen
+  inside a batch kept no done count even on the host; it now keeps it.
+
 ## 0.21.0
 
 Added:

@@ -20,7 +20,8 @@ internal sealed partial class GhostBoard : IReplicaBoard
     /// <summary>
     /// Commits a host change set as it is: one revision, the set itself queued as the Changed event, the index, shapes
     /// and history updated. A set Lattice made from the world (by <see cref="LatticeIdentity.Actor"/>) leaves command
-    /// revisions where they were and is not kept for undo, as on the host. Refused <see cref="ReasonCodes.InvalidValue"/>
+    /// revisions where they were and is not kept for undo, as on the host. The done counts the set gives plans outright
+    /// are set after its done removals are counted, as the host sets them. Refused <see cref="ReasonCodes.InvalidValue"/>
     /// with nothing changed when its revision is not the board's next or it names a ghost or plan the board does not
     /// hold as the set expects. Linear in the set's size.
     /// </summary>
@@ -75,6 +76,13 @@ internal sealed partial class GhostBoard : IReplicaBoard
             pending.PlansFinished.Add(plan);
         }
 
+        foreach (var pair in set.DoneSet)
+        {
+            if ((!Index.Plans.ContainsKey(pair.Key) && !Opens(set, pair.Key)) || Finishes(set, pair.Key))
+                return Mismatch("plan", pair.Key.Value);
+            pending.DoneCounts.Add((pair.Key, pair.Value));
+        }
+
         Stage(pending, byCommand);
         Revision = set.Revision;
         Epoch++;
@@ -83,6 +91,22 @@ internal sealed partial class GhostBoard : IReplicaBoard
             History.Record(set);
         Events.Queue(new ChangedEvent(set));
         return Result<ChangeSet, Reason>.Ok(set);
+    }
+
+    private static bool Finishes(ChangeSet set, PlanId plan)
+    {
+        foreach (var finished in set.PlansFinished)
+            if (finished == plan)
+                return true;
+        return false;
+    }
+
+    private static bool Opens(ChangeSet set, PlanId plan)
+    {
+        foreach (var opened in set.PlansOpened)
+            if (opened.Id == plan)
+                return true;
+        return false;
     }
 
     /// <summary>

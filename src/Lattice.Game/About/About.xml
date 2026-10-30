@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.21.1
+- Fixed: after a plan is caught up or reopened, players already in the game see the same progress as the host.
+
 v0.21.0
 - Added: mods can ask which ways the game lets you turn each piece.
 - Changed: a ghost turned a way the game does not let you build that piece is now marked as failing; plans made before may show new failures.

@@ -318,6 +318,7 @@ internal sealed partial class GhostBoard
                 SeenPlan(before.Id, before, after);
             net.PlansFinished.AddRange(step.PlansFinished);
             net.CaughtUp.AddRange(step.CaughtUp);
+            net.DoneCounts.AddRange(step.DoneCounts);
             net.Asks.AddRange(step.Asks);
             net.GhostsTaken += step.GhostsTaken;
             net.PlansTaken += step.PlansTaken;
@@ -1051,7 +1052,21 @@ internal sealed partial class GhostBoard
         Lists.Own(Map(pending.Removed, static r => new GhostRemoval(r.Entry.Ghost, r.Cause))),
         Lists.Own(pending.PlansOpened.ToArray()),
         Lists.Own(Map(pending.PlansChanged, static c => new PlanChange(c.Before, c.After))),
-        Lists.Own(Map(pending.PlansFinished, static e => e.Plan.Id)));
+        Lists.Own(Map(pending.PlansFinished, static e => e.Plan.Id)))
+    {
+        DoneSet = DoneSetOf(pending.DoneCounts),
+    };
+
+    /// <summary>The done counts a change sets, the last for each plan.</summary>
+    private static ValueMap<PlanId, int> DoneSetOf(List<(PlanId Plan, int Done)> counts)
+    {
+        if (counts.Count == 0)
+            return ValueMap<PlanId, int>.Empty;
+        var last = new Dictionary<PlanId, int>(counts.Count);
+        foreach (var (plan, done) in counts)
+            last[plan] = done;
+        return ValueMap<PlanId, int>.From(last);
+    }
 
     /// <summary>Puts a prepared change into the index and takes its ids; <see cref="Unstage"/> undoes exactly this.</summary>
     private void Stage(Pending pending, bool byCommand)

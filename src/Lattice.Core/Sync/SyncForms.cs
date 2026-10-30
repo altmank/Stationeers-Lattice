@@ -207,18 +207,57 @@ internal static class JoinParts
 
 /// <summary>
 /// The lines of one change set: the live message form, one line per plan the set touches (plans ascending), each
-/// numbered with the set's revision (only the host keeps plan files, so the file numbering stays on the host).
+/// numbered with the set's revision (only the host keeps plan files, so the file numbering stays on the host); a set
+/// that touches no plan is one line with no operations. The done counts the set gives plans outright ride in every
+/// line's header as <c>done=&lt;plan&gt;:&lt;count&gt;,...</c> (plans ascending), never in a plan file.
 /// A client turns them back into the whole change set with its own board's ghosts and plans as the before states.
 /// </summary>
 internal static class SetLines
 {
+    private const string DoneField = "done";
+
     public static string Write(ChangeSet set)
     {
         var parts = ChangeLines.Of(set);
-        var lines = new List<ChangeLine>(parts.Count);
+        var extra = set.DoneSet.Count == 0
+            ? ValueList<Field>.Empty
+            : ValueList.Of(new Field(DoneField, DoneText(set.DoneSet)));
+        var lines = new List<ChangeLine>(parts.Count > 0 ? parts.Count : 1);
         foreach (var part in parts)
-            lines.Add(ChangeLine.For(new LineNumber(set.Revision.Value), Option<LineNumber>.None, set, part.Ops));
+            lines.Add(ChangeLine.For(new LineNumber(set.Revision.Value), Option<LineNumber>.None, set, part.Ops) with { Extra = extra });
+        if (lines.Count == 0)
+            lines.Add(ChangeLine.For(new LineNumber(set.Revision.Value), Option<LineNumber>.None, set, ValueList<ChangeOp>.Empty) with { Extra = extra });
         return LiveMessageForm.Write(ValueList.From(lines));
+    }
+
+    private static string DoneText(ValueMap<PlanId, int> done)
+    {
+        var plans = new List<PlanId>(done.Count);
+        foreach (var pair in done)
+            plans.Add(pair.Key);
+        plans.Sort(static (a, b) => a.Value.CompareTo(b.Value));
+        var text = new StringBuilder(plans.Count * 8);
+        foreach (var plan in plans)
+            text.Append(text.Length > 0 ? "," : "").Append(WrittenValues.Number(plan.Value)).Append(':').Append(WrittenValues.Number(done[plan]));
+        return text.ToString();
+    }
+
+    /// <summary>The done counts a line's header gives; empty with none; nothing when the field does not read.</summary>
+    private static Option<ValueMap<PlanId, int>> DoneOf(ValueList<Field> extra)
+    {
+        var read = new FieldReader(extra);
+        if (!read.Take(DoneField).TryGet(out var text))
+            return Option.Some(ValueMap<PlanId, int>.Empty);
+        var done = new Dictionary<PlanId, int>();
+        foreach (var item in text.Split(','))
+        {
+            var colon = item.IndexOf(':');
+            if (colon < 1 || !WrittenValues.Long(item.Substring(0, colon)).TryGet(out var plan) ||
+                !WrittenValues.Int(item.Substring(colon + 1)).TryGet(out var count) || count < 0 || !done.TryAdd(new PlanId(plan), count))
+                return Option<ValueMap<PlanId, int>>.None;
+        }
+
+        return Option.Some(ValueMap<PlanId, int>.From(done));
     }
 
     /// <summary>
@@ -246,7 +285,8 @@ internal static class SetLines
             if (fileLine is not FileLine.Read { Line: var line })
                 return Fail("unreadable line");
             first ??= line;
-            if (line.Set != first.Set || line.Revision != first.Revision || line.Command != first.Command || line.By != first.By || line.At != first.At)
+            if (line.Set != first.Set || line.Revision != first.Revision || line.Command != first.Command || line.By != first.By || line.At != first.At ||
+                !line.Extra.Equals(first.Extra))
                 return Fail("lines of two change sets");
             foreach (var op in line.Ops)
             {
@@ -287,8 +327,10 @@ internal static class SetLines
             }
         }
 
+        if (!DoneOf(first!.Extra).TryGet(out var doneSet))
+            return Fail("unreadable done counts");
         return Result<ChangeSet, Reason>.Ok(new ChangeSet(
-            first!.Set,
+            first.Set,
             first.Command,
             first.By,
             first.Revision,
@@ -298,7 +340,10 @@ internal static class SetLines
             ValueList.From(removed),
             ValueList.From(opened),
             ValueList.From(planChanges),
-            ValueList.From(finished)));
+            ValueList.From(finished))
+        {
+            DoneSet = doneSet,
+        });
     }
 
     private static Result<ChangeSet, Reason> Fail(string problem) => Result<ChangeSet, Reason>.Error(SyncRules.Problem(problem));
