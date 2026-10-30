@@ -440,6 +440,25 @@ public sealed class OpeningWarningTests
     }
 
     [Fact]
+    public void A_chute_junction_in_front_of_a_door_is_a_run_though_its_ends_have_flow_roles()
+    {
+        var bench = new SafetyBench("""
+            lattice-catalogue 3
+            piece ModChuteMerge kit=ItemModChute option=0 grid=small family=chute
+              step material=ItemModChute*1 exit=ItemWrench air=no
+              end 0 0 0 x+ chute role=input
+              end 0 0 0 z+ chute role=input2
+              end 0 0 0 x- chute role=output
+              cell 0 0 0 chute
+              collision 23
+            """);
+        bench.Real("ModGate", Large(0, 0, 0));
+        var merge = bench.Build("ModChuteMerge", Small(1, 0, 0));
+
+        Assert.Equal(ValueList.Of(merge), bench.Single(SafetyCodes.RunThroughDoor).Ghosts);
+    }
+
+    [Fact]
     public void A_device_in_front_of_a_door_is_no_run()
     {
         var bench = new SafetyBench();

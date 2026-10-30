@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.5
+
+Fixed:
+- **A chute run can branch.** The game's chute junction gives its ends roles for the way items flow through it (two
+  inputs into one output), and Lattice read any piece with roled ends as a device. So a chute run leaving a line mid
+  way, or a chute route with a branch, failed `no-piece` where the junction fits. A piece of a network's own family
+  (cable, pipe, chute) is now a run piece whatever roles its ends carry: runs and routes lay the junction for a chute
+  tee, in a turn the game's builder allows, with its output wherever that turn puts it along the line. The run
+  selectors walk through it, `KeepOffLines` counts it as a line and `KeepPortsFree` does not count its ends as device
+  ports. The chute kit has no cross, so a chute cross still fails `no-piece`.
+
 ## 0.22.4
 
 Added:

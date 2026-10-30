@@ -320,6 +320,25 @@ internal sealed record PieceFacts(
 
     /// <summary>How the piece is drawn as a ghost; none when the catalogue did not read it (a file or fake without looks).</summary>
     public Option<LookFacts> Look { get; init; }
+
+    /// <summary>
+    /// Whether the piece's ends with a role are ports a device does a job with: some end has a role and the piece's
+    /// <see cref="Family"/> is not a network's own (cable, pipe, chute). A network's own piece is a run piece whatever
+    /// roles its ends carry: the game's chute junction gives its ends roles for the way items flow through it, two
+    /// inputs into one output (decompile <c>Assets.Scripts.Objects.Pipes/ChuteJunction.cs</c>). Constant cost.
+    /// </summary>
+    public bool HasDevicePorts
+    {
+        get
+        {
+            if (Family == PieceFamilies.Cable || Family == PieceFamilies.Pipe || Family == PieceFamilies.Chute)
+                return false;
+            foreach (var end in Ends)
+                if (end.Role.IsSome)
+                    return true;
+            return false;
+        }
+    }
 }
 
 /// <summary>What a device keeps going for the people in a base, found by the device's type.</summary>

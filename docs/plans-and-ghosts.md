@@ -81,7 +81,8 @@ reads through `Board.As(agent)` so the access policy filters for it. Reads on an
 ### Runs and planned networks
 
 Three selectors follow cable, pipe and chute pieces end to end. A run piece is a small piece with ends and no device
-port.
+port. A piece of a network's own family (cable, pipe, chute) has no device ports, whatever roles its ends carry: the
+game's chute junction names two inputs and an output for the way items flow through it, and is a run piece.
 
 | Selector | Picks |
 |---|---|
@@ -321,8 +322,9 @@ bar's piece toggles mean the same for a drawn run and a found one. `LayOptions.D
 Where a run meets a one-cell piece of its kit, built or planned, that piece becomes the shape that leaves the cell both
 its own ways and the run's: a straight crossed becomes a cross, a straight left side-on mid-line a tee. From Lattice
 0.14.1, a run that leaves a line's end turns it: the end's open face, which no neighbour's end points into and the run
-does not lay, is dropped, so the end becomes a corner rather than a tee with an open stub, and a chute (which has no
-tee) no longer fails `no-piece` there. A face that joins something is kept, and a piece that joins nothing at all is
+does not lay, is dropped, so the end becomes a corner rather than a tee with an open stub. A chute's tee is the
+chute junction: it merges two inputs into one output, and Lattice lays it in the lowest turn the game's builder allows
+for the shape, so its output faces whichever way along the line that turn puts it. A face that joins something is kept, and a piece that joins nothing at all is
 merged as before.
 
 ### Splitting long straights

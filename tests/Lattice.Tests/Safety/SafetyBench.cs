@@ -121,10 +121,13 @@ internal sealed class SafetyBench
     private long _nextStructure = 1000;
     private long _nextRoom;
 
-    public SafetyBench()
+    /// <param name="extraText">More pieces in the catalogue file format (with its header).</param>
+    public SafetyBench(string? extraText = null)
     {
-        var modded = TestKitIds.MustRead(CatalogueFile.Read(new StringReader(Text), "safety.lcat")).Pieces.ToArray();
-        Boards = new TestBoard(default, modded);
+        var modded = TestKitIds.MustRead(CatalogueFile.Read(new StringReader(Text), "safety.lcat")).Pieces.ToList();
+        if (extraText is not null)
+            modded.AddRange(TestKitIds.MustRead(CatalogueFile.Read(new StringReader(extraText), "extra.lcat")).Pieces);
+        Boards = new TestBoard(default, modded.ToArray());
         World = new FakeWorld(Pieces);
     }
 

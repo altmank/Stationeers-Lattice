@@ -20,10 +20,11 @@ internal sealed record LongStraight(PrefabKey Piece, int Cells, ConnectionEnd Ne
 }
 
 /// <summary>
-/// The run pieces of one kit, read from the catalogue's ends and nothing else, so a modded kit works the same as the
-/// game's: a run piece has two or more ends and no device role. A one-cell piece (every end and footprint cell in its
-/// own cell) gives the direction set it covers under each of the 24 turns; the first piece in the kit's option order,
-/// then the lowest turn, answers each set. A long straight is a run piece with two opposite ends in different cells.
+/// The run pieces of one kit, read from the catalogue's ends and type family, never from names, so a modded kit works
+/// the same as the game's: a run piece has two or more ends and no device port (<see cref="PieceFacts.HasDevicePorts"/>:
+/// the game's chute junction, whose ends have flow roles, is one). A one-cell piece (every end and footprint cell in its own cell) gives the direction set it covers under each of the
+/// 24 turns; the first piece in the kit's option order, then the lowest turn, answers each set. A long straight is a
+/// run piece with two opposite ends in different cells.
 /// </summary>
 internal sealed class KitShapes
 {
@@ -221,15 +222,7 @@ internal sealed class KitShapes
         return new LongStraight(piece.Key, length / Step + 1, near, far) { Allowed = piece.AllowedTurns };
     }
 
-    private static bool IsRunPiece(PieceFacts piece)
-    {
-        if (piece.Ends.Count < 2)
-            return false;
-        foreach (var end in piece.Ends)
-            if (end.Role.IsSome)
-                return false;
-        return true;
-    }
+    private static bool IsRunPiece(PieceFacts piece) => piece.Ends.Count >= 2 && !piece.HasDevicePorts;
 
     private static bool IsOneCell(PieceFacts piece)
     {

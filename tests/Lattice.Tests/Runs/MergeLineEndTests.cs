@@ -98,7 +98,7 @@ public sealed class MergeLineEndTests
     }
 
     [Fact]
-    public void A_chute_run_leaving_mid_line_is_still_refused_no_piece()
+    public void A_chute_kit_with_no_tee_refuses_a_run_leaving_mid_line_no_piece()
     {
         var bench = new RunBench(ChuteCorner);
         RealLine(bench, "StructureChuteStraight", Direction.XPlus);

@@ -134,16 +134,8 @@ internal static class Walks
         return ValueSet.From(kinds);
     }
 
-    /// <summary>A small piece with ends, none of them a device port.</summary>
-    private static bool IsRunPiece(PlacedShape shape)
-    {
-        if (!shape.IsSmall || shape.Ends.Count == 0)
-            return false;
-        foreach (var end in shape.Piece.Ends)
-            if (end.Role.IsSome)
-                return false;
-        return true;
-    }
+    /// <summary>A small piece with ends, none of them a device port (<see cref="PieceFacts.HasDevicePorts"/>).</summary>
+    private static bool IsRunPiece(PlacedShape shape) => shape.IsSmall && shape.Ends.Count > 0 && !shape.Piece.HasDevicePorts;
 
     /// <summary>Whether <paramref name="other"/> has an end leaving <paramref name="there"/> back towards the piece's end, sharing its kinds and the filter.</summary>
     private static bool Joins(PlacedShape piece, int end, PlacedShape other, Cell there, ValueSet<NetworkType>? filter)

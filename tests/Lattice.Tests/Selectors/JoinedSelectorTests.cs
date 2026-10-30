@@ -188,6 +188,34 @@ public sealed class JoinedSelectorTests
         Assert.Equal(network, s.Pick(new Selector.Joined(At(100, 100, 105))));
     }
 
+    [Theory]
+    [InlineData("chute", true)]
+    [InlineData("device", false)]
+    public void A_piece_with_roled_ends_is_walked_through_when_its_family_is_a_networks_own_and_stops_the_walk_when_a_device(string family, bool through)
+    {
+        var s = new TestSelect(Pieces(
+            "piece ModChuteLine kit=ModKitChute option=0 grid=small family=chute\n" +
+            "  step air=no\n  end 0 0 0 z+ chute\n  end 0 0 0 z- chute\n  cell 0 0 0 chute\n" +
+            $"piece ModChuteMerge kit=ModKitChute option=1 grid=small family={family}\n" +
+            "  step air=no\n  end 0 0 0 z+ chute role=input\n  end 0 0 0 x- chute role=input2\n  end 0 0 0 z- chute role=output\n  cell 0 0 0 chute\n"));
+        var near = s.Build("ModChuteLine", At(100, 100, 105));
+        var merge = s.Build("ModChuteMerge", At(100, 100, 110));
+        var beyond = Set(s.Build("ModChuteLine", At(100, 100, 115)), s.Build("ModChuteLine", At(95, 100, 110), s.AlongX));
+
+        var picked = s.Pick(new Selector.Joined(At(100, 100, 105)));
+
+        if (through)
+        {
+            beyond.Add(near);
+            beyond.Add(merge);
+            Assert.Equal(beyond, picked);
+        }
+        else
+        {
+            Assert.Equal(Set(near), picked);
+        }
+    }
+
     [Fact]
     public void Inside_an_and_it_narrows_like_any_other_selector()
     {

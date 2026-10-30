@@ -131,6 +131,30 @@ public sealed class KeepOffLinesTests
         Assert.DoesNotContain(portCell, ports.Run.Cells);
     }
 
+    [Theory]
+    [InlineData("cable", true)]
+    [InlineData("device", false)]
+    public void A_piece_with_roled_ends_is_a_line_when_its_family_is_a_networks_own_and_a_device_port_when_a_device(string family, bool line)
+    {
+        var bench = new RouteBench(extraPieces: $"""
+            piece ModCableTap kit=ItemModCableTap option=0 grid=small family={family}
+              step material=ItemModCableTap*1 exit=ItemWireCutters air=no
+              end 0 0 0 x+ power role=input
+              end 0 0 0 x- power role=input2
+              end 0 0 0 z- power role=output
+              cell 0 0 0 cable
+              collision 2
+            """);
+        var faced = At(10, 2, 2);
+        bench.Runs.Real("ModCableTap", At(10, 2, 3));
+
+        var lines = bench.Plan(bench.Route(bench.Runs.Cable, Start, Far, Lines()));
+        var ports = bench.Plan(bench.Route(bench.Runs.Cable, Start, Far, Lines(on: false, ports: true)));
+
+        Assert.Equal(!line, lines.Run.Cells.Contains(faced));
+        Assert.Equal(line, ports.Run.Cells.Contains(faced));
+    }
+
     [Fact]
     public void A_heavy_cables_open_end_is_a_line_to_a_normal_cable_route()
     {

@@ -292,7 +292,7 @@ internal sealed class CellRules : IRouteCells
                 if (ShapeOf(info) is not { } shape)
                     continue;
                 for (var i = 0; i < shape.Ends.Count; i++)
-                    if (shape.Piece.Ends[i].Role.IsSome && shape.Ends[i].Cell == next && shape.Ends[i].Facing == back
+                    if (shape.Piece.HasDevicePorts && shape.Piece.Ends[i].Role.IsSome && shape.Ends[i].Cell == next && shape.Ends[i].Facing == back
                         && !Named(next, back) && !Answered(cell, direction, shape.Piece.Ends[i]))
                         return true;
             }
@@ -356,14 +356,11 @@ internal sealed class CellRules : IRouteCells
         return false;
     }
 
-    /// <summary>A run piece: two or more ends, none with a port role, and no device cell.</summary>
+    /// <summary>A run piece: two or more ends, no device port (<see cref="PieceFacts.HasDevicePorts"/>), and no device cell.</summary>
     private static bool IsLine(PieceFacts piece)
     {
-        if (piece.Ends.Count < 2)
+        if (piece.Ends.Count < 2 || piece.HasDevicePorts)
             return false;
-        foreach (var end in piece.Ends)
-            if (end.Role.IsSome)
-                return false;
         foreach (var cell in piece.Footprint)
             if (cell.Slot == Slot.Device)
                 return false;

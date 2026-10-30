@@ -79,6 +79,14 @@ internal sealed class RunBench
         Planner = new RunPlanner(Catalogue, Grid, Check);
     }
 
+    /// <summary>A bench over this catalogue alone (the game's, for one).</summary>
+    public RunBench(FakeCatalogue catalogue)
+    {
+        Boards = new TestBoard(catalogue);
+        World = new FakeWorld(Catalogue);
+        Planner = new RunPlanner(Catalogue, Grid, Check);
+    }
+
     /// <summary>A small cell well inside the world: small cells sit every 5 decimetres.</summary>
     public static Cell Origin => new(100, 100, 100);
 

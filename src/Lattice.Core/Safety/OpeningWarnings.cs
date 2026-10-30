@@ -36,14 +36,6 @@ internal static class OpeningWarnings
         }
     }
 
-    /// <summary>A run piece: two or more ends and none with a device role (cables, pipes, chutes; a modded run the same).</summary>
-    private static bool IsRun(PieceFacts piece)
-    {
-        if (piece.Ends.Count < 2)
-            return false;
-        foreach (var end in piece.Ends)
-            if (end.Role.IsSome)
-                return false;
-        return true;
-    }
+    /// <summary>A run piece: two or more ends and no device port (cables, pipes, chutes; a modded run the same).</summary>
+    private static bool IsRun(PieceFacts piece) => piece.Ends.Count >= 2 && !piece.HasDevicePorts;
 }

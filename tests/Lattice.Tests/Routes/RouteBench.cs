@@ -64,6 +64,14 @@ internal sealed class RouteBench
         Limits = limits ?? RouteLimits.Default;
     }
 
+    /// <summary>A bench over a run bench's catalogue alone, its steel frame the one frame.</summary>
+    public RouteBench(RunBench runs, RouteLimits? limits = null)
+    {
+        Runs = runs;
+        Frames.Add(Catalogue.Named("StructureFrame").Key);
+        Limits = limits ?? RouteLimits.Default;
+    }
+
     public RunBench Runs { get; }
 
     public TestOpeningFacts Openings { get; } = new();
