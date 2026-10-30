@@ -44,6 +44,8 @@ internal readonly record struct Directions(byte Bits)
 
     public Directions Intersect(Directions other) => new((byte)(Bits & other.Bits));
 
+    public Directions Without(Directions other) => new((byte)(Bits & ~other.Bits));
+
     /// <summary>The axis of a straight: exactly two opposite directions.</summary>
     public Option<Axis> StraightAxis =>
         this == Along(Axis.X) ? Option.Some(Axis.X)

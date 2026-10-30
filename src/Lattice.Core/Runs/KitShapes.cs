@@ -22,14 +22,18 @@ internal sealed record LongStraight(PrefabKey Piece, int Cells, ConnectionEnd Ne
 /// <summary>
 /// The run pieces of one kit, read from the catalogue's ends and type family, never from names, so a modded kit works
 /// the same as the game's: a run piece has two or more ends and no device port (<see cref="PieceFacts.HasDevicePorts"/>:
-/// the game's chute junction, whose ends have flow roles, is one). A one-cell piece (every end and footprint cell in its own cell) gives the direction set it covers under each of the
-/// 24 turns; the first piece in the kit's option order, then the lowest turn, answers each set. A long straight is a
-/// run piece with two opposite ends in different cells.
+/// the game's chute junction, whose ends have flow roles, is one). A one-cell piece (every end and footprint cell in
+/// its own cell) gives the direction set it covers under each of the 24 turns; the first piece in the kit's option
+/// order, then the lowest turn, answers each set. Where a run's flow is known, a piece with roled ends answers only in
+/// a turn that passes items that way (<see cref="Steering"/>). A long straight is a run piece with two opposite ends
+/// in different cells.
 /// </summary>
 internal sealed class KitShapes
 {
     private readonly PieceTurn?[] _byShape = new PieceTurn?[64];
     private readonly bool[] _shapeAllowed = new bool[64];
+    private readonly List<(PieceTurn Piece, Steering Steering, bool Allowed)>?[] _candidates = new List<(PieceTurn, Steering, bool)>?[64];
+    private readonly bool[] _steers = new bool[64];
     private readonly List<NetworkType> _kinds = new(4);
     private readonly List<LongStraight> _longs = new(4);
     private readonly IGrid _grid;
@@ -87,11 +91,46 @@ internal sealed class KitShapes
             return straight is { } found ? Option.Some(found) : Option<PieceTurn>.None;
         }
 
-        if (shape.Count == 1)
-            for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
-                if (shape.Contains(direction))
-                    shape = shape.With(direction.Opposite());
-        return _byShape[shape.Bits] is { } piece ? Option.Some(piece) : Option<PieceTurn>.None;
+        return _byShape[Whole(shape).Bits] is { } piece ? Option.Some(piece) : Option<PieceTurn>.None;
+    }
+
+    /// <summary>
+    /// The piece and turn that leave a cell exactly the given ways and pass items as the flow goes: as
+    /// <see cref="For(Directions)"/> where no piece for the shape has roled ends or no flow is known; else the first piece
+    /// and turn that fits, an allowed turn first. None when pieces have the shape but none fits the flow.
+    /// </summary>
+    public Option<PieceTurn> For(Directions shape, Flow flow)
+    {
+        if (shape.IsEmpty || flow.IsNone || !_steers[Whole(shape).Bits] || _candidates[Whole(shape).Bits] is not { } steered)
+            return For(shape);
+        PieceTurn? fallback = null;
+        foreach (var (piece, steering, allowed) in steered)
+        {
+            if (!steering.Fits(flow))
+                continue;
+            if (allowed)
+                return Option.Some(piece);
+            fallback ??= piece;
+        }
+
+        return fallback is { } found ? Option.Some(found) : Option<PieceTurn>.None;
+    }
+
+    /// <summary>Whether some piece for the shape has roled ends, so the run's flow picks among its turns.</summary>
+    public bool Steers(Directions shape) => !shape.IsEmpty && _steers[Whole(shape).Bits];
+
+    /// <summary>Whether the kit has any piece with roled ends, one-cell or long.</summary>
+    public bool HasSteering { get; private set; }
+
+    // One direction stands for a straight along its axis (there is no one-ended piece).
+    private static Directions Whole(Directions shape)
+    {
+        if (shape.Count != 1)
+            return shape;
+        for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
+            if (shape.Contains(direction))
+                return shape.With(direction.Opposite());
+        return shape;
     }
 
     /// <summary>
@@ -137,8 +176,10 @@ internal sealed class KitShapes
 
     /// <summary>
     /// The placement of a long straight that fills the cells from <paramref name="first"/> to <paramref name="last"/>
-    /// (a line of its length), its ends leaving them outward; the lowest turn its builder can give that does, else the
-    /// lowest turn that does (which the run's placement check refuses as a turn not allowed).
+    /// (a line of its length), its ends leaving them outward and items flowing from <paramref name="first"/> on along
+    /// <paramref name="along"/>; the lowest turn its builder can give that does, else the lowest turn that does (which
+    /// the run's placement check refuses as a turn not allowed). A straight with roled ends lies only with its input end
+    /// first and its output end last; none when it cannot.
     /// </summary>
     public Option<Placement> Lay(LongStraight piece, Cell first, Cell last, Direction along)
     {
@@ -148,14 +189,18 @@ internal sealed class KitShapes
                 continue;
             var near = _grid.Apply(turn, piece.Near.Facing);
             var far = _grid.Apply(turn, piece.Far.Facing);
-            if (near == along.Opposite() && far == along && Fits(piece, turn, first, last) is { } fromFirst)
+            if (near == along.Opposite() && far == along && Passes(piece.Near, piece.Far) && Fits(piece, turn, first, last) is { } fromFirst)
                 return Option.Some(new Placement(piece.Piece, fromFirst, turn));
-            if (near == along && far == along.Opposite() && Fits(piece, turn, last, first) is { } fromLast)
+            if (near == along && far == along.Opposite() && Passes(piece.Far, piece.Near) && Fits(piece, turn, last, first) is { } fromLast)
                 return Option.Some(new Placement(piece.Piece, fromLast, turn));
         }
 
         return Option<Placement>.None;
     }
+
+    // Whether items entering by one end and leaving by the other go the way the ends' roles let them.
+    private static bool Passes(ConnectionEnd entry, ConnectionEnd exit) =>
+        !(entry.Role.TryGet(out var first) && !Steering.IsInput(first)) && !(exit.Role.TryGet(out var last) && Steering.IsInput(last));
 
     private Cell? Fits(LongStraight piece, Turn turn, Cell nearCell, Cell farCell)
     {
@@ -190,12 +235,23 @@ internal sealed class KitShapes
             {
                 var turned = shape.Turned(_grid, turn);
                 var allowed = piece.AllowedTurns.Contains(turn);
+                var placed = new PieceTurn(piece.Key, turn, turned);
                 if (_byShape[turned.Bits] is null || (allowed && !_shapeAllowed[turned.Bits]))
                 {
-                    _byShape[turned.Bits] = new PieceTurn(piece.Key, turn, turned);
+                    _byShape[turned.Bits] = placed;
                     _shapeAllowed[turned.Bits] = allowed;
                 }
+
+                Steer(turned, placed, Steering.Of(piece, turn, _grid), allowed);
             }
+    }
+
+    // Every piece and turn for a shape in the order they answer it; the shape steers once one of them has roled ends.
+    private void Steer(Directions shape, PieceTurn placed, Steering steering, bool allowed)
+    {
+        (_candidates[shape.Bits] ??= new List<(PieceTurn, Steering, bool)>(4)).Add((placed, steering, allowed));
+        if (!steering.IsNone)
+            (_steers[shape.Bits], HasSteering) = (true, true);
     }
 
     private void AddLong(LongStraight line)

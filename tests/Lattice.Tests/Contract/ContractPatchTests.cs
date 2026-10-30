@@ -28,7 +28,7 @@ public sealed class ContractPatchTests
         Assert.Equal(ApiVersion.ContractMajor.ToString(), parts[0]);
         Assert.Equal(ApiVersion.ContractMinor.ToString(), parts[1]);
         Assert.Equal(ApiVersion.ContractPatch.ToString(), parts[2]);
-        Assert.Equal(5, ApiVersion.ContractPatch);
+        Assert.Equal(6, ApiVersion.ContractPatch);
         Assert.Equal(ApiVersion.ContractPatch, ApiVersion.CurrentPatch);
         Assert.Equal(new ApiVersion(0, 22), ApiVersion.Current);
     }
@@ -40,6 +40,9 @@ public sealed class ContractPatchTests
     [InlineData("P:Lattice.Api.PieceSnap.OnFaces", "Added in 0.22.2.")]
     [InlineData("F:Lattice.Api.ApiVersion.ContractPatch", "Added in 0.22.4.")]
     [InlineData("P:Lattice.Api.ApiVersion.CurrentPatch", "Added in 0.22.4.")]
+    [InlineData("F:Lattice.Api.ReasonCodes.FlowBlocked", "Added in 0.22.6.")]
+    [InlineData("P:Lattice.Api.RunReport.FlowChosen", "Added in 0.22.6.")]
+    [InlineData("T:Lattice.Api.FlowChoice", "Added in 0.22.6.")]
     public void Each_member_a_patch_added_names_its_patch(string member, string added) => Assert.Contains(added, Doc(member));
 
     [Fact]

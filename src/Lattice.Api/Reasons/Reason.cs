@@ -348,6 +348,14 @@ public static class ReasonCodes
     public static readonly ReasonCode TurnNotAllowed = ReasonCode.Known("turn-not-allowed");
 
     /// <summary>
+    /// The kit has pieces for the ways a cell needs, but none passes items the way the run flows: a chute run (items go
+    /// from its From to its To) starting from a chute line mid way, where the chute junction would take items in from
+    /// the new run rather than give them to it. Facts <c>kit</c>, <c>cell</c> ("x,y,z") and <c>shape</c>, as for
+    /// <see cref="NoPiece"/>. Added in 0.22.6.
+    /// </summary>
+    public static readonly ReasonCode FlowBlocked = ReasonCode.Known("flow-blocked");
+
+    /// <summary>
     /// The catalogue names no tool for a step; facts <c>piece</c> (prefab hash), <c>way</c> (<c>build</c>,
     /// <c>take-apart</c>, <c>broken</c>, <c>paint</c>: no spray can of the colour, or <c>label</c>: no labeller) and,
     /// for build and take-apart, <c>step</c> (the build state index); for paint, <c>colour</c> (its index).

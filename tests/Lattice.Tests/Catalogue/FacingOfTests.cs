@@ -103,6 +103,10 @@ public sealed class FacingOfTests
     {
         var placement = At(FaceSpotTests.Tall, new Cell(30, 10, 20), Sending(Direction.ZPlus, Direction.XMinus));
         var moved = placement with { At = new Cell(70, 50, -20) };
+
+        // A miss fills the cache; a hit then runs the lookup's one-off set-up (its key's comparers), which a test run
+        // on its own would otherwise pay inside the measurement.
+        View.FacingOf(placement);
         View.FacingOf(placement);
 
         var before = GC.GetAllocatedBytesForCurrentThread();

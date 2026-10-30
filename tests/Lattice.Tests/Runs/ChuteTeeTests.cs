@@ -109,7 +109,7 @@ public sealed class ChuteTeeTests
     }
 
     [GameCatalogueFact]
-    public void A_chute_run_leaving_a_built_line_mid_way_swaps_that_piece_for_the_junction_on_every_axis()
+    public void A_chute_run_ending_on_a_built_line_mid_way_swaps_that_piece_for_the_junction_on_every_axis()
     {
         var catalogue = GameCatalogue.Load();
         foreach (var (along, away) in new[] { (Direction.XPlus, Direction.ZPlus), (Direction.ZPlus, Direction.YPlus), (Direction.YPlus, Direction.XMinus) })
@@ -118,7 +118,7 @@ public sealed class ChuteTeeTests
             var line = RealLine(bench, Origin, along, 3);
             var middle = Step(Origin, along);
 
-            var plan = bench.Plan(bench.Run(bench.KitOf("StructureChuteStraight"), middle, Step(middle, away, 3)));
+            var plan = bench.Plan(bench.Run(bench.KitOf("StructureChuteStraight"), Step(middle, away, 3), middle));
 
             Assert.False(plan.FirstFailure.IsSome);
             var swap = Assert.Single(plan.Changes.OfType<Intent.Swap>());

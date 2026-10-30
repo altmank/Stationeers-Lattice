@@ -322,10 +322,29 @@ bar's piece toggles mean the same for a drawn run and a found one. `LayOptions.D
 Where a run meets a one-cell piece of its kit, built or planned, that piece becomes the shape that leaves the cell both
 its own ways and the run's: a straight crossed becomes a cross, a straight left side-on mid-line a tee. From Lattice
 0.14.1, a run that leaves a line's end turns it: the end's open face, which no neighbour's end points into and the run
-does not lay, is dropped, so the end becomes a corner rather than a tee with an open stub. A chute's tee is the
-chute junction: it merges two inputs into one output, and Lattice lays it in the lowest turn the game's builder allows
-for the shape, so its output faces whichever way along the line that turn puts it. A face that joins something is kept, and a piece that joins nothing at all is
-merged as before.
+does not lay, is dropped, so the end becomes a corner rather than a tee with an open stub. A face that joins
+something is kept, and a piece that joins nothing at all is merged as before. A chute's tee is the chute junction,
+laid as the run flows ([below](#chute-flow)).
+
+### Chute flow
+
+Items flow along a run from its `From` to its `To`; to send them the other way, swap the ends. Plain chutes
+(straights, corners, windows, long straights) pass items on whichever way they came, so only pieces with input and
+output ends care: the chute junction (two inputs into one output) and any modded piece with roled ends. Lattice lays
+each such piece so that no input faces the way items leave and no output faces the way they come in. Cables and pipes
+have no flow.
+
+- **A route's branch** flows into the main run: at the join, the junction's output carries on toward the main run's
+  `To` and the branch is an input.
+- **A run ending on a chute line mid way** is the junction's input, and the line's flow goes on through it. The line
+  keeps its own flow where a piece on it gives one: walking along the line from the join, the first input or output end
+  facing back (a junction, a valve, an import or export bin's chute end, at most 64 pieces away). Where nothing does,
+  Lattice chooses, and `RunReport.FlowChosen` (from 0.22.6) names the cell and the way the line's items leave it, so
+  the player can see it and draw differently.
+- **A run starting from a chute line mid way** fails `flow-blocked` (from 0.22.6) at that cell, with facts `kit`,
+  `cell` and `shape`: the junction's output always sits opposite an input, so no turn of it gives items to the new run
+  and keeps the line's flow. The kit's flip-flop splitter and overflow can, but each picks by its own state where the
+  line's items go, so Lattice never chooses one for a run; place it as a ghost and run from its output.
 
 ### Splitting long straights
 

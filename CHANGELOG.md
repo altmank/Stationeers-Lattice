@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.22.6
+
+Fixed:
+- **Chute runs follow their flow.** Items flow along a run from its `From` to its `To`. A chute junction, and any
+  modded run piece with input and output ends, is now laid so that no input faces where items leave and no output
+  where they come in. Before, the junction's output faced wherever its lowest turn put it, and items could go the
+  wrong way. A route's branch joins as an input and the junction's output carries on toward the main run's `To`. A run
+  ending on a chute line mid way keeps the line's flow through the junction when a piece on the line gives one (a
+  junction, a valve, an import or export bin). A run starting from a chute line mid way now fails `flow-blocked`: no
+  junction turn gives items to it. Plain chutes, cables and pipes are laid as before.
+
+Added:
+- `ReasonCodes.FlowBlocked` (`flow-blocked`): the kit has pieces for a cell's ways, but none passes items the way the
+  run flows. Facts `kit`, `cell`, `shape`.
+- `RunReport.FlowChosen` and `FlowChoice`: the cells where a run met a chute line whose flow could not be read, and the
+  way Lattice chose for the line's items there.
+
 ## 0.22.5
 
 Fixed:

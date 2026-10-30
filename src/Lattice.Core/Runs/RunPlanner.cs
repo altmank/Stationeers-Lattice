@@ -31,6 +31,12 @@ internal sealed record RunPlan(
     /// <summary>The first cell that breaks the request's rules (<see cref="RunRequest.Rules"/>); the run lays there all the same.</summary>
     public Option<CellFailure> FirstBreak { get; init; }
 
+    /// <summary>Each cell's flow along the run, from its From to its To, for the runs laid after it.</summary>
+    public IReadOnlyDictionary<Cell, Flow> Flows { get; init; } = new Dictionary<Cell, Flow>();
+
+    /// <summary>The cells where the run met a line whose flow it could not read, and the way it chose for the items there.</summary>
+    public ValueList<FlowChoice> FlowChosen { get; init; } = ValueList<FlowChoice>.Empty;
+
     /// <summary>The command that places the run's ghosts into the request's plan, made by its maker, seen by everyone.</summary>
     public Command ToCommand(RunRequest request)
     {
@@ -57,6 +63,8 @@ internal sealed record RunPlan(
         var cells = new List<Cell>();
         var seen = new HashSet<Cell>();
         var ports = new List<PortJoin>();
+        var flows = new Dictionary<Cell, Flow>();
+        var chosen = new List<FlowChoice>();
         var failure = Option<CellFailure>.None;
         var broken = Option<CellFailure>.None;
         foreach (var run in runs)
@@ -75,6 +83,9 @@ internal sealed record RunPlan(
                 if (seen.Add(cell))
                     cells.Add(cell);
             ports.AddRange(run.PortEnds);
+            foreach (var (cell, flow) in run.Flows)
+                flows[cell] = flows.TryGetValue(cell, out var had) ? had.Union(flow) : flow;
+            chosen.AddRange(run.FlowChosen);
             if (failure.IsNone)
                 failure = run.FirstFailure;
             if (broken.IsNone)
@@ -86,6 +97,8 @@ internal sealed record RunPlan(
             PortEnds = ValueList.From(ports),
             LaidWith = runs[0].LaidWith,
             FirstBreak = broken,
+            Flows = flows,
+            FlowChosen = ValueList.From(chosen),
         };
     }
 
@@ -115,7 +128,7 @@ internal sealed record RunPlan(
 
     /// <summary>The run's report, its costs from the given bill (the bills module's).</summary>
     public RunReport Report(Func<ValueList<Placement>, Bill> bill) =>
-        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds, LaidWith = LaidWith, FirstBreak = FirstBreak };
+        new(Cells, Pieces, FirstFailure, bill(Pieces), bill(Singles)) { PortEnds = PortEnds, LaidWith = LaidWith, FirstBreak = FirstBreak, FlowChosen = FlowChosen };
 }
 
 /// <summary>
@@ -148,8 +161,12 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
     /// </summary>
     public Result<RunPlan, Reason> Plan(RunRequest request, IGhostBoard board, IWorldQuery world) => Plan(request, board, world, null);
 
-    /// <summary>The run laid after <paramref name="laid"/>, the changes of earlier runs of the same request: it meets their pieces as pieces already planned.</summary>
-    public Result<RunPlan, Reason> Plan(RunRequest request, IGhostBoard board, IWorldQuery world, IReadOnlyList<Intent>? laid)
+    /// <summary>
+    /// The run laid after <paramref name="laid"/>, the changes of earlier runs of the same request: it meets their pieces
+    /// as pieces already planned, and their cells' <paramref name="flows"/> as the flow of the lines they make.
+    /// </summary>
+    public Result<RunPlan, Reason> Plan(
+        RunRequest request, IGhostBoard board, IWorldQuery world, IReadOnlyList<Intent>? laid, IReadOnlyDictionary<Cell, Flow>? flows = null)
     {
         if (!_chooser.Kit(request.Kit).TryGet(out var asked))
             return Result<RunPlan, Reason>.Error(_chooser.Kit(request.Kit).TryGetError(out var why) ? why : Reason.Of(ReasonCodes.NoPiece, RunCodes.Runs));
@@ -161,7 +178,8 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         var walked = RunPath.Walk(request, kit, grid, ports);
         if (!walked.TryGet(out var path))
             return Result<RunPlan, Reason>.Error(walked.TryGetError(out var bad) ? bad : Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs));
-        var plan = new Laying(kit, path, around, grid, _shapes, new SnapFirst(catalogue, placementCheck), request.Lay.SinglePiecesOnly).Lay();
+        var lines = new LineFlows(around, grid, kit, flows);
+        var plan = new Laying(kit, path, around, lines, grid, _shapes, new SnapFirst(catalogue, placementCheck), request.Lay.SinglePiecesOnly).Lay();
         if (kit != asked)
             plan = plan with { LaidWith = Option.Some(kit.Kit) };
         if (request.Rules.TryGet(out var rules))
@@ -271,9 +289,11 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         return false;
     }
 
-    private sealed class Laying(KitShapes kit, RunPath path, Neighbourhood around, IGrid grid, Shapes shapes, IPlacementCheck check, bool singlesOnly)
+    private sealed class Laying(
+        KitShapes kit, RunPath path, Neighbourhood around, LineFlows lines, IGrid grid, Shapes shapes, IPlacementCheck check, bool singlesOnly)
     {
         private readonly List<Intent> _changes = [];
+        private readonly List<FlowChoice> _chosen = [];
         private readonly List<Placement> _pieces = [];
         private readonly List<Placement> _singles = [];
         private readonly HashSet<Cell> _done = [];
@@ -298,7 +318,51 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
             }
 
             return new RunPlan(
-                ValueList.From(path.Cells), ValueList.From(_changes), ValueList.From(_pieces), ValueList.From(_singles), _failure);
+                ValueList.From(path.Cells), ValueList.From(_changes), ValueList.From(_pieces), ValueList.From(_singles), _failure)
+            {
+                Flows = path.Flows,
+                FlowChosen = ValueList.From(_chosen),
+            };
+        }
+
+        /// <summary>
+        /// A cell's flow on the given ways: the run's own (in the way it came, out the way it goes on), and on the ways
+        /// it meets a line, the line's where it is readable (<see cref="LineFlows"/>). Read only for a shape the kit
+        /// has a piece with roled ends for.
+        /// </summary>
+        private Flow FlowOf(Cell cell, Directions ways)
+        {
+            if (!kit.Steers(ways))
+                return Flow.None;
+            var run = path.FlowAt(cell);
+            return run.Union(lines.At(cell, ways.Without(path.WaysAt(cell))));
+        }
+
+        /// <summary>The cell's flow on given ways, for a kit with pieces that steer items; none for any other kit.</summary>
+        private Func<Directions, Flow>? FlowsAt(Cell cell) => kit.HasSteering ? Steered(cell) : null;
+
+        private Func<Directions, Flow> Steered(Cell cell) => ways => FlowOf(cell, ways);
+
+        /// <summary>
+        /// Notes the flow the chosen piece gives a line whose flow could not be read: the way items leave the cell
+        /// through the piece's output.
+        /// </summary>
+        private Choice Noted(Cell cell, Choice choice)
+        {
+            if (!kit.Steers(choice.Ways))
+                return choice;
+            var unknown = choice.Ways.Without(path.WaysAt(cell)).Without(FlowOf(cell, choice.Ways).Known);
+            if (unknown.IsEmpty || !shapes.Of(choice.Placement).TryGet(out var shape))
+                return choice;
+            var outs = Steering.Of(shape.Piece, choice.Placement.Turn, grid).Outs;
+            for (var way = Direction.XPlus; way <= Direction.ZMinus; way++)
+                if (outs.Contains(way))
+                {
+                    _chosen.Add(new FlowChoice(cell, way.ToFace()));
+                    break;
+                }
+
+            return choice;
         }
 
         /// <summary>The run's ways on each cell of every multi-cell piece of the kit it reaches, by holder.</summary>
@@ -313,7 +377,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
                     joins[occupant.Holder] = onPiece = [];
                 var ways = PieceCells.At(occupant, cell, grid).Union(path.WaysAt(cell));
                 var withNeighbours = ways.Union(around.EndsInto(cell, kit));
-                onPiece[cell] = kit.For(withNeighbours).IsSome ? withNeighbours : ways;
+                onPiece[cell] = kit.For(withNeighbours, FlowOf(cell, withNeighbours)).IsSome ? withNeighbours : ways;
             }
 
             return joins;
@@ -326,7 +390,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
             if (Keeps(occupant, joins))
                 return;
 
-            var split = SplitPlanner.Split(kit, occupant, joins, grid);
+            var split = SplitPlanner.Split(kit, occupant, joins, grid, kit.HasSteering ? FlowOf : null);
             if (!split.TryGet(out var pieces))
             {
                 if (split.TryGetError(out var why))
@@ -339,6 +403,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
                 _changes.Add(new Intent.Remove(old));
             foreach (var piece in pieces)
             {
+                Noted(piece.Placement.At, piece);
                 Build(piece.Placement, checkIt: standing.IsNone);
                 _singles.Add(piece.Placement);
             }
@@ -387,7 +452,9 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
             for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
                 if (had.Contains(direction) && (into.Contains(direction) || OnPath(grid.Neighbour(cell, direction, kit.Grid))))
                     kept = kept.With(direction);
-            return !kept.Covers(had) && PieceChooser.Choose(kit, cell, kept, around).TryGet(out var choice) ? choice : null;
+            return !kept.Covers(had) && PieceChooser.Choose(kit, cell, kept, around, FlowsAt(cell)).TryGet(out var choice)
+                ? Noted(cell, choice)
+                : null;
         }
 
         private bool OnPath(Cell cell) => (_path ??= [.. path.Cells]).Contains(cell);
@@ -425,7 +492,9 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
 
         private void LayStretch(List<Cell> stretch, Direction heading)
         {
-            var single = PieceChooser.Exactly(kit, stretch[0], Directions.Along(heading.AxisOf()))!;
+            var along = Directions.Along(heading.AxisOf());
+            var single = PieceChooser.Exactly(kit, stretch[0], along, new Flow(Directions.Of(heading.Opposite()), Directions.Of(heading)))
+                ?? PieceChooser.Exactly(kit, stretch[0], along)!;
             for (var at = 0; at < stretch.Count;)
             {
                 var laid = 0;
@@ -496,7 +565,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         {
             var run = path.WaysAt(cell);
             var all = run.Union(around.EndsInto(cell, kit));
-            return kit.For(all).IsSome ? all : run;
+            return kit.For(all, FlowOf(cell, all)).IsSome ? all : run;
         }
 
         /// <summary>Whether a free cell's ways fit a straight: both ways along it, or one (a run's end), or none.</summary>
@@ -504,7 +573,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
 
         private Choice? Pick(Cell cell, Directions needed)
         {
-            var chosen = PieceChooser.Choose(kit, cell, needed, around);
+            var chosen = PieceChooser.Choose(kit, cell, needed, around, FlowsAt(cell));
             if (!chosen.TryGet(out var choice))
             {
                 if (chosen.TryGetError(out var why))
@@ -512,7 +581,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
                 return null;
             }
 
-            return choice;
+            return Noted(cell, choice);
         }
 
         private Cell FirstCell(Dictionary<Cell, Directions> joins)

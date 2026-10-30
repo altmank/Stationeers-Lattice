@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.22.6
+- Fixed: chute runs follow their flow from start to end: a chute junction's output faces on along the run, and a branch joins as an input.
+
 v0.22.5
 - Fixed: a chute run or route can branch: it lays a chute junction where a T is needed.
 

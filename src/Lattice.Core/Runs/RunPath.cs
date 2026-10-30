@@ -10,11 +10,13 @@ internal readonly record struct Visit(Cell Cell, Direction Heading);
 
 /// <summary>
 /// The cells of a drawn run: straight legs between From, the bend cells in order and To. A cell the run passes twice
-/// keeps one entry and leaves every way the run takes through it (a self-crossing gives a cross there).
+/// keeps one entry and leaves every way the run takes through it (a self-crossing gives a cross there). Items flow from
+/// From to To: each cell's <see cref="FlowAt"/> enters the way the run came from and leaves the way it goes on.
 /// </summary>
 internal sealed class RunPath
 {
     private readonly Dictionary<Cell, Directions> _ways = [];
+    private readonly Dictionary<Cell, Flow> _flows = [];
     private readonly List<Visit> _visits = [];
     private readonly List<Cell> _cells = [];
 
@@ -29,10 +31,17 @@ internal sealed class RunPath
     /// <summary>The ways the run leaves a cell.</summary>
     public Directions WaysAt(Cell cell) => _ways.TryGetValue(cell, out var ways) ? ways : Directions.None;
 
+    /// <summary>The ways items enter and leave a cell along the run.</summary>
+    public Flow FlowAt(Cell cell) => _flows.TryGetValue(cell, out var flow) ? flow : Flow.None;
+
+    /// <summary>Every cell's flow along the run.</summary>
+    public IReadOnlyDictionary<Cell, Flow> Flows => _flows;
+
     /// <summary>
     /// The run's cells; refused (<see cref="ReasonCodes.InvalidValue"/>) when a point is off the kit's grid
     /// (<c>off-grid</c>) or a leg is not along one axis (<c>not-straight</c>): finding a path is the route planner's.
-    /// An end at a port also leaves back into the port, so its piece joins it whatever lies around.
+    /// An end at a port also leaves back into the port, so its piece joins it whatever lies around. Items come out of
+    /// a port at From and go into one at To, unless the port's role says otherwise (an output gives, an input takes).
     /// </summary>
     public static Result<RunPath, Reason> Walk(RunRequest request, KitShapes kit, IGrid grid, IReadOnlyList<PortTarget>? ports = null)
     {
@@ -40,7 +49,14 @@ internal sealed class RunPath
         if (ports is null || !walked.TryGet(out var path))
             return walked;
         foreach (var port in ports)
+        {
             path.Join(port.Cell, port.Back);
+            var gives = port.Port.Role.TryGet(out var role)
+                ? role is not (PortRole.Input or PortRole.Input2)
+                : port.Cell == request.From;
+            path.Flowing(port.Cell, port.Back, entering: gives);
+        }
+
         return walked;
     }
 
@@ -72,8 +88,10 @@ internal sealed class RunPath
             {
                 var next = grid.Neighbour(cell, heading, kit.Grid);
                 path.Join(cell, heading);
+                path.Flowing(cell, heading, entering: false);
                 path.Reach(next, heading);
                 path.Join(next, heading.Opposite());
+                path.Flowing(next, heading.Opposite(), entering: true);
                 cell = next;
             }
         }
@@ -91,6 +109,9 @@ internal sealed class RunPath
     }
 
     private void Join(Cell cell, Direction way) => _ways[cell] = WaysAt(cell).With(way);
+
+    private void Flowing(Cell cell, Direction way, bool entering) =>
+        _flows[cell] = entering ? FlowAt(cell).Entering(way) : FlowAt(cell).Leaving(way);
 
     private static Result<RunPath, Reason> Refused(Cell cell, string problem) =>
         Result<RunPath, Reason>.Error(Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs, ValueMap

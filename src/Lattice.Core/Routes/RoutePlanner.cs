@@ -39,10 +39,11 @@ internal sealed class RouteJob : ISlicedWork
     private readonly RouteRequest _request;
     private readonly Func<int, IReadOnlyCollection<Cell>, RouteSearch> _leg;
     private readonly Func<int, IReadOnlyCollection<Cell>, RouteSearch> _branch;
-    private readonly Func<RunRequest, IReadOnlyList<Intent>, Result<RunPlan, Reason>> _lay;
+    private readonly Func<RunRequest, IReadOnlyList<Intent>, IReadOnlyDictionary<Cell, Flow>?, Result<RunPlan, Reason>> _lay;
     private readonly Func<IReadOnlyList<RunPlan>, RunPlan> _join;
     private readonly List<RunPlan> _runs = [];
     private readonly List<Intent> _laid = [];
+    private IReadOnlyDictionary<Cell, Flow>? _flows;
     private readonly List<Cell> _cells = [];
     private readonly List<Cell> _legs = [];
     private RouteSearch _search;
@@ -56,11 +57,11 @@ internal sealed class RouteJob : ISlicedWork
     /// <param name="search">The main route's search: its first leg's, when it has via cells.</param>
     /// <param name="leg">The search of leg k (from 1), given the main route's cells so far.</param>
     /// <param name="branch">The search of branch k, given the run's cells so far.</param>
-    /// <param name="lay">Lays a run after the changes of the runs before it.</param>
+    /// <param name="lay">Lays a run after the changes of the runs before it, meeting their cells' flows.</param>
     /// <param name="join">Joins the runs into one plan.</param>
     internal RouteJob(
         RouteRequest request, RouteSearch search, Func<int, IReadOnlyCollection<Cell>, RouteSearch> leg,
-        Func<int, IReadOnlyCollection<Cell>, RouteSearch> branch, Func<RunRequest, IReadOnlyList<Intent>, Result<RunPlan, Reason>> lay,
+        Func<int, IReadOnlyCollection<Cell>, RouteSearch> branch, Func<RunRequest, IReadOnlyList<Intent>, IReadOnlyDictionary<Cell, Flow>?, Result<RunPlan, Reason>> lay,
         Func<IReadOnlyList<RunPlan>, RunPlan> join)
     {
         _request = request;
@@ -107,14 +108,16 @@ internal sealed class RouteJob : ISlicedWork
         }
 
         var run = RunOf(cells);
-        var laid = _lay(run, _laid);
+        var laid = _lay(run, _laid, _flows);
         if (!laid.TryGet(out var plan))
             return Finish(Refused(Named(laid.ErrorOf(), searched: false)));
         if (_branchAt < 0)
             (_main, _bends) = (run, _request.Via.Count == 0 ? route.Bends : run.Via.Count);
         _runs.Add(plan);
         _laid.Clear();
-        _laid.AddRange(_runs.Count == 1 ? plan.Changes : _join(_runs).Changes);
+        var joined = _runs.Count == 1 ? plan : _join(_runs);
+        _laid.AddRange(joined.Changes);
+        _flows = joined.Flows;
         _cells.AddRange(plan.Cells);
 
         if (++_branchAt < _request.Branches.Count)
@@ -320,7 +323,7 @@ internal sealed class RoutePlanner(
         }
 
         return Result<RouteJob, Reason>.Ok(new RouteJob(
-            request, search, Leg, Branch, (run, laid) => _runs.Plan(run, board, world, laid), runs => RunPlan.Joined(runs, _shapes)));
+            request, search, Leg, Branch, (run, laid, flows) => _runs.Plan(run, board, world, laid, flows), runs => RunPlan.Joined(runs, _shapes)));
     }
 
     private bool OnGrid(Cell cell, KitShapes kit) => grid.Snap(grid.CentreOf(cell, kit.Grid), kit.Grid) == cell;

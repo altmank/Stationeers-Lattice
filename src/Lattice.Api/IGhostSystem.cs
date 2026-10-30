@@ -124,7 +124,7 @@ public readonly record struct ApiVersion(int Major, int Minor)
     /// compiled against. A patch may add members; each names "Added in 0.M.P": compare <see cref="CurrentPatch"/>
     /// before calling one. Added in 0.22.4.
     /// </summary>
-    public const int ContractPatch = 5;
+    public const int ContractPatch = 6;
 
     /// <summary>The running contract's version.</summary>
     public static ApiVersion Current => new(ContractMajor, ContractMinor);

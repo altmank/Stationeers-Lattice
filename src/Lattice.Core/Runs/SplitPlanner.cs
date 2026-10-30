@@ -12,9 +12,13 @@ namespace Lattice.Core.Runs;
 /// </summary>
 internal static class SplitPlanner
 {
-    /// <summary>The pieces that replace <paramref name="piece"/>, in the order of its cells; refused when the kit has no piece for a cell's ways.</summary>
+    /// <summary>
+    /// The pieces that replace <paramref name="piece"/>, in the order of its cells; refused when the kit has no piece
+    /// for a cell's ways, or (with <paramref name="flowOf"/>, a cell's flow on given ways) none that passes items as
+    /// the flow there goes.
+    /// </summary>
     public static Result<ValueList<Choice>, Reason> Split(
-        KitShapes kit, Occupant piece, IReadOnlyDictionary<Cell, Directions> joins, IGrid grid)
+        KitShapes kit, Occupant piece, IReadOnlyDictionary<Cell, Directions> joins, IGrid grid, System.Func<Cell, Directions, Flow>? flowOf = null)
     {
         var pieces = new List<Choice>(piece.Cells.Count);
         foreach (var cell in piece.Cells)
@@ -22,8 +26,11 @@ internal static class SplitPlanner
             var ways = PieceCells.At(piece, cell, grid);
             if (joins.TryGetValue(cell, out var join))
                 ways = ways.Union(join);
-            if (PieceChooser.Exactly(kit, cell, ways) is not { } choice)
-                return Result<ValueList<Choice>, Reason>.Error(PieceChooser.NoPiece(kit, cell, ways));
+            var flow = flowOf is not null && kit.Steers(ways) ? flowOf(cell, ways) : Flow.None;
+            if (PieceChooser.Exactly(kit, cell, ways, flow) is not { } choice)
+                return Result<ValueList<Choice>, Reason>.Error(kit.For(ways).IsSome
+                    ? PieceChooser.FlowBlocked(kit, cell, ways)
+                    : PieceChooser.NoPiece(kit, cell, ways));
             pieces.Add(choice);
         }
 

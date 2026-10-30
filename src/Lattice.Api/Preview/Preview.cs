@@ -57,7 +57,21 @@ public sealed record RunReport(
     /// construction. Added in contract 0.14.
     /// </summary>
     public Option<CellFailure> FirstBreak { get; init; }
+
+    /// <summary>
+    /// The cells where the run meets a line whose flow Lattice could not read, so it chose one: the line's items leave
+    /// the cell <see cref="FlowChoice.Downstream"/>. Items flow along a run from its From to its To; a line has a flow
+    /// where a piece with input or output ends sits on it (a chute junction, a device's chute port). Show the choice so
+    /// the player can draw the run the other way. Empty for a run that met no such line, and for cables and pipes.
+    /// Added in 0.22.6.
+    /// </summary>
+    public ValueList<FlowChoice> FlowChosen { get; init; } = ValueList<FlowChoice>.Empty;
 }
+
+/// <summary>A cell where Lattice chose the flow of a line a run meets, and the way that line's items leave it. Added in 0.22.6.</summary>
+/// <param name="At">The cell.</param>
+/// <param name="Downstream">The way items leave the cell along the line.</param>
+public sealed record FlowChoice(Cell At, Face Downstream);
 
 /// <summary>A port end of a run, the port it resolved to, and the piece that joins it. Added in contract 0.8.</summary>
 /// <param name="End">The end as the request named it.</param>

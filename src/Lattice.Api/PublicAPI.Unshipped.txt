@@ -2882,5 +2882,14 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 5 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 6 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
+Lattice.Api.FlowChoice
+Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell
+Lattice.Api.FlowChoice.At.init -> void
+Lattice.Api.FlowChoice.Downstream.get -> Lattice.Api.Face
+Lattice.Api.FlowChoice.Downstream.init -> void
+Lattice.Api.FlowChoice.FlowChoice(Lattice.Api.Cell At, Lattice.Api.Face Downstream) -> void
+Lattice.Api.RunReport.FlowChosen.get -> Lattice.Api.ValueList<Lattice.Api.FlowChoice!>!
+Lattice.Api.RunReport.FlowChosen.init -> void
+static readonly Lattice.Api.ReasonCodes.FlowBlocked -> Lattice.Api.ReasonCode
