@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.22.2
+
+Fixed:
+- **Face pieces snap to faces.** A piece the game places on a face (walls, windows, floors, doors, airlocks) stands on
+  a grid line on the axis square to its face and on cell centres on the other two, as the game's face cursor puts it
+  and as a built one is read back. Lattice gave such pieces the large grid's centres, so a wall planned against a
+  ceiling or any face failed `off-snap`; it now passes. **A face piece planned at a cell centre now shows `off-snap`**
+  (`axis` names the axis square to its face): the game never places one there. Face-mounted pieces keep their grid's
+  centres, as the game places them.
+
+Added:
+- `PieceSnap.OnFaces` marks a face piece's snap, and `AxisSnap.OnLine` says whether a coordinate is on a grid line.
+  Contract 0.22 is unchanged.
+
 ## 0.22.1
 
 Added:

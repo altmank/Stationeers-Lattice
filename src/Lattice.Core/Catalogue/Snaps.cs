@@ -15,12 +15,16 @@ internal static class Snaps
 
     /// <summary>
     /// <see cref="ReasonCodes.OffSnap"/> for a piece placed off its snap, with facts <c>piece</c>, <c>cell</c> and
-    /// <c>axis</c> (the first one off); none on its snap. Constant cost; allocates only the reason.
+    /// <c>axis</c> (the first one off; for a face piece at a snap point on every axis, the axis of its forward, where
+    /// the game puts it on a grid line); none on its snap. Constant cost; allocates only the reason.
     /// </summary>
-    public static Option<Reason> Off(PieceFacts piece, Cell at)
+    public static Option<Reason> Off(PieceFacts piece, Placement placement)
     {
+        var at = placement.At;
         if (!piece.Snap.OffAxis(at).TryGet(out var axis))
             return Option<Reason>.None;
+        if (piece.Snap.OnFaces && (piece.Snap with { OnFaces = false }).Holds(at))
+            axis = placement.Turn.Axes.Z.Axis;
         return Option.Some(Reason.Of(ReasonCodes.OffSnap, Rule, ValueMap
             .Of("piece", piece.Key.Hash.ToString(CultureInfo.InvariantCulture))
             .With("cell", $"{at.X},{at.Y},{at.Z}")
@@ -53,7 +57,7 @@ internal sealed class SnapRule(ICatalogue catalogue)
             Intent.Swap swap => swap.New,
             _ => null,
         };
-        if (put is null || !catalogue.Piece(put.Piece).TryGet(out var piece) || !Snaps.Off(piece, put.At).TryGet(out var why))
+        if (put is null || !catalogue.Piece(put.Piece).TryGet(out var piece) || !Snaps.Off(piece, put).TryGet(out var why))
             return Passed;
         return new RuleVerdict.Fail(why);
     }
@@ -69,7 +73,7 @@ internal sealed class SnapFirst(ICatalogue catalogue, IPlacementCheck game) : IP
     public Result<Unit, Reason> Check(Placement placement)
     {
         if (catalogue.Piece(placement.Piece).TryGet(out var piece) &&
-            (Snaps.Off(piece, placement.At).TryGet(out var why) || BuilderTurnChecks.NotAllowed(piece, placement).TryGet(out why)))
+            (Snaps.Off(piece, placement).TryGet(out var why) || BuilderTurnChecks.NotAllowed(piece, placement).TryGet(out why)))
             return Result<Unit, Reason>.Error(why);
         return game.Check(placement);
     }

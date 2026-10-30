@@ -178,6 +178,14 @@ if (!entry.Snap.Holds(at))
     Show("the game snaps this piece to frame centres");
 ```
 
+A piece the game places on a face (walls, windows, floors, doors and airlocks: `PiecePlacing.Face`) stands on the
+face, not at a cell centre. The game's face cursor takes the centre it aims into and moves the piece back half a cell
+along its forward, so the piece stands on a grid line (even metres on the large grid) on the axis square to its face
+and on centres on the other two: a wall against a ceiling at 4 m sits at y = 4 m. Its snap says so
+(`PieceSnap.OnFaces`, Lattice 0.22.2): `Holds` answers true on exactly one grid line and false at a centre, where the
+game never puts one. `AxisSnap.OnLine` says whether a coordinate is on a grid line. A face-mounted piece (lights, power
+controls) stands at a centre of its own grid, as other pieces do.
+
 Lattice keeps to the snap itself: a ghost placed off its piece's snap fails `off-snap` and is never built there
 ([validation](validation.md#what-lattice-checks)), and a run, route or transform that would put a piece off its snap says so with
 the same code. A ghost off its snap stays where it is placed; Lattice never moves it.

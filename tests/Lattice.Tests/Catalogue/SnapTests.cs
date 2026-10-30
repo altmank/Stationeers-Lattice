@@ -187,10 +187,17 @@ public sealed class SnapTests
         Assert.Equal(PieceSnap.Of(PieceGrid.Small), SnapOf("StructureCableStraight"));
         Assert.Equal(PieceSnap.Of(PieceGrid.Large), SnapOf("StructureFrame"));
         var own = 0;
+        var onFaces = 0;
         foreach (var entry in view.Pieces)
-            if (entry.Snap != PieceSnap.Of(entry.Grid))
+        {
+            if (entry.Snap.OnFaces)
+                onFaces++;
+            if ((entry.Snap with { OnFaces = false }) != PieceSnap.Of(entry.Grid))
                 own++;
+        }
+
         Assert.Equal(13, own);
+        Assert.Equal(87, onFaces);
     }
 
     private static GhostId Placed(WorldBench bench, Cell at) =>

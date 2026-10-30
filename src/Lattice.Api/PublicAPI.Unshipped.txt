@@ -2879,3 +2879,6 @@ Lattice.Api.PiecePlacing.Grid
 static Lattice.Api.PiecePlacing.InGrid.get -> Lattice.Api.PiecePlacing!
 static Lattice.Api.PiecePlacing.OnFace.get -> Lattice.Api.PiecePlacing!
 static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
+Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
+Lattice.Api.PieceSnap.OnFaces.get -> bool
+Lattice.Api.PieceSnap.OnFaces.init -> void

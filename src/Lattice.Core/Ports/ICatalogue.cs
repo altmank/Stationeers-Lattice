@@ -290,7 +290,14 @@ internal sealed record PieceFacts(
     public PieceFamily Family { get; init; } = PieceFamilies.Other;
 
     /// <summary>How the game snaps the piece's position on each world axis; the grid's own unless the source read another.</summary>
-    public PieceSnap Snap { get; init; } = PieceSnap.Of(Grid == GridSize.Large ? PieceGrid.Large : PieceGrid.Small);
+    /// <remarks>Marks the snap <see cref="PieceSnap.OnFaces"/> for a piece placed on a face (<see cref="Turning"/>'s placement), however it was set.</remarks>
+    public PieceSnap Snap
+    {
+        get => _snap with { OnFaces = _turning.Placement == Lattice.Core.Catalogue.PlacedBy.Face };
+        init => _snap = value;
+    }
+
+    private readonly PieceSnap _snap = PieceSnap.Of(Grid == GridSize.Large ? PieceGrid.Large : PieceGrid.Small);
 
     private readonly Lattice.Core.Catalogue.TurnLimits _turning = Lattice.Core.Catalogue.TurnLimits.Free;
 
