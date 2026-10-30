@@ -183,8 +183,12 @@ face, not at a cell centre. The game's face cursor takes the centre it aims into
 along its forward, so the piece stands on a grid line (even metres on the large grid) on the axis square to its face
 and on centres on the other two: a wall against a ceiling at 4 m sits at y = 4 m. Its snap says so
 (`PieceSnap.OnFaces`, Lattice 0.22.2): `Holds` answers true on exactly one grid line and false at a centre, where the
-game never puts one. `AxisSnap.OnLine` says whether a coordinate is on a grid line. A face-mounted piece (lights, power
-controls) stands at a centre of its own grid, as other pieces do.
+game never puts one. `AxisSnap.OnLine` says whether a coordinate is on a grid line. The grid line is on the axis of
+the piece's forward (`Turn.Axes.Z`): `Holds` takes no turn, so check that too, as Lattice does (Lattice 0.22.3). A wall
+on a ceiling faces up or down; turned to face north there, it is one the game never builds, and fails `off-snap` with
+`axis` its forward's: for a face piece, check that the snap of `turn.Axes.Z.Axis` is `OnLine` at the cell's
+coordinate on that axis. A face-mounted piece (lights, power controls) stands at a centre of its own grid, as other
+pieces do.
 
 Lattice keeps to the snap itself: a ghost placed off its piece's snap fails `off-snap` and is never built there
 ([validation](validation.md#what-lattice-checks)), and a run, route or transform that would put a piece off its snap says so with

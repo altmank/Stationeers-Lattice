@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.3
+
+Fixed:
+- **A face piece faces off its face.** The game puts a face piece on the grid line of its forward's axis, so a wall on
+  a ceiling faces up or down. A face piece on a face but turned to face along it (a wall on a ceiling facing north)
+  passed the snap, and the game could never build it; it now shows `off-snap`, with `axis` its forward's. Rotations
+  and mirrors of face pieces keep forward and face together, as before.
+
 ## 0.22.2
 
 Fixed:

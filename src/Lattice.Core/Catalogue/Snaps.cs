@@ -15,20 +15,36 @@ internal static class Snaps
 
     /// <summary>
     /// <see cref="ReasonCodes.OffSnap"/> for a piece placed off its snap, with facts <c>piece</c>, <c>cell</c> and
-    /// <c>axis</c> (the first one off; for a face piece at a snap point on every axis, the axis of its forward, where
-    /// the game puts it on a grid line); none on its snap. Constant cost; allocates only the reason.
+    /// <c>axis</c> (the first one off; for a face piece at a snap point on every axis, or on a grid line other than
+    /// its forward's, the axis of its forward, where the game puts it on a grid line); none on its snap. A face piece
+    /// stands on the grid line of its forward's axis: the game's face cursor moves it back along its forward (decompile
+    /// <c>Assets.Scripts.Inventory/InventoryManager.cs</c> <c>UpdatePlacement</c>, <c>PlacementSnap.Face</c>), so a
+    /// face piece turned to face along its face is one it never builds. Constant cost; allocates only the reason.
     /// </summary>
     public static Option<Reason> Off(PieceFacts piece, Placement placement)
     {
         var at = placement.At;
+        var forward = placement.Turn.Axes.Z.Axis;
         if (!piece.Snap.OffAxis(at).TryGet(out var axis))
-            return Option<Reason>.None;
-        if (piece.Snap.OnFaces && (piece.Snap with { OnFaces = false }).Holds(at))
-            axis = placement.Turn.Axes.Z.Axis;
+        {
+            if (!piece.Snap.OnFaces || OnForwardLine(piece.Snap, at, forward))
+                return Option<Reason>.None;
+            axis = forward;
+        }
+        else if (piece.Snap.OnFaces && (piece.Snap with { OnFaces = false }).Holds(at))
+            axis = forward;
+
         return Option.Some(Reason.Of(ReasonCodes.OffSnap, Rule, ValueMap
             .Of("piece", piece.Key.Hash.ToString(CultureInfo.InvariantCulture))
             .With("cell", $"{at.X},{at.Y},{at.Z}")
             .With("axis", axis switch { Axis.X => "x", Axis.Y => "y", _ => "z" })));
+    }
+
+    /// <summary>Whether a face piece holding its face snap stands on the grid line of its forward's axis (or that axis snaps nothing).</summary>
+    private static bool OnForwardLine(PieceSnap snap, Cell at, Axis forward)
+    {
+        var (along, key) = forward switch { Axis.X => (snap.X, at.X), Axis.Y => (snap.Y, at.Y), _ => (snap.Z, at.Z) };
+        return along.Size <= 0f || (along.OnLine(key) && !along.Holds(key));
     }
 }
 
