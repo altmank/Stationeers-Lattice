@@ -400,3 +400,7 @@ virtual Lattice.Testing.Stubs.StubExecutorHandle.Offer(Lattice.Api.SupplyReport!
 virtual Lattice.Testing.Stubs.StubExecutorHandle.Say(Lattice.Api.BuilderWord! word) -> void
 virtual Lattice.Testing.Stubs.StubGhostEvents.BuilderChanged -> System.Action<Lattice.Api.ExecutorId>!
 Lattice.Testing.Stubs.StubGhostEvents.RaiseBuilderChanged(Lattice.Api.ExecutorId builder) -> void
+virtual Lattice.Testing.Stubs.StubExecutorHandle.AcceptModes(Lattice.Api.BuildModeAccess! access, System.Func<Lattice.Api.Actor!, Lattice.Api.BuildMode!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>? answer) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.Batch.get -> Lattice.Api.ValueSet<Lattice.Api.GhostId>!
+virtual Lattice.Testing.Stubs.StubExecutorHandle.SayMode(Lattice.Api.BuildMode! mode, Lattice.Api.ValueList<Lattice.Api.SkippedGhost!>! skipped) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubExecutorHandle.SetBatch(Lattice.Api.ValueSet<Lattice.Api.GhostId>! ghosts) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>

@@ -114,7 +114,14 @@ internal sealed record NewestPlan(Option<Plan> Record, bool Finished, ValueList<
 }
 
 /// <summary>The board to start a world with, and what the load found.</summary>
-internal sealed record OpenedPlans(BoardSeed Seed, OpenReport Report);
+internal sealed record OpenedPlans(BoardSeed Seed, OpenReport Report)
+{
+    /// <summary>The builders' batch sets the loaded save kept, by builder id; none for a new world or a save with no record.</summary>
+    public ValueMap<ExecutorId, ValueSet<GhostId>> Batches { get; init; } = ValueMap<ExecutorId, ValueSet<GhostId>>.Empty;
+}
+
+/// <summary>What a game save takes as it starts: each plan's line, and the builders' batch sets.</summary>
+internal sealed record SaveCapture(ValueMap<PlanId, long> Heads, ValueMap<ExecutorId, ValueSet<GhostId>> Batches);
 
 /// <summary>
 /// Plan files and what each game save remembers about them: loading
@@ -325,7 +332,10 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
             ValueList.From(finishedPlans),
             unread);
         _lastLoad = report.ForBoard();
-        return new OpenedPlans(Seed(), report);
+        return new OpenedPlans(Seed(), report)
+        {
+            Batches = record.TryGet(out var kept) ? kept.Batches : ValueMap<ExecutorId, ValueSet<GhostId>>.Empty,
+        };
     }
 
     /// <summary>
@@ -479,12 +489,15 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     /// </summary>
     public SavePoint OnGameSave(SaveKey save, DateTimeOffset at) => AfterGameSave(BeforeGameSave(), save, at);
 
+    /// <summary>The builders' batch sets a save takes; none set, a save keeps none. Main thread.</summary>
+    internal Func<ValueMap<ExecutorId, ValueSet<GhostId>>>? Batches { get; set; }
+
     /// <summary>
     /// The game starts a save (main thread, as it reads its world): everything queued is written, every plan gets a
-    /// checkpoint at its line (unless it has one), and each plan's line is taken for the save's record. Linear in the
-    /// plans' ghosts.
+    /// checkpoint at its line (unless it has one), and each plan's line and the builders' batch sets are taken for
+    /// the save's record. Linear in the plans' ghosts and the batch sets.
     /// </summary>
-    public ValueMap<PlanId, long> BeforeGameSave()
+    public SaveCapture BeforeGameSave()
     {
         Flush();
         foreach (var (plan, state) in _states)
@@ -494,16 +507,18 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
                 _sinceCheckpoint[plan] = 0;
             }
 
-        return ValueMap<PlanId, long>.From(new Dictionary<PlanId, long>(_heads));
+        return new SaveCapture(
+            ValueMap<PlanId, long>.From(new Dictionary<PlanId, long>(_heads)),
+            Batches?.Invoke() ?? ValueMap<ExecutorId, ValueSet<GhostId>>.Empty);
     }
 
     /// <summary>
-    /// The game finished writing <paramref name="save"/>: its record remembers the lines taken when the save started.
-    /// Writes one small file; safe to call off the main thread.
+    /// The game finished writing <paramref name="save"/>: its record remembers the lines and batch sets taken when the
+    /// save started. Writes one small file; safe to call off the main thread.
     /// </summary>
-    public SavePoint AfterGameSave(ValueMap<PlanId, long> heads, SaveKey save, DateTimeOffset at)
+    public SavePoint AfterGameSave(SaveCapture capture, SaveKey save, DateTimeOffset at)
     {
-        var record = new SavePoint(save, at, heads);
+        var record = new SavePoint(save, at, capture.Heads) { Batches = capture.Batches };
         _folder.WriteRecord(record);
         _records.RemoveAll(r => string.Equals(r.Save.Path, save.Path, StringComparison.OrdinalIgnoreCase));
         _records.Add(record);

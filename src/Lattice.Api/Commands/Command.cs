@@ -180,6 +180,21 @@ public abstract record Command
     /// <param name="Into">The plan for a built piece's ghosts, or the default plan.</param>
     /// <param name="MadeBy">What makes the new ghosts.</param>
     public sealed record PlanSplit(SplitTargets Which, Option<PlanId> Into, Maker MadeBy) : Command;
+
+    /// <summary>
+    /// Asks a builder for a mode. It touches no plan and no ghost: the plan access policy is not asked. On the host it
+    /// goes to the builder's mode handler (<see cref="IExecutorHandle.AcceptModes"/>) with the submitting actor, and
+    /// the builder decides: <see cref="Outcome.Accepted"/> when it takes the request, <see cref="Outcome.Refused"/>
+    /// with its own reason when not. A client's goes to the host and is answered on its ticket. Refused
+    /// <see cref="ReasonCodes.NotFound"/> (<c>problem=executor</c>) for a builder not registered,
+    /// <see cref="ReasonCodes.NotSupported"/> (<c>problem=modes</c>) for one that takes no mode requests,
+    /// <see cref="ReasonCodes.DefaultValue"/> for a <c>default</c> id, <see cref="ReasonCodes.ModuleMissing"/> with
+    /// the executors module off, and <see cref="ReasonCodes.InvalidValue"/> (<c>problem=not-a-board-change</c>) as a
+    /// step of a <see cref="Batch"/>. Constant cost, plus the handler's. Added in 0.22.8.
+    /// </summary>
+    /// <param name="Builder">The builder.</param>
+    /// <param name="Mode">The mode asked for.</param>
+    public sealed record SetBuildMode(ExecutorId Builder, BuildMode Mode) : Command;
 }
 
 /// <summary>What a split acts on. Union: a later minor may add cases. Added in contract 0.9.</summary>

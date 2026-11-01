@@ -7,8 +7,9 @@ using static Lattice.Testing.Tests.Hosted;
 namespace Lattice.Testing.Tests;
 
 /// <summary>
-/// Builders cost nothing while nothing changes: with 64 builders registered, each with an area, a word and a supply
-/// report, 20 of them assigned to plans and answered, a steady Lattice frame allocates 0 bytes, as it does with none.
+/// Builders cost nothing while nothing changes: with 64 builders registered, each with an area, a word, a mode
+/// handler and a mode, and a supply report, 20 of them assigned to plans, answered and holding a batch of the plan's
+/// ghost, a steady Lattice frame allocates 0 bytes, as it does with none.
 /// </summary>
 public sealed class BuilderSteadyFrameTests(ITestOutputHelper output)
 {
@@ -46,6 +47,8 @@ public sealed class BuilderSteadyFrameTests(ITestOutputHelper output)
             handles[i] = Must(lattice.Executors.Register(new ExecutorInfo(id, Must(DisplayName.Create("Dock " + i))) { Owner = Option.Some(world.Viewer) }));
             handles[i].Locate(Option.Some<BuilderArea>(new BuilderArea.Sphere(new WorldPoint(i, 0, 0), Must(Metres.Create(30)), Option<Metres>.None)));
             handles[i].Say(new BuilderWord.Ready());
+            Must(handles[i].AcceptModes(new BuildModeAccess.OwnerAndHost(), static (_, _) => Result<Unit, Reason>.Ok(Unit.Value)));
+            Must(handles[i].SayMode(new BuildMode.Off(), ValueList<SkippedGhost>.Empty));
         }
 
         for (var i = 0; i < Assigned; i++)
@@ -57,6 +60,10 @@ public sealed class BuilderSteadyFrameTests(ITestOutputHelper output)
             Assert.IsType<Submission.Answered>(lattice.Commands.Submit(CommandId.New(), new Command.EditPlan(plan, new PlanEdit.Assign(builder), Option<Revision>.None), world.Viewer));
             Must(handles[i].Answer(plan, new AssignmentAnswer.Accepted()));
             Must(handles[i].Offer(new SupplyReport(ValueList.Of(item), ValueMap<PlanId, ValueList<ItemQuantity>>.Of(plan, ValueList.Of(item)))));
+            var draft = Draft(Hand("StructureFrame"), At(2 * i)) with { Plan = Option.Some(plan) };
+            var placed = Assert.IsType<Submission.Answered>(lattice.Commands.Submit(CommandId.New(), new Command.Place(ValueList.Of(draft)), world.Viewer)).Outcome;
+            Must(handles[i].SetBatch(ValueSet.Of(Assert.IsType<Outcome.Applied>(placed).Changes.Added[0].Id)));
+            Assert.Single(handles[i].Batch);
         }
 
         Must(world.Settle());

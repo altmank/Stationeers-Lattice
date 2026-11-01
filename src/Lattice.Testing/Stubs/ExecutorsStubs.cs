@@ -98,6 +98,21 @@ public class StubExecutorHandle : IExecutorHandle
     public virtual Result<Unit, Reason> Answer(PlanId plan, AssignmentAnswer answer) =>
         throw Stub.NotSetUp("IExecutorHandle", "Answer", "StubExecutorHandle");
 
+    /// <inheritdoc />
+    public virtual Result<Unit, Reason> AcceptModes(BuildModeAccess access, System.Func<Actor, BuildMode, Result<Unit, Reason>>? answer) =>
+        throw Stub.NotSetUp("IExecutorHandle", "AcceptModes", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual Result<Unit, Reason> SayMode(BuildMode mode, ValueList<SkippedGhost> skipped) =>
+        throw Stub.NotSetUp("IExecutorHandle", "SayMode", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual Result<Unit, Reason> SetBatch(ValueSet<GhostId> ghosts) =>
+        throw Stub.NotSetUp("IExecutorHandle", "SetBatch", "StubExecutorHandle");
+
+    /// <inheritdoc />
+    public virtual ValueSet<GhostId> Batch => throw Stub.NotSetUp("IExecutorHandle", "Batch", "StubExecutorHandle");
+
     /// <summary>Does nothing until overridden.</summary>
     public virtual void Dispose()
     {

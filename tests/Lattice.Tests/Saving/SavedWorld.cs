@@ -37,6 +37,9 @@ internal sealed class SavedWorld : IDisposable
 
     public OpenReport Report { get; private set; } = null!;
 
+    /// <summary>What the last load opened.</summary>
+    public OpenedPlans Opened { get; private set; } = null!;
+
     /// <summary>The ghosts the board holds now.</summary>
     public HashSet<GhostId> Ghosts { get; } = new();
 
@@ -45,6 +48,7 @@ internal sealed class SavedWorld : IDisposable
     {
         Saving = new PlanSaving(Folder, CheckpointEvery);
         var opened = Saving.Open(save);
+        Opened = opened;
         Start(opened.Seed);
         Report = opened.Report;
         return Report;

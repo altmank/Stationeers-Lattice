@@ -243,6 +243,11 @@ internal sealed class ClientSync : ICommands
                 break;
             case Answer.Refused:
                 break;
+            case Answer.Accepted when _pending.Contains(answer.Id):
+                Settle(answer.Id, new Outcome.Accepted());
+                break;
+            case Answer.Accepted:
+                break;
             case Answer.Applied when _applied.Remove(answer.Id, out var changes):
                 Settle(answer.Id, new Outcome.Applied(changes));
                 break;

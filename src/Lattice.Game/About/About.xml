@@ -45,6 +45,10 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.22.8
+- Added: mods can set a builder's mode (on, off, or build a batch) from the host or a client; the builder decides, and Lattice keeps and saves a builder's batch.
+- Fixed: a split long straight ghost now leaves as replaced by its singles, not removed.
+
 v0.22.7
 - Fixed: a cable, pipe or chute piece built turned another way, joining the same ends, now completes its ghost.
 

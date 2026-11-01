@@ -157,4 +157,38 @@ public interface IExecutorHandle : IDisposable
     /// answer is live and synced, not saved, and goes with the handle. Added in contract 0.22.
     /// </summary>
     Result<Unit, Reason> Answer(PlanId plan, AssignmentAnswer answer);
+
+    /// <summary>
+    /// Takes mode requests (<see cref="Command.SetBuildMode"/>): publishes <paramref name="access"/> as
+    /// <see cref="Builder.ControlledBy"/>, and on the host Lattice calls <paramref name="answer"/> with the verified
+    /// submitting actor and the mode when such a command applies, on the main thread, as a plain call: no catch, no
+    /// timing. Its <c>Ok</c> answers the command <see cref="Outcome.Accepted"/>, its <c>Error</c> answers it
+    /// <see cref="Outcome.Refused"/> with that reason as given. Lattice does not judge the actor against the access:
+    /// the handler does. A command it submits is queued and applied after the call. Calling again replaces both;
+    /// <see cref="BuildModeAccess.None"/> takes the handler away (<paramref name="answer"/> may then be null). Refused
+    /// <see cref="ReasonCodes.InvalidValue"/> for a null access, or a null answer with any other access. Added in 0.22.8.
+    /// </summary>
+    Result<Unit, Reason> AcceptModes(BuildModeAccess access, Func<Actor, BuildMode, Result<Unit, Reason>>? answer);
+
+    /// <summary>
+    /// Its mode and what its last batch could not build, published as <see cref="Builder.Mode"/> and
+    /// <see cref="Builder.BatchSkipped"/>, whatever moved them (its own buttons, a finished batch, a request). Live
+    /// and synced, not saved: the builder keeps its own mode. When the list is cleared is the builder's. An equal call
+    /// changes nothing. Refused <see cref="ReasonCodes.TooLarge"/> past 256 skipped ghosts, never cut down. Added in 0.22.8.
+    /// </summary>
+    Result<Unit, Reason> SayMode(BuildMode mode, ValueList<SkippedGhost> skipped);
+
+    /// <summary>
+    /// Sets its batch: the ghosts a <see cref="BuildMode.Batch"/> builds, chosen by the builder. Lattice keeps the set
+    /// for it by its id: ghosts not on the board are left out; each ghost leaves the set in the change set that takes
+    /// it off the board (done, removed, its plan finished), and a ghost replaced in a change set (a new ghost in its
+    /// spot, a split, a run merging into a planned line) is followed by the ghosts that replace it. Saved with the
+    /// world and given back to a builder registering with the same id after a load. Only its size is synced
+    /// (<see cref="Builder.BatchLeft"/>). Empty ends it. Refused <see cref="ReasonCodes.TooLarge"/> past 16384 ghosts,
+    /// never cut down. Linear in the set. Added in 0.22.8.
+    /// </summary>
+    Result<Unit, Reason> SetBatch(ValueSet<GhostId> ghosts);
+
+    /// <summary>Its batch as Lattice keeps it now; empty with none. Allocates nothing while unchanged. Added in 0.22.8.</summary>
+    ValueSet<GhostId> Batch { get; }
 }

@@ -16,7 +16,7 @@ internal sealed class GameSaving
 {
     private readonly Action<string> _log;
     private bool _newWorld;
-    private ValueMap<PlanId, long>? _capture;
+    private SaveCapture? _capture;
     private string? _savingTo;
 
     private GameSaving(PlanSaving saving, OpenedPlans opened, bool newWorld, Action<string> log)

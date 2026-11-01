@@ -28,7 +28,7 @@ public sealed class ContractPatchTests
         Assert.Equal(ApiVersion.ContractMajor.ToString(), parts[0]);
         Assert.Equal(ApiVersion.ContractMinor.ToString(), parts[1]);
         Assert.Equal(ApiVersion.ContractPatch.ToString(), parts[2]);
-        Assert.Equal(7, ApiVersion.ContractPatch);
+        Assert.Equal(8, ApiVersion.ContractPatch);
         Assert.Equal(ApiVersion.ContractPatch, ApiVersion.CurrentPatch);
         Assert.Equal(new ApiVersion(0, 22), ApiVersion.Current);
     }
@@ -43,6 +43,20 @@ public sealed class ContractPatchTests
     [InlineData("F:Lattice.Api.ReasonCodes.FlowBlocked", "Added in 0.22.6.")]
     [InlineData("P:Lattice.Api.RunReport.FlowChosen", "Added in 0.22.6.")]
     [InlineData("T:Lattice.Api.FlowChoice", "Added in 0.22.6.")]
+    [InlineData("T:Lattice.Api.BuildMode", "Added in 0.22.8.")]
+    [InlineData("T:Lattice.Api.BuildModeAccess", "Added in 0.22.8.")]
+    [InlineData("T:Lattice.Api.SkippedGhost", "Added in 0.22.8.")]
+    [InlineData("T:Lattice.Api.Command.SetBuildMode", "Added in 0.22.8.")]
+    [InlineData("T:Lattice.Api.Outcome.Accepted", "Added in 0.22.8.")]
+    [InlineData("F:Lattice.Api.ReasonCodes.NotSupported", "Added in 0.22.8.")]
+    [InlineData("P:Lattice.Api.Builder.ControlledBy", "Added in 0.22.8.")]
+    [InlineData("P:Lattice.Api.Builder.Mode", "Added in 0.22.8.")]
+    [InlineData("P:Lattice.Api.Builder.BatchLeft", "Added in 0.22.8.")]
+    [InlineData("P:Lattice.Api.Builder.BatchSkipped", "Added in 0.22.8.")]
+    [InlineData("M:Lattice.Api.IExecutorHandle.AcceptModes(Lattice.Api.BuildModeAccess,System.Func{Lattice.Api.Actor,Lattice.Api.BuildMode,Lattice.Api.Result{Lattice.Api.Unit,Lattice.Api.Reason}})", "Added in 0.22.8.")]
+    [InlineData("M:Lattice.Api.IExecutorHandle.SayMode(Lattice.Api.BuildMode,Lattice.Api.ValueList{Lattice.Api.SkippedGhost})", "Added in 0.22.8.")]
+    [InlineData("M:Lattice.Api.IExecutorHandle.SetBatch(Lattice.Api.ValueSet{Lattice.Api.GhostId})", "Added in 0.22.8.")]
+    [InlineData("P:Lattice.Api.IExecutorHandle.Batch", "Added in 0.22.8.")]
     public void Each_member_a_patch_added_names_its_patch(string member, string added) => Assert.Contains(added, Doc(member));
 
     [Fact]

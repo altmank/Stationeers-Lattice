@@ -54,6 +54,9 @@ keeps sync or saving from a change.
   claims it mirrors and the builder's word, as the host does, reads the same `All`, `Find`, `AssignedTo`, `PlansOf`,
   `ProgressOf`, `SupplyToward` and `UnclaimedIn`, and raises `BuilderChanged` for each. A supply report's `At` is taken
   on the client's own clock (the host sends its age). Answers come only from handles on the host.
+- **Build modes** (0.22.8): a client's `SetBuildMode` goes to the host, the builder's handler answers it as the
+  client's player, and the outcome comes back on the client's ticket; `ControlledBy`, `Mode`, `BatchSkipped` and
+  the batch's size (`BatchLeft`, not its ghosts) sync with the builder's word.
 - **Plan colour and assignments** travel with the plan, as every plan field does: assign, unassign and recolour are
   plan edits a client submits as commands. Each plan's built counts per builder come with a join beside its done
   count, after it with each completion (its `by`), and with a catch-up or a reopen beside the count it sets. A seat whose Lattice is older refuses the new plan edits and

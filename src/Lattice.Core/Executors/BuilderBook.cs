@@ -17,7 +17,20 @@ internal sealed record BuilderSays(
     Option<BuilderArea> Area,
     BuilderWord Word,
     Option<Supply> Supply,
-    ValueMap<PlanId, AssignmentAnswer> Answers);
+    ValueMap<PlanId, AssignmentAnswer> Answers)
+{
+    /// <summary>Who it says may set its mode.</summary>
+    public BuildModeAccess ControlledBy { get; init; } = BuilderBook.NoControl;
+
+    /// <summary>Its mode as it last said it.</summary>
+    public Option<BuildMode> Mode { get; init; }
+
+    /// <summary>What its last batch could not build.</summary>
+    public ValueList<SkippedGhost> Skipped { get; init; } = ValueList<SkippedGhost>.Empty;
+
+    /// <summary>The size of its batch set, counted by Lattice on the host.</summary>
+    public int BatchLeft { get; init; }
+}
 
 /// <summary>
 /// The world's builders as every seat reads them (<see cref="IExecutors.All"/> and the reads beside it): what each
@@ -35,6 +48,12 @@ internal sealed class BuilderBook
 
     /// <summary>How many plans a supply report may name.</summary>
     public const int MostPlans = 64;
+
+    /// <summary>How many ghosts a builder may say its last batch skipped.</summary>
+    public const int MostSkipped = 256;
+
+    /// <summary>The access of a builder that takes no mode requests.</summary>
+    public static readonly BuildModeAccess NoControl = new BuildModeAccess.None();
 
     private static readonly BuilderState IdleState = new BuilderState.Idle();
     private static readonly BuilderState WorkingState = new BuilderState.Working();
@@ -157,6 +176,40 @@ internal sealed class BuilderBook
         if (_builders.TryGetValue(id, out var builder) && !(builder.Says.Answers.TryGetValue(plan, out var had) && had == answer))
             Take(builder.Says with { Answers = builder.Says.Answers.With(plan, answer) });
         return Result<Unit, Reason>.Ok(Unit.Value);
+    }
+
+    /// <summary>Who a builder says may set its mode; an equal access changes nothing.</summary>
+    public void Control(ExecutorId id, BuildModeAccess access)
+    {
+        if (_builders.TryGetValue(id, out var entry) && entry.Says.ControlledBy != access)
+            Take(entry.Says with { ControlledBy = access });
+    }
+
+    /// <summary>
+    /// A builder's mode and its last batch's skipped ghosts, checked against the cap (<see cref="ReasonCodes.TooLarge"/>
+    /// with the list, its size and the cap); equal ones change nothing.
+    /// </summary>
+    public Result<Unit, Reason> SayMode(ExecutorId id, BuildMode mode, ValueList<SkippedGhost> skipped)
+    {
+        if (mode is null || skipped is null)
+            return Result<Unit, Reason>.Error(Reason.InvalidValue(mode is null ? nameof(BuildMode) : nameof(SkippedGhost), "null", "not-null"));
+        if (mode is not (BuildMode.On or BuildMode.Off or BuildMode.Batch))
+            return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.UnknownKind, WorldExecutors.Rule, ValueMap.Of("kind", mode.GetType().Name)));
+        if (skipped.Count > MostSkipped)
+            return TooLarge("skipped", skipped.Count, MostSkipped);
+        foreach (var each in skipped)
+            if (each is null || each.Why is null)
+                return Result<Unit, Reason>.Error(Reason.InvalidValue(nameof(SkippedGhost), "null", "not-null"));
+        if (_builders.TryGetValue(id, out var entry) && !(entry.Says.Mode.TryGet(out var had) && had == mode && entry.Says.Skipped == skipped))
+            Take(entry.Says with { Mode = Option.Some(mode), Skipped = skipped });
+        return Result<Unit, Reason>.Ok(Unit.Value);
+    }
+
+    /// <summary>The size of a builder's batch set as Lattice keeps it; an equal size changes nothing.</summary>
+    public void BatchLeft(ExecutorId id, int left)
+    {
+        if (_builders.TryGetValue(id, out var entry) && entry.Says.BatchLeft != left)
+            Take(entry.Says with { BatchLeft = left });
     }
 
     // ---- claims ----
@@ -321,7 +374,13 @@ internal sealed class BuilderBook
         var supply = says.Supply;
         if (supply.TryGet(out var had) && Hidden(had.Report.Toward) is { } shown)
             supply = Option.Some(had with { Report = had.Report with { Toward = shown } });
-        return entry.Read = new Builder(says.Info, says.Area, state, supply);
+        return entry.Read = new Builder(says.Info, says.Area, state, supply)
+        {
+            ControlledBy = says.ControlledBy,
+            Mode = says.Mode,
+            BatchLeft = says.BatchLeft,
+            BatchSkipped = says.Skipped,
+        };
     }
 
     // The Toward entries the viewer may see, or null when it may see them all.

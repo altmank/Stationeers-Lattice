@@ -36,13 +36,19 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     private bool _applying;
 
     /// <summary>
+    /// Where a <see cref="Command.SetBuildMode"/> goes instead of the board: the executors' mode requests. None (the
+    /// executors module off): refused module-missing.
+    /// </summary>
+    internal Func<Command.SetBuildMode, Actor, Outcome>? Modes { get; set; }
+
+    /// <summary>
     /// Submits a command for a local actor. Cost: the command's expansion and the board's apply; a resent id is a
     /// lookup; a sliced expansion costs only its set-up now.
     /// </summary>
     public Submission Submit(CommandId id, Command command, Actor actor)
     {
         if (id == default)
-            return Answer(id, board.Apply(id, command, actor));
+            return Answer(id, Run(id, command, actor));
         if (_answered.TryGetValue(id, out var first))
             return Answer(id, first);
         if (_waitingIds.Contains(id))
@@ -196,7 +202,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0, null))
         {
             case Expanded.Ready ready:
-                return Keep(submitted, board.Apply(submitted.Id, ready.Command, submitted.Actor));
+                return Keep(submitted, Run(submitted.Id, ready.Command, submitted.Actor));
             case Expanded.Waits waits:
                 var scheduled = Schedule(waits, found => Resume(submitted, waits.Part, found));
                 if (!scheduled.IsOk)
@@ -209,6 +215,14 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
                 return Keep(submitted, Refused(Unknown(submitted.Command)));
         }
     }
+
+    // A mode request goes to the builder, never the board: it makes no change set; every other command is the board's.
+    private Outcome Run(CommandId id, Command command, Actor actor) => command switch
+    {
+        Command.SetBuildMode mode when Modes is { } modes => modes(mode, actor),
+        Command.SetBuildMode => Refused(Reason.Of(ReasonCodes.ModuleMissing, LatticeIdentity.Board, ValueMap.Of("module", "executors"))),
+        _ => board.Apply(id, command, actor),
+    };
 
     private Option<Outcome> Keep(Submitted submitted, Outcome outcome)
     {

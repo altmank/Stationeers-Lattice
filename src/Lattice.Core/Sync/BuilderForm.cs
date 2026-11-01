@@ -25,7 +25,10 @@ internal abstract record BuilderLine
 /// <c>word=stuck</c> with its reason under <c>stuck</c>; with a supply, <c>supply-age</c> (game seconds since the host
 /// took it, so the reader stamps it on its own clock), <c>reaches=item:count;...</c> and one <c>toward=plan|item:count;...</c>
 /// per plan named; one <c>accepted=plan</c> per plan it took on and one <c>refused=plan</c> per plan it refused, with
-/// the reason under <c>refused-&lt;plan&gt;</c>. Each line is the builder's whole word, so a later line wins.
+/// the reason under <c>refused-&lt;plan&gt;</c>; <c>controlled=owner-and-host|anyone</c> when it takes mode requests,
+/// <c>mode=on|off|batch</c> once it says one, <c>batch-left</c> when its batch holds ghosts, and one <c>skipped=ghost</c>
+/// per ghost its last batch skipped, with the reason under <c>skipped-&lt;ghost&gt;</c>. Each line is the builder's
+/// whole word, so a later line wins.
 /// </summary>
 internal static class BuilderForm
 {
@@ -89,6 +92,19 @@ internal static class BuilderForm
             }
             else
                 fields.Add("accepted", WrittenValues.Number(plan.Value));
+
+        if (says.ControlledBy is not BuildModeAccess.None && ModeText.Of(says.ControlledBy) is { } access)
+            fields.Add("controlled", access);
+        if (says.Mode.TryGet(out var mode) && ModeText.Of(mode) is { } modeText)
+            fields.Add("mode", modeText);
+        if (says.BatchLeft > 0)
+            fields.Add("batch-left", WrittenValues.Number(says.BatchLeft));
+        foreach (var skipped in says.Skipped)
+        {
+            var ghost = WrittenValues.Number(skipped.Ghost.Value);
+            fields.Add("skipped", ghost);
+            ReasonForm.Write(fields, "skipped-" + ghost, skipped.Why);
+        }
     }
 
     public static Result<BuilderSays, string> Read(FieldReader read, GameTime now)
@@ -101,10 +117,46 @@ internal static class BuilderForm
             !Common.Get(Area(read), out var area, ref problem) ||
             !Common.Get(Word(read), out var word, ref problem) ||
             !Common.Get(Supply(read, now), out var supply, ref problem) ||
-            !Common.Get(Answers(read), out var answers, ref problem))
+            !Common.Get(Answers(read), out var answers, ref problem) ||
+            !Common.Get(Controlled(read), out var controlled, ref problem) ||
+            !Common.Get(Common.Optional(read.Take("mode"), ModeText.Read), out var mode, ref problem) ||
+            !Common.Get(Left(read), out var left, ref problem) ||
+            !Common.Get(Skipped(read), out var skipped, ref problem))
             return Result<BuilderSays, string>.Error(problem);
         var info = new ExecutorInfo(id, name) { Owner = owner, Builds = builds };
-        return Result<BuilderSays, string>.Ok(new BuilderSays(info, area, word, supply, answers));
+        return Result<BuilderSays, string>.Ok(new BuilderSays(info, area, word, supply, answers)
+        {
+            ControlledBy = controlled,
+            Mode = mode,
+            BatchLeft = left,
+            Skipped = skipped,
+        });
+    }
+
+    private static Result<BuildModeAccess, string> Controlled(FieldReader read) =>
+        read.Take("controlled").TryGet(out var text) ? ModeText.Access(text) : Result<BuildModeAccess, string>.Ok(BuilderBook.NoControl);
+
+    private static Result<int, string> Left(FieldReader read)
+    {
+        if (!read.Take("batch-left").TryGet(out var text))
+            return Result<int, string>.Ok(0);
+        return WrittenValues.Int(text).TryGet(out var left) && left >= 0 ? Result<int, string>.Ok(left) : Result<int, string>.Error("bad batch-left");
+    }
+
+    private static Result<ValueList<SkippedGhost>, string> Skipped(FieldReader read)
+    {
+        var texts = read.TakeAll("skipped");
+        if (texts.Count == 0)
+            return Result<ValueList<SkippedGhost>, string>.Ok(ValueList<SkippedGhost>.Empty);
+        var skipped = new SkippedGhost[texts.Count];
+        for (var i = 0; i < skipped.Length; i++)
+        {
+            if (!WrittenValues.Long(texts[i]).TryGet(out var ghost) || !ReasonForm.Read(read, "skipped-" + texts[i]).TryGet(out var why))
+                return Result<ValueList<SkippedGhost>, string>.Error("bad skipped");
+            skipped[i] = new SkippedGhost(new GhostId(ghost), why);
+        }
+
+        return Result<ValueList<SkippedGhost>, string>.Ok(ValueList.From(skipped));
     }
 
     private static Result<BuildScope, string> Scope(FieldReader read)

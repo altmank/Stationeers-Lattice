@@ -383,6 +383,7 @@ internal sealed class HostSync : ISlicedWork, IDisposable
             Outcome.Applied applied when whole => new(SyncKind.Answer, new AppliedText(id, applied.Changes)),
             Outcome.Applied applied => new(SyncKind.Answer, new AnswerText(id, new Answer.Applied(applied.Changes.Id, applied.Changes.Revision))),
             Outcome.Refused refused => new(SyncKind.Answer, new AnswerText(id, new Answer.Refused(refused.Why))),
+            Outcome.Accepted => new(SyncKind.Answer, new AnswerText(id, new Answer.Accepted())),
             _ => new(SyncKind.Answer, new AnswerText(id, new Answer.Refused(ValueList.Of(new Refusal(Unknown.Kind(outcome), ValueList<GhostId>.Empty))))),
         };
     }

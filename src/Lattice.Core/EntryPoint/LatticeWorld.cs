@@ -501,6 +501,13 @@ internal sealed class LatticeWorld : IGhostSystem
             _starting = LatticeModules.Executors;
             var executors = new WorldExecutors(Ghosts, ports.GameClock, ports.Seat, ports.Viewer);
             Stop(LatticeModules.Executors, executors.Dispose);
+            LocalCommands.Modes = executors.SetMode;
+            if (saved is not null && executors.Batches is { } batches)
+            {
+                batches.Restore(saved.Opened.Batches);
+                saved.Saving.Batches = batches.Saved;
+            }
+
             _executors = executors;
             Executors = executors;
         }

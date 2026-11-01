@@ -9,8 +9,9 @@ namespace Lattice.Core.Runs;
 /// <summary>
 /// The expander for <see cref="Command.PlanSplit"/>, in the runs module: each long straight among the targets as its
 /// cells' single pieces, by the split planner (<see cref="SplitPlanner"/>), the one splitting rule runs use. A ghost
-/// long straight is removed and its singles placed with its plan, visibility, label, tint, groups, data and finish,
-/// made by the command's maker; a built one gets a removal ghost and a build ghost per cell in the command's plan, as a
+/// long straight's singles are placed over it with its plan, visibility, label, tint, groups, data and finish, made by
+/// the command's maker, so the board replaces it (<see cref="RemovalCause.Replaced"/>, by the first single) in the
+/// same change set; a built one gets a removal ghost and a build ghost per cell in the command's plan, as a
 /// run joining it plans it. A long straight is a run piece of one of its kits that spans several cells
 /// (<see cref="KitShapes.Longs"/>). Built pieces a ghost already removes or swaps are left alone. Cost: linear in the
 /// targets.
@@ -29,7 +30,6 @@ internal sealed class SplitExpander(ICatalogue catalogue, IGrid grid)
     public Result<Command, Reason> Expand(ExpansionInput<Command.PlanSplit> input)
     {
         var command = input.Command;
-        var removed = new List<GhostId>();
         var drafts = new List<GhostDraft>();
         switch (command.Which)
         {
@@ -42,7 +42,6 @@ internal sealed class SplitExpander(ICatalogue catalogue, IGrid grid)
                 {
                     if (ghost.Intent is not Intent.Build build || Singles(build.Target) is not { } pieces)
                         continue;
-                    removed.Add(ghost.Id);
                     foreach (var piece in pieces)
                         drafts.Add(new GhostDraft(
                             new Intent.Build(piece, build.Finish), Option.Some(ghost.Plan), command.MadeBy, ghost.Visibility,
@@ -76,10 +75,7 @@ internal sealed class SplitExpander(ICatalogue catalogue, IGrid grid)
 
         if (drafts.Count == 0)
             return Result<Command, Reason>.Error(Reason.Of(ReasonCodes.InvalidValue, RunCodes.Runs, ValueMap.Of("problem", "nothing-to-split")));
-        var place = new Command.Place(ValueList.From(drafts));
-        return Result<Command, Reason>.Ok(removed.Count == 0
-            ? place
-            : new Command.Batch(ValueList.From(new Command[] { new Command.Remove(new Selector.Ids(ValueList.From(removed))), place })));
+        return Result<Command, Reason>.Ok(new Command.Place(ValueList.From(drafts)));
     }
 
     // The single pieces of a long straight, in the order of its cells; none for any other piece.

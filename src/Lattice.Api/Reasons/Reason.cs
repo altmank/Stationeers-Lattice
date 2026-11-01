@@ -249,6 +249,12 @@ public static class ReasonCodes
     public static readonly ReasonCode HostOnly = ReasonCode.Known("host-only");
 
     /// <summary>
+    /// It does not take what was asked of it: a builder with no mode handler for <see cref="Command.SetBuildMode"/>
+    /// (facts <c>executor</c>, <c>problem=modes</c>). Added in 0.22.8.
+    /// </summary>
+    public static readonly ReasonCode NotSupported = ReasonCode.Known("not-supported");
+
+    /// <summary>
     /// A client's command whose outcome the host no longer has, when the client asked for the board again after it
     /// dropped a change set: the command may or may not have applied; the board after the join is the host's. Fact
     /// <c>command</c>. Added in contract 0.17.

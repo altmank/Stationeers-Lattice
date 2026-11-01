@@ -24,6 +24,7 @@ internal sealed class ExecutorSyncBench
     {
         Limits = limits ?? SyncLimits.Default;
         Executors = new WorldExecutors(Host.T.Board, HostClock, WorldSeat.Host);
+        Host.Service.Modes = Executors.SetMode;
         Sync = new HostSync(Host.Service, Host.T.Board, Host.Scheduler, Wire.Host, Limits, HostReports.Add, Executors);
     }
 
@@ -85,9 +86,18 @@ internal sealed class ExecutorSyncBench
         Sync.PlaceStatus();
     }
 
-    /// <summary>Delivers what the wire holds and raises each client's queued events.</summary>
+    /// <summary>
+    /// Delivers what the wire holds, client commands to the host first (each as the player numbered like its
+    /// connection), and raises each client's queued events.
+    /// </summary>
     public void Deliver()
     {
+        while (Wire.ToHost.Count > 0)
+        {
+            var (from, text) = Wire.ToHost.Dequeue();
+            Sync.Receive(from, new ClientId((ulong)from.Value), text);
+        }
+
         foreach (var (connection, queue) in Wire.ToClients)
             while (queue.Count > 0)
             {
@@ -130,7 +140,7 @@ internal sealed class ExecutorSyncBench
 
     private bool Idle()
     {
-        if (Sync.Queued > 0 || Sync.StatusWaiting > 0)
+        if (Sync.Queued > 0 || Sync.StatusWaiting > 0 || Wire.ToHost.Count > 0)
             return false;
         foreach (var queue in Wire.ToClients.Values)
             if (queue.Count > 0)
@@ -148,6 +158,7 @@ internal sealed class ExecutorSyncBench
             Executors = new WorldExecutors(T.Board, Clock, WorldSeat.Client);
             Sync = new ClientSync(T.Board, wire.Client(connection), limits, Reports.Add, Executors.Mirror);
             T.Events.Changed += set => Log.Add("changed " + set.Revision.Value);
+            T.Events.Answered += (ticket, outcome) => Answers.Add((ticket, outcome));
             T.Events.BoardReset += () => Log.Add("reset");
             T.Events.StatusChanged += ghost =>
             {
@@ -176,6 +187,8 @@ internal sealed class ExecutorSyncBench
         public List<string> Log { get; } = new();
 
         public List<GhostId> StatusChanges { get; } = new();
+
+        public List<(Ticket Ticket, Outcome Outcome)> Answers { get; } = new();
 
         public List<(Maker Maker, ValueList<BlockedGhost> Ghosts)> Blocked { get; } = new();
     }

@@ -233,6 +233,7 @@ internal sealed partial class GhostBoard
         Command.MarkRemoval or Command.PlanSwap or Command.PlanFinish
             or Command.PlanRun or Command.PlanRoute or Command.Transform or Command.PlaceTemplate or Command.Repair
             or Command.TakeDown or Command.PlanSplit or Command.PlaceTemplateIn => Fail(ModuleMissing(command)),
+        Command.SetBuildMode => Fail(Reason.Of(ReasonCodes.InvalidValue, LatticeIdentity.Board, ValueMap.Of("command", nameof(Command.SetBuildMode)).With("problem", "not-a-board-change"))),
         _ => Fail(Unknown.Kind(command)),
     };
 
@@ -488,6 +489,20 @@ internal sealed partial class GhostBoard
         foreach (var (before, _) in pending.PlansChanged)
             Ask(pending, new AccessRequest(actor, revert, before.Id, Option<Ghost>.None), ValueList<GhostId>.Empty);
         return Ok(pending);
+    }
+
+    /// <summary>
+    /// The ghosts on the board now holding a spot or the target <paramref name="ghost"/> would hold, itself left out:
+    /// after a change set that replaced it, the ghosts that replaced it. Empty for a ghost whose piece is unknown.
+    /// Linear in its spots.
+    /// </summary>
+    internal List<GhostId> HoldersOf(Ghost ghost)
+    {
+        if (!Resolve(ghost.Intent).TryGet(out var parts))
+            return new List<GhostId>();
+        var holders = Holders(new GhostEntry(ghost, parts.Shape, parts.Target, Revision));
+        holders.Remove(ghost.Id);
+        return holders;
     }
 
     /// <summary>The ghosts now holding a spot or the target of the entry.</summary>

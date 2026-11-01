@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.22.8
+
+Added:
+- **Build modes from any seat.** `Command.SetBuildMode(builder, mode)` asks a builder for `BuildMode.On`, `Off` or
+  `Batch`, from the host or a client. The builder takes requests with `IExecutorHandle.AcceptModes(access, answer)`:
+  Lattice calls `answer` on the host with the verified submitting actor and the mode, and the builder decides. Its
+  `Ok` answers the new `Outcome.Accepted` (no change set, no revision, nothing written); its `Error(reason)`
+  answers `Outcome.Refused` with that reason as given. A builder not registered is refused `not-found`, one with no
+  handler `not-supported` (the new `ReasonCodes.NotSupported`).
+- **What a builder says about its mode**, on every seat: `Builder.ControlledBy` (who it says may set its mode, set by
+  `AcceptModes`), `Builder.Mode` and `Builder.BatchSkipped` (set by `IExecutorHandle.SayMode`, at most 256 skipped
+  ghosts), and `Builder.BatchLeft`. Synced with the builder's word, never saved. A `Builder` made as before reads
+  and compares as before.
+- **Batch sets, kept and saved by Lattice.** `IExecutorHandle.SetBatch(ghosts)` and `Batch`: the ghosts a batch
+  builds, chosen by the builder, at most 16384. Lattice leaves out ghosts not on the board, drops each ghost in the
+  change set that takes it off the board, follows a replaced ghost with the ghosts that replace it, saves the sets
+  with the world, and gives a set back to the builder registering with the same id after a load. Only its size syncs
+  (`BatchLeft`). A save with no sets loads as before; an older Lattice reading a newer save passes the sets over.
+- `ApiVersion.ContractPatch` is 8.
+
+Fixed:
+- **A split long straight ghost leaves as `Replaced`**, by its first single, not `Removed`: its singles are placed
+  over it in the same change set, as `Command.PlanSplit` says. One revert still brings the long ghost back.
+
 ## 0.22.7
 
 Fixed:

@@ -144,6 +144,7 @@ public sealed class KindAndDefaultTests
             [typeof(Command.TakeDown)] = () => Run(new Command.TakeDown(GhostBoard.DefaultPlan, TestMaker)),
             [typeof(Command.PlaceTemplateIn)] = () => Run(new Command.PlaceTemplateIn(new Template(TestKitIds.Must(TemplateName.Create("t")), ValueList<GhostDraft>.Empty), At, Turn.None, Option<PlanId>.None)),
             [typeof(Command.PlanSplit)] = () => Run(new Command.PlanSplit(new SplitTargets.Ghosts(ids), Option<PlanId>.None, TestMaker)),
+            [typeof(Command.SetBuildMode)] = () => Run(new Command.SetBuildMode(TestKitIds.Must(ExecutorId.Create(TestKitIds.Mod, "dock")), new BuildMode.On())),
             [typeof(Command.Reopen)] = () => Run(new Command.Reopen(GhostBoard.DefaultPlan)),
 
             [typeof(Intent.Build)] = () => Place(new Intent.Build(placement, Option<Finish>.None)),

@@ -96,6 +96,13 @@ public abstract record Outcome
     /// <summary>Refused; nothing changed.</summary>
     /// <param name="Why">The refusals.</param>
     public sealed record Refused(ValueList<Refusal> Why) : Outcome;
+
+    /// <summary>
+    /// Taken by its receiver, with no board change: no change set, no revision, no <see cref="IGhostEvents.Changed"/>,
+    /// nothing written and nothing to revert. The answer to a <see cref="Command.SetBuildMode"/> the builder took.
+    /// Added in 0.22.8.
+    /// </summary>
+    public sealed record Accepted : Outcome;
 }
 
 /// <summary>One reason a command was refused, and the ghosts it concerns.</summary>

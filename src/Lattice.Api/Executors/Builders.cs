@@ -101,7 +101,23 @@ public sealed record Builder(
     ExecutorInfo Info,
     Option<BuilderArea> Area,
     BuilderState State,
-    Option<Supply> Supply);
+    Option<Supply> Supply)
+{
+    /// <summary>
+    /// Who it says may set its mode (<see cref="IExecutorHandle.AcceptModes"/>); <see cref="BuildModeAccess.None"/>
+    /// until it takes mode requests. Lattice does not judge an actor against it. Added in 0.22.8.
+    /// </summary>
+    public BuildModeAccess ControlledBy { get; init; } = new BuildModeAccess.None();
+
+    /// <summary>Its mode as it last said it (<see cref="IExecutorHandle.SayMode"/>); none until it says one. Added in 0.22.8.</summary>
+    public Option<BuildMode> Mode { get; init; }
+
+    /// <summary>How many ghosts its batch (<see cref="IExecutorHandle.Batch"/>) still holds, counted by Lattice; 0 with none. Added in 0.22.8.</summary>
+    public int BatchLeft { get; init; }
+
+    /// <summary>The ghosts it says its last batch could not build, with why, as it last said them. Added in 0.22.8.</summary>
+    public ValueList<SkippedGhost> BatchSkipped { get; init; } = ValueList<SkippedGhost>.Empty;
+}
 
 /// <summary>One builder assigned to a plan, and where that stands. Added in contract 0.22.</summary>
 public abstract record Assignment

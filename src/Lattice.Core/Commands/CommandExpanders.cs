@@ -15,12 +15,15 @@ internal sealed class CommandExpanders
 {
     private readonly Dictionary<Type, Registration> _byKind = new();
 
-    /// <summary>Whether the board applies this kind itself: Place, Remove, Change, Move, CreatePlan, EditPlan, MoveToPlan, Revert, Batch, FinishPlan, CatchUp.</summary>
+    /// <summary>
+    /// Whether Lattice applies this kind itself, never through an expander: the board's Place, Remove, Change, Move,
+    /// CreatePlan, EditPlan, MoveToPlan, Revert, Batch, FinishPlan, CatchUp, and the executors' SetBuildMode.
+    /// </summary>
     public static bool IsPrimitive(Type kind) =>
         kind == typeof(Command.Place) || kind == typeof(Command.Remove) || kind == typeof(Command.Change) || kind == typeof(Command.Move) ||
         kind == typeof(Command.CreatePlan) || kind == typeof(Command.EditPlan) || kind == typeof(Command.MoveToPlan) ||
         kind == typeof(Command.Revert) || kind == typeof(Command.Batch) || kind == typeof(Command.FinishPlan) ||
-        kind == typeof(Command.CatchUp);
+        kind == typeof(Command.CatchUp) || kind == typeof(Command.SetBuildMode);
 
     /// <summary>
     /// Adds the expander for a kind. Refused <see cref="ReasonCodes.InvalidValue"/> for a primitive kind or the command

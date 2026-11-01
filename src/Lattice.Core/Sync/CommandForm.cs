@@ -280,6 +280,10 @@ internal static class CommandForm
                     return Node("take-down", new FieldList().Add("plan", takeDown.Plan.Value).Add("made", takeDown.MadeBy.Value));
                 case Api.Command.Reopen reopen:
                     return Node("reopen", new FieldList().Add("plan", reopen.Plan.Value));
+                case Api.Command.SetBuildMode mode when ModeText.Of(mode.Mode) is { } modeText:
+                    return Node("set-build-mode", new FieldList().Add("builder", mode.Builder.Value).Add("mode", modeText));
+                case Api.Command.SetBuildMode mode:
+                    return Refuse((object?)mode.Mode ?? mode);
                 case Api.Command.PlanSplit split:
                 {
                     var fields = Into(new FieldList(), split.Into).Add("made", split.MadeBy.Value);
@@ -608,6 +612,8 @@ internal static class CommandForm
             "take-down" => Need(read, "plan", PlanOf).Bind(p => Made(read).Map(made => (object)new Command.TakeDown(p, made))),
             "reopen" => Need(read, "plan", PlanOf).Map(static p => (object)new Command.Reopen(p)),
             "plan-split" => Split(read),
+            "set-build-mode" => Need(read, "builder", ExecutorOf).Bind(builder => Need(read, "mode", ModeText.Read)
+                .Map(mode => (object)new Command.SetBuildMode(builder, mode))),
             "s.everything" => Result<object, string>.Ok(new Selector.Everything()),
             "s.ids" => Ids(read),
             "s.box" => Need(read, "corner", WrittenValues.Cell).Bind(c => Need(read, "opposite", WrittenValues.Cell).Map(o => (object)new Selector.Box(c, o))),

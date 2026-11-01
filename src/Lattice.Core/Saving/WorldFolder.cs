@@ -13,7 +13,11 @@ namespace Lattice.Core.Saving;
 internal readonly record struct SaveKey(string Path, string Fingerprint);
 
 /// <summary>What a save remembers: the save, and the line each plan was at (its head). Plans not listed did not exist.</summary>
-internal sealed record SavePoint(SaveKey Save, DateTimeOffset At, ValueMap<PlanId, long> Heads);
+internal sealed record SavePoint(SaveKey Save, DateTimeOffset At, ValueMap<PlanId, long> Heads)
+{
+    /// <summary>The builders' batch sets when the save was taken, by builder id; none in a record written before it kept them.</summary>
+    public ValueMap<ExecutorId, ValueSet<GhostId>> Batches { get; init; } = ValueMap<ExecutorId, ValueSet<GhostId>>.Empty;
+}
 
 /// <summary>
 /// A finished plan in the index: what the board lists (<see cref="FinishedPlan"/>), the line that finished it, and the
@@ -282,9 +286,10 @@ internal sealed class WorldFolder
             .Add("fingerprint", record.Save.Fingerprint)
             .Add("at", WrittenValues.Time(record.At))
             .ToList();
-        var items = new List<Entry>(record.Heads.Count);
+        var items = new List<Entry>(record.Heads.Count + record.Batches.Count);
         foreach (var (plan, head) in record.Heads)
             items.Add(Entry.Of(new FieldList().Add("plan", plan.Value).Add("head", head).ToList()));
+        items.AddRange(BatchItems(record.Batches));
         var document = new Document(Headers.Entry(SaveForm, 1, header), ValueList.From(items));
         WriteWhole(Path.Combine(Saves, PathKey(record.Save.Path) + ".lsave"), Documents.Text(document));
     }
@@ -451,13 +456,71 @@ internal sealed class WorldFolder
             return Option<SavePoint>.None;
         var at = header.Take("at").Match(t => WrittenValues.Time(t).Match(static v => v, static _ => default), static () => default(DateTimeOffset));
         var heads = new Dictionary<PlanId, long>(read.Items.Count);
+        Dictionary<ExecutorId, ValueSet<GhostId>>? batches = null;
         foreach (var item in read.Items)
         {
             var fields = new FieldReader(item.Fields);
+            if (fields.Take("batch").TryGet(out var builder))
+            {
+                if (ExecutorId.Parse(builder).TryGet(out var id) && BatchOf(fields.Take("ghosts").Reduce("")) is { } ghosts)
+                    (batches ??= new Dictionary<ExecutorId, ValueSet<GhostId>>())[id] = ghosts;
+                continue;
+            }
+
             if (fields.Need("plan").Bind(WrittenValues.Long).TryGet(out var plan) && fields.Need("head").Bind(WrittenValues.Long).TryGet(out var head))
                 heads[new PlanId(plan)] = head;
         }
 
-        return Option.Some(new SavePoint(new SaveKey(path, fingerprint), at, ValueMap<PlanId, long>.From(heads)));
+        return Option.Some(new SavePoint(new SaveKey(path, fingerprint), at, ValueMap<PlanId, long>.From(heads))
+        {
+            Batches = batches is null ? ValueMap<ExecutorId, ValueSet<GhostId>>.Empty : ValueMap<ExecutorId, ValueSet<GhostId>>.From(batches),
+        });
+    }
+
+    // One item per builder with a batch, batch=<executor> ghosts=<id>;<id>;..., in id order, the ghosts in id order.
+    // It has no plan field, so a reader that knows only plan heads passes it over.
+    private static List<Entry> BatchItems(ValueMap<ExecutorId, ValueSet<GhostId>> batches)
+    {
+        var ids = new List<ExecutorId>(batches.Count);
+        foreach (var pair in batches)
+            if (pair.Value.Count > 0)
+                ids.Add(pair.Key);
+        ids.Sort(static (a, b) => string.CompareOrdinal(a.Value, b.Value));
+        var items = new List<Entry>(ids.Count);
+        foreach (var id in ids)
+        {
+            var ghosts = new List<long>(batches[id].Count);
+            foreach (var ghost in batches[id])
+                ghosts.Add(ghost.Value);
+            ghosts.Sort();
+            var text = new StringBuilder(ghosts.Count * 6);
+            foreach (var ghost in ghosts)
+            {
+                if (text.Length > 0)
+                    text.Append(';');
+                text.Append(Number(ghost));
+            }
+
+            items.Add(Entry.Of(new FieldList().Add("batch", id.Value).Add("ghosts", text.ToString()).ToList()));
+        }
+
+        return items;
+    }
+
+    // A written batch; null when a ghost id does not read (the set is then left out, never read wrong).
+    private static ValueSet<GhostId>? BatchOf(string text)
+    {
+        if (text.Length == 0)
+            return null;
+        var parts = text.Split(';');
+        var ghosts = new List<GhostId>(parts.Length);
+        foreach (var part in parts)
+        {
+            if (!long.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ghost))
+                return null;
+            ghosts.Add(new GhostId(ghost));
+        }
+
+        return ValueSet.From(ghosts);
     }
 }

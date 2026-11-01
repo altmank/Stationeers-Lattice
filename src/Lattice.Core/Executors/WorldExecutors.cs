@@ -36,6 +36,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
     private readonly ExecutorNotices _notices;
     private readonly ExecutorMirror? _mirror;
     private readonly BuilderBook _book;
+    private readonly BatchSets? _batches;
     private readonly Action<ChangeSet> _onBoard;
     private readonly Action<ChangeSet> _onCommitted;
 
@@ -50,6 +51,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
             _mirror = new ExecutorMirror(board, clock, _notices, _book);
         else
         {
+            _batches = new BatchSets(board) { Sized = _book.BatchLeft };
             board.Registered = _registered.ContainsKey;
             board.ClaimHolder = ghost => Live(ghost, out var hold) ? Option.Some(hold.Claim.By) : Option<ExecutorId>.None;
         }
@@ -90,8 +92,38 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         var handle = new Handle(this, info);
         _registered.Add(info.Id, handle);
         _book.Put(info);
+        _book.BatchLeft(info.Id, _batches?.Left(info.Id) ?? 0);
         return Result<IExecutorHandle, Reason>.Ok(handle);
     }
+
+    /// <summary>The batch sets on the host, saved with the world; none on a client.</summary>
+    internal BatchSets? Batches => _batches;
+
+    /// <summary>
+    /// Applies a mode request on the host: refused for a <c>default</c> id, a null or unknown mode, a builder not
+    /// registered (not-found, problem executor) or one that takes no mode requests (not-supported, problem modes);
+    /// otherwise the builder's handler answers, called as a plain call, and its answer is the outcome. Constant cost,
+    /// plus the handler's.
+    /// </summary>
+    internal Outcome SetMode(Command.SetBuildMode request, Actor actor)
+    {
+        if (request.Builder == default)
+            return ModeRefused(Reason.Of(ReasonCodes.DefaultValue, Rule, ValueMap.Of("type", nameof(ExecutorId))));
+        if (request.Mode is null)
+            return ModeRefused(Reason.InvalidValue(nameof(BuildMode), "null", "not-null"));
+        if (request.Mode is not (BuildMode.On or BuildMode.Off or BuildMode.Batch))
+            return ModeRefused(Reason.Of(ReasonCodes.UnknownKind, Rule, ValueMap.Of("kind", request.Mode.GetType().Name)));
+        if (!_registered.TryGetValue(request.Builder, out var handle))
+            return ModeRefused(Reason.Of(ReasonCodes.NotFound, Rule, ValueMap.Of("executor", request.Builder.Value).With("problem", "executor")));
+        if (handle.Modes is not { } answer)
+            return ModeRefused(Reason.Of(ReasonCodes.NotSupported, Rule, ValueMap.Of("executor", request.Builder.Value).With("problem", "modes")));
+        var answered = answer(actor, request.Mode);
+        return answered.TryGetError(out var why) ? ModeRefused(why) : Accepted;
+    }
+
+    private static readonly Outcome Accepted = new Outcome.Accepted();
+
+    private static Outcome ModeRefused(Reason why) => new Outcome.Refused(ValueList.Of(new Refusal(why, ValueList<GhostId>.Empty)));
 
     /// <summary>The host's claims and status as this client last heard them; none on the host.</summary>
     internal ExecutorMirror? Mirror => _mirror;
@@ -166,6 +198,7 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         _board.Events.Changed -= _onBoard;
         _board.Committed -= _onCommitted;
         _book.End();
+        _batches?.End();
         if (_seat == WorldSeat.Host)
             (_board.Registered, _board.ClaimHolder) = (null, null);
         var handles = new List<Handle>(_registered.Values);
@@ -374,11 +407,41 @@ internal sealed class WorldExecutors : IExecutors, IDisposable, Lattice.Core.Sty
         public Result<Unit, Reason> Answer(PlanId plan, AssignmentAnswer answer) =>
             Disposed ? Result<Unit, Reason>.Error(NotRegistered(this)) : executors._book.Answer(Info.Id, plan, answer);
 
+        /// <summary>Its mode handler; none while it takes no mode requests.</summary>
+        public Func<Actor, BuildMode, Result<Unit, Reason>>? Modes { get; private set; }
+
+        public Result<Unit, Reason> AcceptModes(BuildModeAccess access, Func<Actor, BuildMode, Result<Unit, Reason>>? answer)
+        {
+            if (Disposed)
+                return Result<Unit, Reason>.Error(NotRegistered(this));
+            if (access is null)
+                return Result<Unit, Reason>.Error(Reason.InvalidValue(nameof(BuildModeAccess), "null", "not-null"));
+            if (access is not (BuildModeAccess.None or BuildModeAccess.OwnerAndHost or BuildModeAccess.Anyone))
+                return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.UnknownKind, Rule, ValueMap.Of("kind", access.GetType().Name)));
+            var none = access is BuildModeAccess.None;
+            if (!none && answer is null)
+                return Result<Unit, Reason>.Error(Reason.InvalidValue("answer", "null", "not-null"));
+            Modes = none ? null : answer;
+            executors._book.Control(Info.Id, none ? BuilderBook.NoControl : access);
+            return Result<Unit, Reason>.Ok(Unit.Value);
+        }
+
+        public Result<Unit, Reason> SayMode(BuildMode mode, ValueList<SkippedGhost> skipped) =>
+            Disposed ? Result<Unit, Reason>.Error(NotRegistered(this)) : executors._book.SayMode(Info.Id, mode, skipped);
+
+        public Result<Unit, Reason> SetBatch(ValueSet<GhostId> ghosts) =>
+            Disposed ? Result<Unit, Reason>.Error(NotRegistered(this))
+            : executors._batches is { } batches ? batches.Put(Info.Id, ghosts)
+            : Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.HostOnly, Rule));
+
+        public ValueSet<GhostId> Batch => executors._batches?.Of(Info.Id) ?? ValueSet<GhostId>.Empty;
+
         public void Dispose()
         {
             if (Disposed)
                 return;
             Disposed = true;
+            Modes = null;
             executors.Unregister(this);
         }
     }

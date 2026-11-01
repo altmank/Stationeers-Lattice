@@ -2882,7 +2882,7 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 7 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 8 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
 Lattice.Api.FlowChoice
 Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell
@@ -2893,3 +2893,37 @@ Lattice.Api.FlowChoice.FlowChoice(Lattice.Api.Cell At, Lattice.Api.Face Downstre
 Lattice.Api.RunReport.FlowChosen.get -> Lattice.Api.ValueList<Lattice.Api.FlowChoice!>!
 Lattice.Api.RunReport.FlowChosen.init -> void
 static readonly Lattice.Api.ReasonCodes.FlowBlocked -> Lattice.Api.ReasonCode
+Lattice.Api.BuildMode
+Lattice.Api.BuildMode.Batch
+Lattice.Api.BuildMode.Off
+Lattice.Api.BuildMode.On
+Lattice.Api.BuildModeAccess
+Lattice.Api.BuildModeAccess.Anyone
+Lattice.Api.BuildModeAccess.None
+Lattice.Api.BuildModeAccess.OwnerAndHost
+Lattice.Api.Builder.BatchLeft.get -> int
+Lattice.Api.Builder.BatchLeft.init -> void
+Lattice.Api.Builder.BatchSkipped.get -> Lattice.Api.ValueList<Lattice.Api.SkippedGhost!>!
+Lattice.Api.Builder.BatchSkipped.init -> void
+Lattice.Api.Builder.ControlledBy.get -> Lattice.Api.BuildModeAccess!
+Lattice.Api.Builder.ControlledBy.init -> void
+Lattice.Api.Builder.Mode.get -> Lattice.Api.Option<Lattice.Api.BuildMode!>
+Lattice.Api.Builder.Mode.init -> void
+Lattice.Api.Command.SetBuildMode
+Lattice.Api.Command.SetBuildMode.Builder.get -> Lattice.Api.ExecutorId
+Lattice.Api.Command.SetBuildMode.Builder.init -> void
+Lattice.Api.Command.SetBuildMode.Mode.get -> Lattice.Api.BuildMode!
+Lattice.Api.Command.SetBuildMode.Mode.init -> void
+Lattice.Api.Command.SetBuildMode.SetBuildMode(Lattice.Api.ExecutorId Builder, Lattice.Api.BuildMode! Mode) -> void
+Lattice.Api.IExecutorHandle.AcceptModes(Lattice.Api.BuildModeAccess! access, System.Func<Lattice.Api.Actor!, Lattice.Api.BuildMode!, Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>>? answer) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Api.IExecutorHandle.Batch.get -> Lattice.Api.ValueSet<Lattice.Api.GhostId>!
+Lattice.Api.IExecutorHandle.SayMode(Lattice.Api.BuildMode! mode, Lattice.Api.ValueList<Lattice.Api.SkippedGhost!>! skipped) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Api.IExecutorHandle.SetBatch(Lattice.Api.ValueSet<Lattice.Api.GhostId>! ghosts) -> Lattice.Api.Result<Lattice.Api.Unit, Lattice.Api.Reason!>
+Lattice.Api.Outcome.Accepted
+Lattice.Api.SkippedGhost
+Lattice.Api.SkippedGhost.Ghost.get -> Lattice.Api.GhostId
+Lattice.Api.SkippedGhost.Ghost.init -> void
+Lattice.Api.SkippedGhost.SkippedGhost(Lattice.Api.GhostId Ghost, Lattice.Api.Reason! Why) -> void
+Lattice.Api.SkippedGhost.Why.get -> Lattice.Api.Reason!
+Lattice.Api.SkippedGhost.Why.init -> void
+static readonly Lattice.Api.ReasonCodes.NotSupported -> Lattice.Api.ReasonCode

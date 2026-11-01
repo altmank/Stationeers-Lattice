@@ -503,6 +503,66 @@ lattice.Commands.Submit(CommandId.New(), new Command.EditPlan(plan, new PlanEdit
 - An assignment does not gate claims: any builder may claim any ghost. A builder keeps to its assigned plans by its own
   choice, and builds every plan when it has none.
 
+### Build modes
+
+Added in 0.22.8: check `ApiVersion.CurrentPatch >= 8` first. A player can ask a builder for a mode from any seat;
+the builder decides what each mode does and who may ask. Lattice carries the request and the answer and publishes what
+the builder says. The modes are `BuildMode.On` (it works its plans, ghosts added later too), `Off` (stopped), and
+`Batch` (it builds the ghosts of its batch, then goes `Off`; ghosts added later wait).
+
+The builder takes requests with a handler and says who may ask:
+
+```csharp
+handle.AcceptModes(new BuildModeAccess.OwnerAndHost(), (actor, mode) =>
+{
+    if (!MayAsk(actor))
+        return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.NotAllowed, MyRule));
+    SwitchTo(mode);
+    return Result<Unit, Reason>.Ok(Unit.Value);
+});
+```
+
+- Lattice calls the handler on the host, on the main thread, with the verified actor who submitted the command, as a
+  plain call. It does not judge the actor against the access: `ControlledBy` is what a screen reads to grey its
+  control out (beside `ExecutorInfo.Owner`); the handler is what decides. A command the handler submits is applied
+  after it.
+- `AcceptModes` again replaces both values. `BuildModeAccess.None` takes the handler away.
+- A screen asks with a command, on the host or a client:
+
+```csharp
+lattice.Commands.Submit(CommandId.New(), new Command.SetBuildMode(builder, new BuildMode.Batch()), player);
+```
+
+- The answer comes on the command's ticket (`Events.Answered` on a client). The handler's `Ok` answers
+  `Outcome.Accepted`: no change set, no revision, no `Changed`, nothing written, nothing to revert. Its
+  `Error(reason)` answers `Outcome.Refused` with that reason as given, facts and game message kept. Lattice refuses
+  `not-found` (problem `executor`) for a builder not registered, and `not-supported` (problem `modes`) for one
+  with no handler.
+- The builder says its mode, whatever moved it (its own buttons, a finished batch, a request), with
+  `SayMode(mode, skipped)`. `skipped` lists the ghosts its last batch could not build, with why, at most 256 (else
+  `too-large`, never cut down). When to clear it is the builder's. Both are live and synced, never saved: say them
+  again when you register after a load.
+
+Every seat reads them on the builder: `ControlledBy`, `Mode` (none until it says one), `BatchLeft` and
+`BatchSkipped`. A change raises `BuilderChanged` once a frame; an equal one raises nothing.
+
+**The batch set.** The builder chooses which ghosts a batch holds; Lattice keeps the set for it, because a builder mod
+may have no save of its own that loads with the mod removed. Set it with `SetBatch(ghosts)` (empty ends it) and read
+it with `Batch`, on the host. Keep the choice to yourself: Lattice only holds what you give it.
+
+- Ghosts not on the board are left out when you set it. Past 16384 ghosts it is refused `too-large`, never cut down.
+- A ghost leaves the set in the change set that takes it off the board: done, removed, or its plan finished.
+- A ghost the board replaces is followed by its replacements, in the same change set: a new ghost placed in its spot,
+  the singles of a split long straight, the pieces a run lays over a planned line it merges into.
+- The set is saved with the world, as it stands when a save starts, and given back to a builder that registers with
+  the same id after a load, however late. A set whose builder has not registered again is kept, and its ghosts still
+  leave as above. Only its size syncs, as `BatchLeft`.
+
+A ghost keeps its id through edits (`Change`), swaps (`GhostEdit.Swap`, and `PlanSwap` over a ghost that already
+swaps), moves (`Move`, `Transform`) and loads. It does not when it is replaced: it leaves as
+`RemovalCause.Replaced(by)` and new ghosts with new ids take its place, in the same change set. A split long straight
+and a run merging into a planned line are replacements.
+
 ### Supply
 
 `Offer(supply)` reports what the builder can supply:
@@ -527,7 +587,7 @@ Every seat reads the same, cached so a steady read allocates nothing:
 
 | Read | What |
 |---|---|
-| `Executors.All`, `Find(id)` | Each registered builder: who it is, its area, its state, its latest supply. |
+| `Executors.All`, `Find(id)` | Each registered builder: who it is, its area, its state, its latest supply; from 0.22.8 who may set its mode, its mode, its batch's size and what the last batch skipped. |
 | `AssignedTo(plan)`, `PlansOf(id)` | A plan's builders and where each stands; a builder's plans. |
 | `ProgressOf(plan, id)` | One builder's `Built` (the plan's completions it held the claim on, saved with them, so they survive a load), and its live claims as `Working` and `Waiting`. |
 | `ProgressOf(plan)` | The same summed over every executor that built or holds claims in the plan, assigned or not: exact, a piece is never counted twice. |

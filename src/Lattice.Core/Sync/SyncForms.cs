@@ -42,11 +42,15 @@ internal abstract record Answer
 
     /// <summary>Refused; nothing changed.</summary>
     public sealed record Refused(ValueList<Refusal> Why) : Answer;
+
+    /// <summary>Taken with no board change (<see cref="Outcome.Accepted"/>).</summary>
+    public sealed record Accepted : Answer;
 }
 
 /// <summary>
 /// The answer form: <c>lattice-answer &lt;schema&gt; id=&lt;command id&gt;</c>, then <c>applied set= rev=</c>, or one
-/// <c>refused</c> line per refusal (its reason in the reason form under <c>why</c>, then one <c>ghost=</c> per ghost).
+/// <c>refused</c> line per refusal (its reason in the reason form under <c>why</c>, then one <c>ghost=</c> per ghost), or
+/// one <c>accepted</c> line.
 /// </summary>
 internal static class AnswerForm
 {
@@ -60,6 +64,9 @@ internal static class AnswerForm
         {
             case Answer.Applied applied:
                 Line(text, new FieldList().Add("n", "applied").Add("set", applied.Set.Value).Add("rev", applied.Revision.Value));
+                break;
+            case Answer.Accepted:
+                Line(text, new FieldList().Add("n", "accepted"));
                 break;
             case Answer.Refused refused:
                 foreach (var refusal in refused.Why)
@@ -100,6 +107,9 @@ internal static class AnswerForm
                     return Fail("bad applied line");
                 return Result<(CommandId, Answer), Reason>.Ok((id, new Answer.Applied(new ChangeSetId(set), new Revision(revision))));
             }
+
+            if (kind == "accepted" && count == 2)
+                return Result<(CommandId, Answer), Reason>.Ok((id, new Answer.Accepted()));
 
             if (kind != "refused" || !ReasonForm.Read(read, "why").TryGet(out var why))
                 return Fail($"line {i + 1}: not a refusal");
