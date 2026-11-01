@@ -46,7 +46,7 @@ internal sealed record PreviewParts(
 /// (<see cref="CommandService.Expansion"/>: pending while sliced work runs); the board's dry run
 /// (<see cref="GhostBoard.Try"/>), whose refusals are the answer; then, at once, a validation trial of the change on
 /// Lattice's worker (<see cref="ValidationService.Trial"/>, which also calls the worker analyzers), and one step in the
-/// checking budget that stages the change (<see cref="GhostBoard.Trial.While{T}"/>) for build safety, effects and the
+/// checking budget, ahead of the board's checking work (high priority), that stages the change (<see cref="GhostBoard.Trial.While{T}"/>) for build safety, effects and the
 /// main-thread analyzers, then works out the bill and, for a run or route, its report. The answer is pending until all
 /// of it is in; <see cref="IGhostEvents.AnswersReady"/> says when to ask again. Findings are validation's findings for
 /// the new and changed ghosts, then build safety's warnings for them as <see cref="Finding.Warns"/>, never
@@ -101,7 +101,7 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         if (parts.Validation is { Faulted: false } validation)
             entry.Checking = validation.Trial(trial.Changes, entry.Ghosts);
         var work = new PreviewWork(this, entry);
-        if (parts.Scheduler.Schedule(WorkKind.Checking, work, Priority.Normal).TryGet(out var job))
+        if (parts.Scheduler.Schedule(WorkKind.Checking, work, Priority.High).TryGet(out var job))
             entry.Job = job;
         else
             work.Step();
@@ -252,7 +252,7 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         public ValueList<RunReport> Runs { get; set; } = ValueList<RunReport>.Empty;
     }
 
-    /// <summary>The preview's main-thread work: one step in the checking budget, skipped when the board has moved since.</summary>
+    /// <summary>The preview's main-thread work: one high-priority step in the checking budget, skipped when the board has moved since.</summary>
     private sealed class PreviewWork(PreviewService service, Entry entry) : ISlicedWork
     {
         public StepOutcome Step()

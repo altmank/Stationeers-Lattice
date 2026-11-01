@@ -52,6 +52,15 @@ internal sealed record ValidationParts(
     /// </summary>
     public static TimeSpan DefaultSweepSlice => TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond / 4);
 
+    /// <summary>
+    /// The most of a frame trials' asks take ahead of the rest of the checking work (plus the one ask being answered
+    /// when the time ran out): previews answer first, and a stream of them still leaves the board's checking time.
+    /// </summary>
+    public TimeSpan TrialAskSlice { get; init; } = DefaultTrialAskSlice;
+
+    /// <summary>Half a millisecond, in ticks (see <see cref="DefaultSweepSlice"/>): a quarter of the checking budget.</summary>
+    public static TimeSpan DefaultTrialAskSlice => TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond / 2);
+
     /// <summary>How long ending the world waits for Lattice's worker.</summary>
     public TimeSpan Join { get; init; } = ThreadWorker.DefaultJoin;
 
@@ -126,6 +135,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     private int _settled;
     private bool _mainWaiting;
     private bool _asking;
+    private bool _trialAsking;
     private bool _sweeping;
     private TimeSpan _lastSweep;
     private int _supportGeneration;
@@ -149,7 +159,7 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     public bool Faulted => _fault is not null;
 
     /// <summary>Whether a run, its asks or changes not yet handed over are outstanding.</summary>
-    public bool Busy => _inFlight || _asking || _sweeping || _pending.Count > 0 || _noted.Count > 0 || _asks.Count > 0 || _trialAsks.Count > 0 || _trials.Count > 0;
+    public bool Busy => _inFlight || _asking || _trialAsking || _sweeping || _pending.Count > 0 || _noted.Count > 0 || _asks.Count > 0 || _trialAsks.Count > 0 || _trials.Count > 0;
 
     /// <summary>Raised with each run's counts as its result is taken, for tests and timings. Main thread.</summary>
     /// <summary>The newest complete run's result, or null before the first; its revision is <see cref="ValidationResult.At"/>.</summary>
@@ -275,6 +285,12 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
         {
             Frame();
             return;
+        }
+
+        if (_trialAsks.Count > 0 && !_trialAsking)
+        {
+            _trialAsking = true;
+            _parts.Scheduler.Schedule(WorkKind.Checking, new TrialAskWork(this), Priority.High);
         }
 
         if ((_asks.Count > 0 || _trialAsks.Count > 0) && !_asking)
@@ -698,34 +714,13 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     // The next ask not answered already (an answer on its way to the worker), passing over at most SkippedPerStep
     // answered ones (more is false then: look again next step); none, with more false, when every list is done. A
     // main-thread rule, or the game about a board ghost's placement, is not asked once the ghost has left the board
-    // (removed or done): no judgement reads that answer. Trials' asks come first, a dropped trial's passed over; they
-    // are about ghosts not on the board (or the ghosts a trial's ghosts read), and are always asked.
+    // (removed or done): no judgement reads that answer. Trials' asks come after the board's here (the trial job takes
+    // them first, in its share of the frame), a dropped trial's passed over; they are about ghosts not on the board (or
+    // the ghosts a trial's ghosts read), and are always asked.
     private (Ask Ask, bool Trial)? NextAsk(out bool more)
     {
         more = false;
         var skipped = 0;
-        while (_trialAsks.Count > 0)
-        {
-            var (list, of) = _trialAsks.Peek();
-            while (_trialAskAt < list.Count && _trials.Contains(of))
-            {
-                if (skipped++ == SkippedPerStep)
-                {
-                    more = true;
-                    return null;
-                }
-
-                var ask = list[_trialAskAt++];
-                if (_asksLeft > 0 && !_book.Holds(ask.Key))
-                    _asksLeft--;
-                if (ask is Ask.MainSupport or Ask.MainRule || !_book.OnItsWay(ask.Key, _settled))
-                    return (ask, true);
-            }
-
-            _trialAsks.Dequeue();
-            _trialAskAt = 0;
-        }
-
         while (_asks.Count > 0)
         {
             var list = _asks.Peek();
@@ -752,8 +747,43 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
             _askAt = 0;
         }
 
+        if (NextTrialAsk(ref skipped, out more) is { } trial)
+            return (trial, true);
+        if (more)
+            return null;
         _asksLeft = 0;
         _mainWaiting = false;
+        return null;
+    }
+
+    // The next trial ask not answered already, taken off the trials' queue: the one place a trial ask leaves it, so
+    // each is answered once whichever job takes it. None, with more true, once SkippedPerStep answered ones are passed
+    // over; none, with more false, when no trial ask is left.
+    private Ask? NextTrialAsk(ref int skipped, out bool more)
+    {
+        more = false;
+        while (_trialAsks.Count > 0)
+        {
+            var (list, of) = _trialAsks.Peek();
+            while (_trialAskAt < list.Count && _trials.Contains(of))
+            {
+                if (skipped++ == SkippedPerStep)
+                {
+                    more = true;
+                    return null;
+                }
+
+                var ask = list[_trialAskAt++];
+                if (_asksLeft > 0 && !_book.Holds(ask.Key))
+                    _asksLeft--;
+                if (ask is Ask.MainSupport or Ask.MainRule || !_book.OnItsWay(ask.Key, _settled))
+                    return ask;
+            }
+
+            _trialAsks.Dequeue();
+            _trialAskAt = 0;
+        }
+
         return null;
     }
 
@@ -855,20 +885,15 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
     }
 
     /// <summary>
-    /// Answers trials' asks first, one per step; then counts the board's asks against the book and takes room for their
-    /// answers, then answers them one per step, in the checking budget. A step's work is bounded: a part of a list counted, the room taken, or one answer.
+    /// Counts the board's asks against the book and takes room for their answers, then answers them one per step, then
+    /// the trials' asks <see cref="TrialAskWork"/> left, in the checking budget. A step's work is bounded: a part of a
+    /// list counted, the room taken, or one answer.
     /// </summary>
     private sealed class AskWork(ValidationService service) : ISlicedWork
     {
         public StepOutcome Step()
         {
             service.DropNoted();
-            if (service._trialAsks.Count > 0 && service.NextAsk(out _) is { Trial: true } first)
-            {
-                service.Answer(first.Ask, true);
-                return StepOutcome.More;
-            }
-
             if (service.CountSome())
                 return StepOutcome.More;
 
@@ -883,6 +908,37 @@ internal sealed class ValidationService : IValidation, Lattice.Core.Styles.IVerd
 
             service._asking = false;
             return StepOutcome.Done;
+        }
+    }
+
+    /// <summary>
+    /// Answers trials' asks ahead of the rest of the checking work, at high priority, for at most
+    /// <see cref="ValidationParts.TrialAskSlice"/> a frame (plus the ask in hand when it runs out); the board's asks
+    /// stay with <see cref="AskWork"/>. Both take trial asks from <see cref="NextTrialAsk"/>.
+    /// </summary>
+    private sealed class TrialAskWork(ValidationService service) : ISlicedWork
+    {
+        public StepOutcome Step()
+        {
+            service.DropNoted();
+            var clock = service._parts.Clock;
+            var until = clock.Now + service._parts.TrialAskSlice;
+            var skipped = 0;
+            while (true)
+            {
+                if (service.NextTrialAsk(ref skipped, out var more) is { } ask)
+                    service.Answer(ask, true);
+                else if (more)
+                    skipped = 0;
+                else
+                {
+                    service._trialAsking = false;
+                    return StepOutcome.Done;
+                }
+
+                if (clock.Now >= until)
+                    return StepOutcome.NextFrame;
+            }
         }
     }
 

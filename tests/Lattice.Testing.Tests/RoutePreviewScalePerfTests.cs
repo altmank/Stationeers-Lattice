@@ -12,7 +12,7 @@ namespace Lattice.Testing.Tests;
 /// <summary>
 /// A short route's preview costs what its search box holds, not what the board holds: a Connect-shaped cable route
 /// between the power ports of two planned devices eight cells apart, asked every frame over 0, 1,000, 5,000 and 20,000
-/// planned frames far from it, answers in as many frames as over an empty board (within 2x), settled and, up to 5,000,
+/// planned frames far from it, answers in as many frames as over an empty board (within 2x), settled and
 /// while the plan that placed them is still being judged, and no frame spends more than 2 ms on the main thread while
 /// it waits.
 /// Planned frames inside the search box cost in proportion to the box: the route still answers. Frames are counted on
@@ -161,7 +161,7 @@ public sealed class RoutePreviewScalePerfTests(ITestOutputHelper output)
             Assert.InRange(Inline("far", Far, ghosts, settle: false), 0, 2 * empty);
     }
 
-    [Fact(Skip = "Over 20,000 just-placed ghosts the preview answers in about 10 frames, not 3: each validation run, the preview's trial's two included, orders every ghost on the board.")]
+    [Fact]
     public void A_short_routes_preview_answers_in_as_many_frames_over_20000_just_placed_unrelated_ghosts()
     {
         var empty = Math.Max(1, Inline("far", Far, 0, settle: true));

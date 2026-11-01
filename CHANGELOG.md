@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.13
+
+Fixed:
+- **Previews answer right after a big plan is placed.** A route or run preview asked just after a large plan lands no
+  longer waits behind that plan's checking work: over 20,000 just-placed ghosts a short route's preview answers in 5
+  frames, not 10 (as over 5,000; 3 on an empty board). A trial's questions to the game now go first, in their own share
+  of a frame's checking budget (at most 0.5 ms a frame, plus any time the board's checking leaves), so a stream of
+  previews, as when dragging a route, still leaves the plan's checking its time. The preview's own staged step goes
+  first too. Same verdicts and reasons; the checking budget a frame is unchanged.
+- `ApiVersion.ContractPatch` is 13 (no member added).
+
 ## 0.22.12
 
 Added:

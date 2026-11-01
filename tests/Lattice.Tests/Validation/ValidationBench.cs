@@ -131,6 +131,9 @@ internal sealed class ValidationBench
     /// <summary>The worker analyzers' own thread; none runs them on <see cref="Worker"/> right after a trial.</summary>
     public ManualWorker? AnalyzerWorker { get; init; }
 
+    /// <summary>The most of a frame trials' asks take ahead of the rest of the checking work.</summary>
+    public TimeSpan TrialAskSlice { get; init; } = ValidationParts.DefaultTrialAskSlice;
+
     public ValidationService Service { get; private set; } = null!;
 
     /// <summary>Every run's counts, in order.</summary>
@@ -154,7 +157,7 @@ internal sealed class ValidationBench
     {
         Mirror.Start(World, new FakeScan(World));
         Service = new ValidationService(new ValidationParts(
-            Board, TestBoard.Alice, Mirror, World, Placement, Pieces, Grid, Judge, Rules, Scheduler, Clock, Worker) { Analyzers = Analyzers, AnalyzerWorker = AnalyzerWorker });
+            Board, TestBoard.Alice, Mirror, World, Placement, Pieces, Grid, Judge, Rules, Scheduler, Clock, Worker) { Analyzers = Analyzers, AnalyzerWorker = AnalyzerWorker, TrialAskSlice = TrialAskSlice });
         Service.Ran += Runs.Add;
         Service.Start();
         return this;

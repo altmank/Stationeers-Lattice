@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.22.13
+- Fixed: route and run previews answer in a few frames right after a big plan is placed, instead of waiting behind the plan's checking.
+
 v0.22.12
 - Added: mods can alternate two icons over a ghost, such as the spray can in its paint colour beside a name tag, and style painted and named ghosts separately.
 
