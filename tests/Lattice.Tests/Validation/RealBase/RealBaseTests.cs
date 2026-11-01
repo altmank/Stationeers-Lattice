@@ -17,7 +17,9 @@ namespace Lattice.Tests.Validation.RealBase;
 /// base's own pieces planned as 5,000 ghosts over an empty world, the world loaded again from the save, 5,000 ghosts
 /// planned over the standing base, and a new wing of 5,000 frames. Every plan's answers become ready, and the checking
 /// work the scheduler runs in a frame stays within the checking budget plus one step's allowance (as the 10,000-ghost
-/// scale test allows) at the 95th percentile, every frame counted with the collector pauses in it. The 99th percentile
+/// scale test allows) at the 95th percentile, every frame counted with the collector pauses in it, and judged as the
+/// scale test judges it: the scheduler's checking time, but no more than the frame's thread CPU plus its collector
+/// pauses, so time the thread sat descheduled on a shared machine is not taken for Lattice's. The 99th percentile
 /// and the worst frames, with their pauses, are reported, not asserted: on a heap holding a 36,000-structure base a full
 /// collection takes tens of milliseconds, set mostly by what the base keeps alive, and a run of a few dozen frames on a
 /// loaded machine has a frame or two where the thread waits a scheduler quantum (about 15 ms) on next to no work.
@@ -73,7 +75,7 @@ public sealed class RealBaseTests(ITestOutputHelper output)
 
         Assert.All(phases, phase => Assert.True(phase.Times.Settled, $"{phase.Name}: answers not ready in {Limit.TotalSeconds} s"));
         foreach (var (name, times) in phases)
-            Assert.True(times.P95Checking <= Allowance, $"{name}: {times}");
+            Assert.True(times.P95JudgedChecking <= Allowance, $"{name}: {times}");
     }
 
     private static BaseFrameTimes Phase(RealBaseBench bench, Command command)

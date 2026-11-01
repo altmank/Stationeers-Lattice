@@ -31,6 +31,7 @@ namespace Lattice.Tests.Validation.RealBase;
 /// </summary>
 internal sealed class RealBaseBench : IDisposable
 {
+    private static readonly Lazy<ThreadCpu> CpuClock = new(ThreadCpu.Calibrate);
     private readonly FakePlacementCheck _check = new();
     private readonly List<string> _log = new();
     private PlanSaving? _saving;
@@ -45,6 +46,9 @@ internal sealed class RealBaseBench : IDisposable
     }
 
     public FakeCatalogue Catalogue { get; }
+
+    /// <summary>The main thread's CPU clock, calibrated once per test process.</summary>
+    public static ThreadCpu Cpu => CpuClock.Value;
 
     public LoadedSave Save { get; }
 
@@ -118,14 +122,19 @@ internal sealed class RealBaseBench : IDisposable
         var ready = TimeSpan.Zero;
         while (all.Elapsed < limit)
         {
-            var paused = GC.GetTotalPauseDuration();
+            var before = Collector.Now();
+            var cycles = Cpu.Now();
             var frame = Stopwatch.StartNew();
             Lattice.Frame();
             frame.Stop();
+            var cpu = Cpu.Between(cycles, Cpu.Now());
+            var gc = Collector.Now() - before;
             frames.Add(new BaseFrame(
                 frame.Elapsed.TotalMilliseconds,
                 Lattice.Scheduler.Spent(WorkKind.Checking).TotalMilliseconds,
-                (GC.GetTotalPauseDuration() - paused).TotalMilliseconds));
+                gc.Pause.TotalMilliseconds,
+                Cpu.Measures ? cpu.TotalMilliseconds : frame.Elapsed.TotalMilliseconds,
+                gc));
             idleFrames = Lattice.ValidationModule is { Busy: true } || !AnswersReady() ? 0 : idleFrames + 1;
             if (idleFrames == 1)
                 ready = all.Elapsed;
@@ -183,8 +192,41 @@ internal sealed class RealBaseBench : IDisposable
     }
 }
 
-/// <summary>One frame's cost in milliseconds: whole, the checking work in it, and the GC pause in it.</summary>
-internal readonly record struct BaseFrame(double Whole, double Checking, double Gc);
+/// <summary>
+/// One frame's cost in milliseconds: whole, the checking work in it, the GC pause in it, the main thread's CPU time in it
+/// (whole when the thread's CPU is not measured), and the collector's counts over it.
+/// </summary>
+internal readonly record struct BaseFrame(double Whole, double Checking, double Gc, double Cpu, Collector Collector)
+{
+    /// <summary>
+    /// Checking on Lattice's own cost: the scheduler's wall time for it, but no more than the frame's thread CPU plus
+    /// its collector pauses. Checking's own CPU and pauses fit in both, so a frame never judges below them; what the
+    /// cap takes off is time the thread was not running and not paused for a collection (descheduled on a shared machine).
+    /// </summary>
+    public double JudgedChecking => Math.Min(Checking, Cpu + Gc);
+
+    /// <summary>Wall time the frame's thread spent neither running nor in a collector pause.</summary>
+    public double Stall => Math.Max(0, Whole - Cpu - Gc);
+}
+
+/// <summary>
+/// The collector's process-wide counters: collections by generation, pause time, and bytes allocated on every thread
+/// (Lattice's worker and rule threads too). A difference of two readings is what happened between them.
+/// </summary>
+internal readonly record struct Collector(int Gen0, int Gen1, int Gen2, TimeSpan Pause, long Allocated)
+{
+    public static Collector Now() =>
+        new(GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2), GC.GetTotalPauseDuration(), GC.GetTotalAllocatedBytes());
+
+    public static Collector operator -(Collector after, Collector before) =>
+        new(after.Gen0 - before.Gen0, after.Gen1 - before.Gen1, after.Gen2 - before.Gen2, after.Pause - before.Pause, after.Allocated - before.Allocated);
+
+    public static Collector operator +(Collector a, Collector b) =>
+        new(a.Gen0 + b.Gen0, a.Gen1 + b.Gen1, a.Gen2 + b.Gen2, a.Pause + b.Pause, a.Allocated + b.Allocated);
+
+    public override string ToString() =>
+        $"gen0/1/2 {Gen0}/{Gen1}/{Gen2}, pause {Pause.TotalMilliseconds:F1} ms, allocated {Allocated / 1048576.0:F1} MB";
+}
 
 /// <summary>
 /// Frame costs over a run, the time until answers were ready, and whether the run settled. Every frame counts,
@@ -196,6 +238,8 @@ internal sealed record BaseFrameTimes(List<BaseFrame> Frames, TimeSpan Ready, bo
 
     public double P99Checking => Percentile(Frames.Select(frame => frame.Checking), 0.99);
 
+    public double P95JudgedChecking => Percentile(Frames.Select(frame => frame.JudgedChecking), 0.95);
+
     public BaseFrame WorstChecking => Frames.OrderByDescending(frame => frame.Checking).FirstOrDefault();
 
     public BaseFrame WorstWhole => Frames.OrderByDescending(frame => frame.Whole).FirstOrDefault();
@@ -204,7 +248,12 @@ internal sealed record BaseFrameTimes(List<BaseFrame> Frames, TimeSpan Ready, bo
         $"answers ready in {Ready.TotalMilliseconds:F0} ms over {Frames.Count} frames (settled {Settled}); " +
         $"checking per frame p95 {P95Checking:F2} ms, p99 {P99Checking:F2} ms, worst {WorstChecking.Checking:F2} ms (collector pause in it {WorstChecking.Gc:F1} ms); " +
         $"whole frame median {Percentile(Frames.Select(f => f.Whole), 0.5):F2} ms, worst {WorstWhole.Whole:F2} ms (collector pause in it {WorstWhole.Gc:F1} ms); " +
-        $"{Frames.Count(f => f.Gc > 0)} frames with a collector pause, longest {Frames.Select(f => f.Gc).DefaultIfEmpty().Max():F1} ms";
+        $"{Frames.Count(f => f.Gc > 0)} frames with a collector pause, longest {Frames.Select(f => f.Gc).DefaultIfEmpty().Max():F1} ms; " +
+        $"worst checking frame {WorstChecking.Collector}; over the run {Frames.Aggregate(default(Collector), (sum, f) => sum + f.Collector)}; " +
+        $"judged checking (thread CPU and pauses) p95 {P95JudgedChecking:F2} ms; " +
+        $"slowest checking frames (checking, judged, thread CPU, pause, stall ms): {string.Join("; ", Frames.OrderByDescending(f => f.Checking).Take(3).Select(f => $"{f.Checking:F2} {f.JudgedChecking:F2} {f.Cpu:F2} {f.Gc:F1} {f.Stall:F2}"))}; " +
+        $"checking p95 in frames without a collection {Percentile(Frames.Where(f => f.Gc == 0).Select(f => f.Checking), 0.95):F2} ms; " +
+        $"frames with a collection (checking ms, collector): {string.Join("; ", Frames.Where(f => f.Gc > 0).Select(f => $"{f.Checking:F2} ms, {f.Collector}"))}";
 
     private static double Percentile(IEnumerable<double> values, double p)
     {

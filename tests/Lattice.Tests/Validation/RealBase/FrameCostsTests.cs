@@ -98,7 +98,7 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
         Assert.True(steady.Frames.Count(f => f.Saving > 0) == 0, steady.ToString());
         Assert.True(completion.Settled && completion.Frames.Count(f => f.Sweeping) <= SweepFrames, completion.ToString());
         Assert.True(bench.Saving.Pending == 0 && saved.Frames.Count <= SavingFrames, saved.ToString());
-        Assert.True(spawn.Concat(completion.Frames).Concat(saved.Frames).Max(f => f.Saving - f.Gc) <= SavingFrame, saved.ToString());
+        Assert.True(spawn.Concat(completion.Frames).Concat(saved.Frames).Max(f => f.JudgedSaving - f.Gc) <= SavingFrame, saved.ToString());
     }
 
     /// <summary>
@@ -108,7 +108,14 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
     /// background collection keeps the thread waiting far longer than the pause it reports. Compiling is reported, not
     /// taken off: Mono compiles a method on its first call too, which is why the first spawn is its own window.
     /// </summary>
-    private readonly record struct Frame(double Whole, double Checking, double Saving, double Gc, double Jit, bool Busy, bool Sweeping, bool Planning, int Queued);
+    private readonly record struct Frame(double Whole, double Checking, double Saving, double Gc, double Jit, bool Busy, bool Sweeping, bool Planning, int Queued, Collector Collector, double Cpu)
+    {
+        /// <summary>Saving on Lattice's own cost: its wall time, but no more than the frame's thread CPU plus its collector pauses.</summary>
+        public double JudgedSaving => Math.Min(Saving, Cpu + Gc);
+
+        /// <summary>Wall time the frame's thread spent neither running nor in a collector pause.</summary>
+        public double Stall => Math.Max(0, Whole - Cpu - Gc);
+    }
 
     private sealed record Window(string Name, List<Frame> Frames)
     {
@@ -124,7 +131,11 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
                    $"plan state working {Frames.Count(f => f.Planning)} frames; sweeping {Frames.Count(f => f.Sweeping)} frames; busy {Frames.Count(f => f.Busy)}; " +
                    $"saving in {saving.Count} frames, {saving.Sum(f => f.Saving):F1} ms in all, median {Median(saving.Select(f => f.Saving)):F3} ms, max {Max(saving.Select(f => f.Saving)):F3} ms " +
                    $"({Max(saving.Select(f => f.Saving - f.Gc)):F3} ms without collector pauses); compiling {Frames.Sum(f => f.Jit):F1} ms in all, max {Max(Frames.Select(f => f.Jit)):F3} ms; " +
-                   $"saving queued at the end {Frames.LastOrDefault().Queued}";
+                   $"saving queued at the end {Frames.LastOrDefault().Queued}; " +
+                   $"collector over the window {Frames.Aggregate(default(Collector), (sum, f) => sum + f.Collector)}, " +
+                   $"in the worst saving frame {saving.OrderByDescending(f => f.Saving).FirstOrDefault().Collector}; " +
+                   $"saving judged on thread CPU and pauses {saving.Sum(f => f.JudgedSaving):F1} ms in all, max {Max(saving.Select(f => f.JudgedSaving)):F3} ms; " +
+                   $"stalled {Frames.Sum(f => f.Stall):F1} ms in all, in {Frames.Count(f => f.Stall > 0.1)} frames over 0.1 ms, max {Max(Frames.Select(f => f.Stall)):F3} ms";
         }
     }
 
@@ -142,11 +153,14 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
             var wall = Stopwatch.StartNew();
             while (wall.Elapsed < limit)
             {
-                var paused = GC.GetTotalPauseDuration();
+                var collector = Collector.Now();
                 var compiled = System.Runtime.JitInfo.GetCompilationTime();
+                var cycles = RealBaseBench.Cpu.Now();
                 var watch = Stopwatch.StartNew();
                 bench.Lattice.Frame();
                 watch.Stop();
+                var cpu = RealBaseBench.Cpu.Measures ? RealBaseBench.Cpu.Between(cycles, RealBaseBench.Cpu.Now()).TotalMilliseconds : watch.Elapsed.TotalMilliseconds;
+                var gc = Collector.Now() - collector;
                 var validation = bench.Lattice.ValidationModule!;
                 var plans = PlanStates.GetValue(bench.Lattice)!;
                 var planning = (bool)plans.GetType().GetField("_working", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(plans)!;
@@ -155,12 +169,14 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
                     watch.Elapsed.TotalMilliseconds,
                     bench.Lattice.Scheduler.Spent(WorkKind.Checking).TotalMilliseconds,
                     bench.Lattice.Scheduler.Spent(WorkKind.Saving).TotalMilliseconds,
-                    (GC.GetTotalPauseDuration() - paused).TotalMilliseconds,
+                    gc.Pause.TotalMilliseconds,
                     (System.Runtime.JitInfo.GetCompilationTime() - compiled).TotalMilliseconds,
                     busy,
                     (bool)Sweeping.GetValue(validation)!,
                     planning,
-                    bench.Saving.Pending));
+                    bench.Saving.Pending,
+                    gc,
+                    cpu));
                 window.Idle = busy || !bench.AnswersReady() ? 0 : window.Idle + 1;
                 if (until(window))
                     break;
