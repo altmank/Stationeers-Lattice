@@ -52,6 +52,36 @@ public sealed class BatchSaveTests
     }
 
     [Fact]
+    public void The_mode_word_is_not_saved_and_reads_as_default_until_the_builder_says_it_again()
+    {
+        using var world = new SavedWorld();
+        var executors = Executors(world);
+        var dock = Register(executors);
+        var a = world.Place(0);
+        TestKitIds.Must(dock.AcceptModes(new BuildModeAccess.OwnerAndHost(), (_, _) => Result<Unit, Reason>.Ok(Unit.Value)));
+        TestKitIds.Must(dock.SayMode(new BuildMode.Batch(), ValueList.Of(new SkippedGhost(a, new Reason(TestKitIds.Must(ReasonCode.Create(TestKitIds.Mod, "blocked")), ValueMap.Of("ghost", "a"), Option<string>.None, Builders.Dock)))));
+        TestKitIds.Must(dock.SetBatch(ValueSet.Of(a)));
+        var save = world.Save("one");
+
+        world.Load(Option.Some(save));
+        var loaded = Executors(world);
+        var again = Register(loaded);
+        var read = loaded.Find(Dock).Reduce(() => throw new Xunit.Sdk.XunitException("no dock"));
+
+        Assert.True(read.Mode.IsNone);
+        Assert.Empty(read.BatchSkipped);
+        Assert.IsType<BuildModeAccess.None>(read.ControlledBy);
+        Assert.Equal(1, read.BatchLeft);
+
+        TestKitIds.Must(again.SayMode(new BuildMode.Off(), ValueList<SkippedGhost>.Empty));
+        TestKitIds.Must(again.AcceptModes(new BuildModeAccess.Anyone(), (_, _) => Result<Unit, Reason>.Ok(Unit.Value)));
+        var said = loaded.Find(Dock).Reduce(() => throw new Xunit.Sdk.XunitException("no dock"));
+
+        Assert.Equal(Option.Some<BuildMode>(new BuildMode.Off()), said.Mode);
+        Assert.IsType<BuildModeAccess.Anyone>(said.ControlledBy);
+    }
+
+    [Fact]
     public void A_set_whose_builder_has_not_registered_yet_still_loses_ghosts_that_leave()
     {
         using var world = new SavedWorld();

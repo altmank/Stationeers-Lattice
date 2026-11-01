@@ -124,6 +124,15 @@ public sealed class MovingLineTests
     }
 
     [Fact]
+    public void Motion_off_draws_the_dashes_still()
+    {
+        var off = new StyleLayerDescriptor(Layer("still"), StyleBand.Theme, 1, ValueList<StyleRule>.Empty) { Motion = Option.Some(Motion.Off) };
+        var (_, rig) = Drawn(Ants(dash: 0.3f, speed: 2f), extra: off);
+
+        Assert.Equal(new Vector4(1f, 3f, 0.3f, 0f), Assert.Single(rig.Gpu.Draws).Block[ShaderProp.Edge]);
+    }
+
+    [Fact]
     public void The_ants_material_is_lattices_own_and_a_consumer_reads_it()
     {
         var bench = new StyleBench();

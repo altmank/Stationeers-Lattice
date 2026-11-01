@@ -212,6 +212,33 @@ public sealed class BuildModeTests
     }
 
     [Fact]
+    public void A_handler_that_throws_leaves_the_call_changes_no_board_and_the_next_request_is_answered()
+    {
+        var bench = new ModeBench();
+        var dock = bench.Register("dock");
+        TestKitIds.Must(dock.AcceptModes(new BuildModeAccess.Anyone(), (_, _) => throw new System.InvalidOperationException("dock broke")));
+        var board = bench.Host.T.Board;
+        var revision = board.Revision;
+        var committed = 0;
+        var changed = 0;
+        board.Committed += _ => committed++;
+        bench.Host.T.Events.Changed += _ => changed++;
+
+        var thrown = Assert.Throws<System.InvalidOperationException>(() => bench.Ask(new BuildMode.On()));
+        bench.Host.Frame();
+        bench.Host.T.Events.Flush();
+
+        Assert.Equal("dock broke", thrown.Message);
+        Assert.Equal(revision, board.Revision);
+        Assert.Equal(0, committed);
+        Assert.Equal(0, changed);
+
+        TestKitIds.Must(dock.AcceptModes(new BuildModeAccess.Anyone(), (_, _) => Result<Unit, Reason>.Ok(Unit.Value)));
+        Assert.IsType<Outcome.Accepted>(bench.Ask(new BuildMode.Off()));
+        Assert.Equal(revision, board.Revision);
+    }
+
+    [Fact]
     public void A_mode_request_inside_a_batch_is_refused_as_no_board_change()
     {
         var bench = new ModeBench();
