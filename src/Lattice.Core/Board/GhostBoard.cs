@@ -522,9 +522,9 @@ internal sealed partial class GhostBoard
     {
         var drafts = place.Ghosts;
         var kept = new GhostEntry?[drafts.Count];
-        var draftSpots = new Dictionary<SpotKey, int>();
+        var draftSpots = new Dictionary<SpotKey, int>(drafts.Count);
         var draftTargets = new Dictionary<ReferenceId, int>();
-        var draftCells = new Dictionary<Cell, List<int>>();
+        var draftCells = new Dictionary<Cell, List<int>>(drafts.Count);
         var replaced = new Dictionary<GhostId, int>();
         var plans = new SortedSet<long>();
 

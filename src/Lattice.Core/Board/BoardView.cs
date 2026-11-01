@@ -46,9 +46,10 @@ internal sealed class BoardView(GhostBoard board, Actor viewer) : IGhostBoard
     public ValueList<Ghost> At(Cell cell)
     {
         Fresh();
-        if (!_at.TryGetValue(cell, out var ghosts))
-            _at[cell] = ghosts = Visible(board.Index.InCell(cell));
-        return ghosts;
+        if (_at.TryGetValue(cell, out var ghosts))
+            return ghosts;
+        var ids = board.Index.InCell(cell);
+        return ids.Count == 0 ? ValueList<Ghost>.Empty : _at[cell] = Visible(ids);
     }
 
     public ValueList<Ghost> On(StructureRef structure)
@@ -99,22 +100,35 @@ internal sealed class BoardView(GhostBoard board, Actor viewer) : IGhostBoard
     {
         if (ids.Count == 0)
             return ValueList<Ghost>.Empty;
-        var keys = new List<long>(ids.Count);
-        var ghosts = new List<Ghost>(ids.Count);
-        foreach (var id in ids)
+        var ghosts = new Ghost[ids.Count];
+        var seen = 0;
+        if (ids is HashSet<GhostId> set)
+            foreach (var id in set)
+                Take(id);
+        else
+            foreach (var id in ids)
+                Take(id);
+
+        if (seen == 0)
+            return ValueList<Ghost>.Empty;
+        if (seen < ghosts.Length)
+            Array.Resize(ref ghosts, seen);
+        if (seen > 1)
+        {
+            var keys = new long[seen];
+            for (var i = 0; i < seen; i++)
+                keys[i] = ghosts[i].Id.Value;
+            Array.Sort(keys, ghosts);
+        }
+
+        return Lists.Own(ghosts);
+
+        void Take(GhostId id)
         {
             var ghost = board.Index.Ghosts[id].Ghost;
             if (board.Policies.MaySee(Viewer, ghost))
-            {
-                keys.Add(id.Value);
-                ghosts.Add(ghost);
-            }
+                ghosts[seen++] = ghost;
         }
-
-        var keyArray = keys.ToArray();
-        var ghostArray = ghosts.ToArray();
-        Array.Sort(keyArray, ghostArray);
-        return Lists.Own(ghostArray);
     }
 
     private void Fresh()

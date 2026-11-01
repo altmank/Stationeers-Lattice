@@ -155,6 +155,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     private ChangeSet? _set;
     private ChangeSplit? _split;
     private Building? _building;
+    private readonly LineChecksum.Running _checksum = new();
     private WorldFolder.CheckpointWrite? _checkpoint;
     private long _queuedChars;
     private readonly List<SavePoint> _records = new();
@@ -577,7 +578,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         var line = ChangeLine.For(new LineNumber(number), follows == 0 ? Option<LineNumber>.None : Option.Some(new LineNumber(follows)), set, part.Ops);
         if (!_states.TryGetValue(part.Plan, out var state))
             _states[part.Plan] = state = new PlanReplay(part.Plan);
-        _building = new Building(part.Plan, new LineInParts(line, state), state, state.Finished);
+        _building = new Building(part.Plan, new LineInParts(line, state, _checksum), state, state.Finished);
     }
 
     private void Built(Building building)

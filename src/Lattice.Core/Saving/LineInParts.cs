@@ -6,20 +6,22 @@ namespace Lattice.Core.Saving;
 /// <summary>
 /// One plan's change line written a few operations at a time: the text <see cref="PlanFileForm.Append"/> gives, its
 /// checksum carried along, and each operation applied to the plan's replay as it is written. Main thread; linear in
-/// the operations written.
+/// the operations written. The checksum's buffers are the saving's, one line at a time.
 /// </summary>
 internal sealed class LineInParts
 {
     private readonly ChangeLine _line;
     private readonly PlanReplay _state;
     private readonly StringBuilder _text;
-    private readonly LineChecksum.Running _checksum = new();
+    private readonly LineChecksum.Running _checksum;
     private int _next;
 
-    public LineInParts(ChangeLine line, PlanReplay state)
+    public LineInParts(ChangeLine line, PlanReplay state, LineChecksum.Running checksum)
     {
         _line = line;
         _state = state;
+        _checksum = checksum;
+        _checksum.Reset();
         _text = new StringBuilder(160 + (line.Ops.Count * 120));
         ChangeLineForm.WriteHeader(_text, line);
         _checksum.Add(_text, 0);

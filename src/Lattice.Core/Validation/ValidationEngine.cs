@@ -188,6 +188,8 @@ internal sealed class ValidationEngine
             {
                 Run([new WorkInput.Ghosts(changes.Revision, ValueList.From(upserts), ValueList.From(gone), Reset: false)]);
                 staged = _staged;
+                if (staged is not null)
+                    _order.Keep(staged);
                 outcome = TrialOf(tried, _lastOrdering!, _lastReport!);
             }
             finally

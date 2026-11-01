@@ -160,6 +160,9 @@ internal static class LineChecksum
         private char[] _chars = new char[256];
         private byte[] _bytes = new byte[1024];
 
+        /// <summary>Starts another checksum, keeping the buffers.</summary>
+        public void Reset() => _crc = 0xFFFFFFFFu;
+
         /// <summary>Adds the characters of <paramref name="text"/> from <paramref name="start"/> to its end.</summary>
         public void Add(StringBuilder text, int start)
         {

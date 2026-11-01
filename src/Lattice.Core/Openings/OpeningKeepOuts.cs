@@ -60,6 +60,7 @@ internal sealed class OpeningKeepOuts(IWorldQuery world, Shapes shapes, IOpening
     private const int SmallStep = 5;
     private const int MostReleased = 16;
 
+    private readonly List<Face> _noFaces = [];
     private readonly Dictionary<Cell, List<Face>> _faces = [];
     private readonly HashSet<Cell> _read = [];
     private readonly HashSet<Cell> _around = [];
@@ -87,7 +88,7 @@ internal sealed class OpeningKeepOuts(IWorldQuery world, Shapes shapes, IOpening
     {
         if (_around.Add(large))
             ReadAround(large);
-        return _faces.TryGetValue(large, out var faces) ? faces : [];
+        return _faces.TryGetValue(large, out var faces) ? faces : _noFaces;
     }
 
     private void ReadAround(Cell large)

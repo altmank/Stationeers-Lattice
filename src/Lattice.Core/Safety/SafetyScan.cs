@@ -17,6 +17,7 @@ namespace Lattice.Core.Safety;
 internal sealed class SafetyScan
 {
     private readonly Dictionary<PrefabKey, Option<PieceFacts>> _pieces = [];
+    private readonly Dictionary<Placement, Option<PlacedShape>> _shapes = [];
     private HashSet<GasKind>? _oxidisers;
 
     public SafetyScan(IReadOnlyList<Ghost> plan, IGhostBoard board, IWorldView world, ICatalogue catalogue, IGrid grid, ISafetyFacts facts, SafetyLimits limits, bool onlyThese = false)
@@ -104,8 +105,12 @@ internal sealed class SafetyScan
     }
 
     /// <summary>The placement's shape; none for a piece the catalogue does not hold.</summary>
-    public Option<PlacedShape> Shape(Placement placement) =>
-        Shapes.Of(placement).Match(static s => Option.Some(s), static _ => Option<PlacedShape>.None);
+    public Option<PlacedShape> Shape(Placement placement)
+    {
+        if (!_shapes.TryGetValue(placement, out var shape))
+            _shapes[placement] = shape = Shapes.Of(placement).Match(static s => Option.Some(s), static _ => Option<PlacedShape>.None);
+        return shape;
+    }
 
     /// <summary>The shape of a structure as it stands.</summary>
     public Option<PlacedShape> Shape(StructureInfo info) => Shape(new Placement(info.Ref.Piece, info.Ref.At, info.Turn));

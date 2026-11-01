@@ -16,6 +16,7 @@ namespace Lattice.Core.Support;
 /// something in one of those cells (<see cref="Changed"/>); merges since are followed through the union-find. Pipes
 /// placed in the stage so far are found by cell. A ghost's question costs its ends, not the stage's size.
 /// </para>
+/// <para>One instance serves walk after walk: <see cref="Reset"/> starts the next.</para>
 /// </summary>
 internal sealed class PipeNetworks(ICatalogue catalogue, WorldModels models)
 {
@@ -30,8 +31,50 @@ internal sealed class PipeNetworks(ICatalogue catalogue, WorldModels models)
     private readonly Dictionary<GhostId, Reach> _reach = [];
     private readonly Dictionary<Cell, int> _changedIn = [];
     private readonly List<Node> _roots = new(4);
+    private readonly Stack<List<(PieceModel Model, Node Node)>> _spare = new();
+
+    // Pipe models by structure, kept from one walk to the next while the structure stands the same: those read in the
+    // last walk or this one.
+    private Dictionary<ReferenceId, Modelled> _models = [];
+    private Dictionary<ReferenceId, Modelled> _modelsNow = [];
     private readonly Reach _noPipe = new(null, []);
     private int _number;
+
+    /// <summary>Forgets every network and read for another walk, keeping its room.</summary>
+    public void Reset()
+    {
+        _parent.Clear();
+        foreach (var here in _stage.Values)
+        {
+            here.Clear();
+            _spare.Push(here);
+        }
+
+        _stage.Clear();
+        _reach.Clear();
+        _changedIn.Clear();
+        _roots.Clear();
+        _number = 0;
+        (_models, _modelsNow) = (_modelsNow, _models);
+        _modelsNow.Clear();
+    }
+
+    // The structure's model, the one made before while its piece, cell and turn are the same.
+    private Modelled ModelOf(ReferenceId id, PrefabKey piece, Cell at, Turn turn, PieceFacts facts, StructureInfo? info)
+    {
+        if (!(_modelsNow.TryGetValue(id, out var held) || _models.TryGetValue(id, out held)) || held.Piece != piece || held.At != at || held.Turn != turn)
+        {
+            var model = models.Piece(info ?? SupportWorld.AssumedInfo(new GhostId(-id.Value), new Placement(piece, at, turn)), facts);
+            var into = new List<Cell>(model.Ends.Count);
+            foreach (var end in model.Ends)
+                if (!into.Contains(end.Into))
+                    into.Add(end.Into);
+            held = new Modelled(piece, at, turn, model, into);
+        }
+
+        _modelsNow[id] = held;
+        return held;
+    }
 
     /// <summary>A new stage: pipes placed in it so far are linked through <see cref="Accept"/>, not the world.</summary>
     public void StartStage(int number)
@@ -60,7 +103,7 @@ internal sealed class PipeNetworks(ICatalogue catalogue, WorldModels models)
         foreach (var cell in model.Cells)
         {
             if (!_stage.TryGetValue(cell, out var here))
-                _stage.Add(cell, here = new List<(PieceModel, Node)>(1));
+                _stage.Add(cell, here = _spare.Count > 0 ? _spare.Pop() : new List<(PieceModel, Node)>(1));
             here.Add((model, self));
         }
     }
@@ -101,7 +144,7 @@ internal sealed class PipeNetworks(ICatalogue catalogue, WorldModels models)
             {
                 if (info.Ref.Id == self || !catalogue.Piece(info.Ref.Piece).TryGet(out var facts) || !HasPipeEnd(facts))
                     continue;
-                var other = models.Piece(info, facts);
+                var other = ModelOf(info.Ref.Id, info.Ref.Piece, info.Ref.At, info.Turn, facts, info).Model;
                 if (Connectivity.Links(model, other) || Connectivity.Links(other, model))
                     AddOnce(reach.World, NodeOf(placed, info));
             }
@@ -122,12 +165,8 @@ internal sealed class PipeNetworks(ICatalogue catalogue, WorldModels models)
 
     private Reach New(GhostId ghost, Placement put, PieceFacts piece)
     {
-        var model = models.Piece(SupportWorld.AssumedInfo(ghost, put), piece);
-        var into = new List<Cell>(model.Ends.Count);
-        foreach (var end in model.Ends)
-            if (!into.Contains(end.Into))
-                into.Add(end.Into);
-        return new Reach(model, into);
+        var modelled = ModelOf(SupportWorld.IdOf(ghost), put.Piece, put.At, put.Turn, piece, null);
+        return new Reach(modelled.Model, modelled.Into);
     }
 
     private Node NodeOf(SupportWorld placed, StructureInfo info)
@@ -167,6 +206,9 @@ internal sealed class PipeNetworks(ICatalogue catalogue, WorldModels models)
         if (!nodes.Contains(node))
             nodes.Add(node);
     }
+
+    /// <summary>A structure's pipe model as it stood (piece, cell, turn), and the distinct cells its ends reach into.</summary>
+    private readonly record struct Modelled(PrefabKey Piece, Cell At, Turn Turn, PieceModel Model, List<Cell> Into);
 
     /// <summary>A ghost's pipe as the walk last read it; no model for a piece with no pipe end.</summary>
     private sealed class Reach(PieceModel? model, List<Cell> into)

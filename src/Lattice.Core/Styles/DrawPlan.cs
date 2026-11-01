@@ -30,13 +30,17 @@ internal readonly record struct BatchKey(PrefabKey Piece, PartKind Part, Signatu
 internal readonly record struct DrawInstance(Cell At, Turn Turn, Thing Thing);
 
 /// <summary>
-/// A batch: instances in preallocated pages of 1023 (the <c>DrawMeshInstanced</c> limit the game also uses,
-/// <c>RenderBatch.cs:11</c>). Adding and removing are constant cost (removal moves the last instance into the gap);
+/// A batch: instances in pages of 1023 (the <c>DrawMeshInstanced</c> limit the game also uses,
+/// <c>RenderBatch.cs:11</c>). A page starts at <see cref="FirstPage"/> instances and doubles up to 1023, so a batch of a
+/// few things holds a few slots. Adding and removing are amortised constant cost (removal moves the last instance into the gap);
 /// <see cref="Version"/> rises with each edit so the renderer rebuilds its matrices only for edited batches.
 /// </summary>
 internal sealed class Batch
 {
     public const int PageSize = 1023;
+
+    /// <summary>The slots a page starts with before it doubles.</summary>
+    public const int FirstPage = 16;
 
     private readonly List<DrawInstance[]> _pages = new(1);
     private readonly Func<Signature, ResolvedLook> _look;
@@ -45,7 +49,7 @@ internal sealed class Batch
     {
         Key = key;
         _look = look;
-        _pages.Add(new DrawInstance[PageSize]);
+        _pages.Add(new DrawInstance[FirstPage]);
     }
 
     public BatchKey Key { get; private set; }
@@ -90,8 +94,19 @@ internal sealed class Batch
 
     public void Add(Thing thing)
     {
-        if (Count == _pages.Count * PageSize)
-            _pages.Add(new DrawInstance[PageSize]);
+        var last = _pages.Count - 1;
+        if (Count == last * PageSize + _pages[last].Length)
+        {
+            if (_pages[last].Length < PageSize)
+            {
+                var grown = new DrawInstance[Math.Min(PageSize, 2 * _pages[last].Length)];
+                Array.Copy(_pages[last], grown, _pages[last].Length);
+                _pages[last] = grown;
+            }
+            else
+                _pages.Add(new DrawInstance[FirstPage]);
+        }
+
         thing.Batch = this;
         thing.BatchSlot = Count;
         Set(Count++, new DrawInstance(thing.At, thing.Turn, thing));

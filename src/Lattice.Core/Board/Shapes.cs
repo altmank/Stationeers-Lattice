@@ -249,14 +249,12 @@ internal sealed class Shapes(ICatalogue catalogue, IGrid grid)
     private WorldEnd End(Placement placement, ConnectionEnd end)
     {
         var (cell, facing) = Leaving(placement, end);
-        var point = end.Reach.Map(reach =>
-        {
-            var unit = facing.Unit();
-            return new MillimetrePoint(
-                cell.X * 100L + unit.X * (long)reach.Value,
-                cell.Y * 100L + unit.Y * (long)reach.Value,
-                cell.Z * 100L + unit.Z * (long)reach.Value);
-        });
-        return new WorldEnd(cell, facing, point);
+        if (!end.Reach.TryGet(out var reach))
+            return new WorldEnd(cell, facing, Option<MillimetrePoint>.None);
+        var unit = facing.Unit();
+        return new WorldEnd(cell, facing, Option.Some(new MillimetrePoint(
+            cell.X * 100L + unit.X * (long)reach.Value,
+            cell.Y * 100L + unit.Y * (long)reach.Value,
+            cell.Z * 100L + unit.Z * (long)reach.Value)));
     }
 }

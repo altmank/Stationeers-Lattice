@@ -54,6 +54,20 @@ internal sealed class AssumedIndex
 
     public AssumedChange this[int index] => _changes[index];
 
+    /// <summary>Empties the index for another pass, keeping its room and making room for about <paramref name="changes"/> changes.</summary>
+    public void Clear(int changes = 0)
+    {
+        _changes.Clear();
+        if (_changes.Capacity < changes)
+            _changes.Capacity = changes;
+        _putsAt.Clear(changes, changes);
+        _puts.Clear();
+        _puts.EnsureCapacity(changes);
+        _takes.Clear();
+        _fine.Clear(changes, changes);
+        _coarse.Clear(0, changes);
+    }
+
     /// <summary>
     /// The ghost's placement stands from the end of its stage, as <paramref name="info"/> when given (it must be
     /// <see cref="SupportWorld.AssumedInfo"/> of the ghost and placement).
@@ -140,6 +154,15 @@ internal sealed class AssumedIndex
         }
 
         public Chain Of(Cell cell) => _ends.TryGetValue(cell, out var ends) ? new Chain(_next, ends.First) : default;
+
+        public void Clear(int cells, int indices)
+        {
+            _ends.Clear();
+            _ends.EnsureCapacity(cells);
+            _next.Clear();
+            if (_next.Capacity < indices)
+                _next.Capacity = indices;
+        }
     }
 }
 

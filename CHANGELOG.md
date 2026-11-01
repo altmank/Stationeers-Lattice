@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.14
+
+Fixed:
+- **Shorter collector pauses on big boards.** Placing a 5,000-ghost plan over a large base makes about a third less
+  garbage (on a 36,000-structure base: 150 MB down to 94 MB for the first plan, 117 MB down to 78 MB for a plan over the
+  standing base), so the game's collector stops the frame less often and for less time. The main thread makes 45% less
+  for a new plan: a draw batch now starts with room for 16 ghosts and doubles, instead of 1,023 at once, and build
+  safety no longer rebuilds each ghost's shape for each check or keeps empty cells. Validation's worker reuses its build
+  order's room from run to run, and a plan with many pipe joins no longer copies its waiting list at every stage. Same
+  verdicts, reasons and saved files.
+
 ## 0.22.13
 
 Fixed:

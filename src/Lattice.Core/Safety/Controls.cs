@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
@@ -47,14 +48,16 @@ internal static class Controls
             at.Spot = 0;
         }
 
+        Span<Cell> around = stackalloc Cell[6];
         while (at.Spot < shape.Spots.Count)
         {
             if (reads <= 0)
                 return false;
-            foreach (var near in Around(scan, shape.Spots[at.Spot++], shape.Piece.Grid))
+            var count = Around(scan, shape.Spots[at.Spot++], shape.Piece.Grid, around);
+            for (var i = 0; i < count; i++)
             {
                 reads--;
-                foreach (var info in scan.Planned.At(near))
+                foreach (var info in scan.Planned.At(around[i]))
                     if (looked.Add(info.Ref.Id))
                         Check(scan, info);
             }
@@ -63,19 +66,19 @@ internal static class Controls
         return true;
     }
 
-    /// <summary>The cells next to a spot at the piece's grid; for a face, next to both its large cells.</summary>
-    private static IEnumerable<Cell> Around(SafetyScan scan, SpotKey spot, GridSize grid)
+    /// <summary>The cells next to a spot at the piece's grid, into <paramref name="into"/> (room for six); for a face, both its large cells. Gives how many.</summary>
+    private static int Around(SafetyScan scan, SpotKey spot, GridSize grid, Span<Cell> into)
     {
         if (SafetyScan.IsFace(spot.Slot))
         {
-            var (negative, positive) = scan.SidesOf(spot);
-            yield return negative;
-            yield return positive;
-            yield break;
+            (into[0], into[1]) = scan.SidesOf(spot);
+            return 2;
         }
 
+        var count = 0;
         for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
-            yield return scan.Grid.Neighbour(spot.Cell, direction, grid);
+            into[count++] = scan.Grid.Neighbour(spot.Cell, direction, grid);
+        return count;
     }
 
     private static void Check(SafetyScan scan, StructureInfo device)

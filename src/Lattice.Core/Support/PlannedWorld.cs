@@ -34,6 +34,8 @@ internal sealed class PlannedWorld(IGhostBoard board, IWorldQuery world, ISet<Gh
 
         var real = world.At(cell);
         var ghosts = board.At(cell);
+        if (real.Count == 0 && ghosts.Count == 0)
+            return ValueList<StructureInfo>.Empty;
         var here = new List<StructureInfo>(real.Count + ghosts.Count);
         foreach (var info in real)
             if (!Taken(info.Ref))

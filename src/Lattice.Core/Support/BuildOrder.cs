@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Lattice.Api;
@@ -9,18 +10,37 @@ namespace Lattice.Core.Support;
 
 /// <summary>
 /// One ghost in a build order: what it puts and takes, and the edges to the ghosts it goes after. A run over a large
-/// plan makes one per ghost, and most have no edge of some kind, so an edge list exists once it has an edge.
+/// plan has one per ghost, and most have no edge of some kind, so an edge list exists once it has an edge. A run
+/// reuses the items of the run before the last one (<see cref="Reset"/>), edge lists and all.
 /// </summary>
-internal sealed class OrderItem(Ghost ghost, int index)
+internal sealed class OrderItem
 {
     private List<int>? _waits;
     private List<int>? _before;
     private List<int>? _next;
     private List<int>? _leaves;
 
-    public Ghost Ghost => ghost;
+    public OrderItem(Ghost ghost, int index) => (Ghost, Index) = (ghost, index);
 
-    public int Index => index;
+    public Ghost Ghost { get; private set; }
+
+    public int Index { get; private set; }
+
+    /// <summary>The item for another ghost: no put, take, facts, edges, cycle or stage.</summary>
+    public void Reset(Ghost ghost, int index)
+    {
+        (Ghost, Index) = (ghost, index);
+        _waits?.Clear();
+        _before?.Clear();
+        _next?.Clear();
+        _leaves?.Clear();
+        Put = Option<Placement>.None;
+        Facts = Option<PieceFacts>.None;
+        Take = Option<StructureRef>.None;
+        Assumed = null;
+        InCycle = false;
+        Stage = -1;
+    }
 
     public Option<Placement> Put { get; set; }
 
@@ -144,32 +164,72 @@ internal sealed class OrderRun
     private readonly Shapes _shapes;
     private readonly WorldModels _models;
 
+    // Room one run leaves for the next. The all-builds view and the scratch below live only while a run orders. Items
+    // and staged views come in two sets used turn about, as the last run's ordering is read until the next run ends; a
+    // staged view handed on (Keep) is replaced, never reused.
+    private readonly AssumedIndex _all = new();
+    private readonly AssumedIndex[] _stagedSets = [new(), new()];
+    private readonly PipeNetworks _networks;
+    private readonly List<OrderItem>[] _itemSets = [[], []];
+    private readonly List<OrderItem>[] _itemPools = [[], []];
+    private int _turn;
+    private Dictionary<GhostId, StructureInfo> _assumed = [];
+    private Dictionary<GhostId, StructureInfo> _assumedNext = [];
+    private readonly Dictionary<GhostId, int> _byGhost = [];
+    private readonly Dictionary<ReferenceId, int> _removers = [];
+    private readonly Dictionary<SpotKey, List<int>> _clearing = [];
+    private ValueList<GhostId>[] _turnsOn = [];
+    private int[] _remaining = [];
+    private int[] _index = [];
+    private int[] _low = [];
+    private bool[] _onStack = [];
+    private readonly Stack<int> _stack = new();
+    private readonly Stack<(int Node, int Edge)> _frames = new();
+    private readonly List<int> _ready = [];
+    private readonly List<int> _later = [];
+    private readonly List<int> _picked = [];
+    private readonly List<int> _newly = [];
+
     public OrderRun(ICatalogue catalogue, IGrid grid, IJudgeFacts facts)
     {
         _catalogue = catalogue;
         _facts = facts;
         _shapes = new Shapes(catalogue, grid);
         _models = new WorldModels(new FactsWorld(facts), catalogue, grid);
+        _networks = new PipeNetworks(catalogue, _models);
     }
 
     public Ordering Order(IReadOnlyList<Ghost> ghosts, IGhostJudge judge)
     {
         var early = new List<Finding>();
         var items = Items(ghosts, early);
-        var all = new AssumedIndex(items.Count);
+        var all = _all;
+        all.Clear(items.Count);
         foreach (var item in items)
         {
             if (item.Put.TryGet(out var put))
-                all.Put(item.Ghost.Id, 0, put, item.Assumed ??= SupportWorld.AssumedInfo(item.Ghost.Id, put));
+                all.Put(item.Ghost.Id, 0, put, item.Assumed = Assumed(item.Ghost.Id, put));
             if (item.Take.TryGet(out var take))
                 all.Take(item.Ghost.Id, 0, take);
         }
 
-        var ordering = new Ordering(items, early, all, new AssumedIndex(items.Count));
+        (_assumed, _assumedNext) = (_assumedNext, _assumed);
+        _assumedNext.Clear();
+        var staged = _stagedSets[_turn];
+        staged.Clear(items.Count);
+        var ordering = new Ordering(items, early, all, staged);
         Edges(ordering, judge);
         Cycles(ordering);
         Walk(ordering);
         return ordering;
+    }
+
+    /// <summary>The staged view of an ordering this run made stays as it is: no later run reuses it.</summary>
+    public void Keep(AssumedIndex staged)
+    {
+        for (var i = 0; i < _stagedSets.Length; i++)
+            if (ReferenceEquals(_stagedSets[i], staged))
+                _stagedSets[i] = new AssumedIndex();
     }
 
     /// <summary>Judges every staged ghost on its stage's view, in build order; complete is false when any judgement is.</summary>
@@ -210,14 +270,32 @@ internal sealed class OrderRun
         return new OrderReport(ValueList.From(stages), ValueList.From(findings), ValueSet.From(ordering.Joins));
     }
 
+    // The ghost's assumed structure: the last run's when its placement is the same, so a run over a board that did not
+    // move makes none.
+    private StructureInfo Assumed(GhostId ghost, Placement put)
+    {
+        if (!_assumed.TryGetValue(ghost, out var info) || info.Ref.Piece != put.Piece || info.Ref.At != put.At || info.Turn != put.Turn)
+            info = SupportWorld.AssumedInfo(ghost, put);
+        _assumedNext[ghost] = info;
+        return info;
+    }
+
     private List<OrderItem> Items(IReadOnlyList<Ghost> ghosts, List<Finding> findings)
     {
-        var items = new List<OrderItem>(ghosts.Count);
+        _turn ^= 1;
+        var items = _itemSets[_turn];
+        var pool = _itemPools[_turn];
+        items.Clear();
+        var used = 0;
         foreach (var ghost in ghosts)
         {
             if (ghost.State is GhostState.Stale)
                 continue;
-            var item = new OrderItem(ghost, items.Count);
+            OrderItem item;
+            if (used < pool.Count)
+                (item = pool[used]).Reset(ghost, items.Count);
+            else
+                pool.Add(item = new OrderItem(ghost, items.Count));
             switch (ghost.Intent)
             {
                 case Intent.Build build:
@@ -250,6 +328,7 @@ internal sealed class OrderRun
             }
 
             items.Add(item);
+            used++;
         }
 
         return items;
@@ -260,9 +339,12 @@ internal sealed class OrderRun
     {
         var items = ordering.Items;
         var all = ordering.All;
-        var byGhost = new Dictionary<GhostId, int>(items.Count);
-        var removers = new Dictionary<ReferenceId, int>();
-        var clearing = new Dictionary<SpotKey, List<int>>();
+        var byGhost = _byGhost;
+        var removers = _removers;
+        var clearing = _clearing;
+        byGhost.Clear();
+        removers.Clear();
+        clearing.Clear();
         var linked = new List<int>(4);
         foreach (var item in items)
         {
@@ -278,7 +360,7 @@ internal sealed class OrderRun
             }
         }
 
-        var turnsOn = new ValueList<GhostId>[items.Count];
+        var turnsOn = Room(ref _turnsOn, items.Count);
         foreach (var item in items)
         {
             turnsOn[item.Index] = ValueList<GhostId>.Empty;
@@ -321,7 +403,11 @@ internal sealed class OrderRun
             foreach (var ghost in turnsOn[index])
                 if (byGhost.TryGetValue(ghost, out var other) && !GoesAfter(items, other, index, seen ??= [], open ??= new Stack<int>()))
                     Link(items, index, other, wait: true);
+        System.Array.Clear(turnsOn, 0, items.Count);
     }
+
+    // A scratch array of at least the length, from the run before when it is long enough; its contents are left over.
+    private static T[] Room<T>(ref T[] array, int length) => array.Length >= length ? array : array = new T[System.Math.Max(length, 2 * array.Length)];
 
     /// <summary>How many ghosts a turns-on check follows before it gives up and adds no edge (a bound, not a game rule).</summary>
     public const int TurnsOnReach = 256;
@@ -369,18 +455,24 @@ internal sealed class OrderRun
 
     // Tarjan's strongly connected components over waits and order edges, without recursion; a component of two or
     // more ghosts, or one that waits for itself, is a cycle.
-    private static void Cycles(Ordering ordering)
+    private void Cycles(Ordering ordering)
     {
         var items = ordering.Items;
         var count = items.Count;
-        var index = new int[count];
-        var low = new int[count];
-        var onStack = new bool[count];
+        var index = Room(ref _index, count);
+        var low = Room(ref _low, count);
+        var onStack = Room(ref _onStack, count);
         for (var i = 0; i < count; i++)
+        {
             index[i] = -1;
-        var stack = new Stack<int>();
+            onStack[i] = false;
+        }
+
+        var stack = _stack;
+        stack.Clear();
         var next = 0;
-        var frames = new Stack<(int Node, int Edge)>();
+        var frames = _frames;
+        frames.Clear();
         var component = new List<int>();
         for (var root = 0; root < count; root++)
         {
@@ -442,8 +534,11 @@ internal sealed class OrderRun
     {
         var items = ordering.Items;
         var staged = ordering.Staged;
-        var remaining = new int[items.Count];
-        var ready = new List<int>();
+        var remaining = Room(ref _remaining, items.Count);
+        System.Array.Clear(remaining, 0, items.Count);
+        var (ready, later, picked, newly) = (_ready, _later, _picked, _newly);
+        ready.Clear();
+        Comparison<int> byGhost = (a, b) => items[a].Ghost.Id.Value.CompareTo(items[b].Ghost.Id.Value);
         foreach (var item in items)
         {
             if (item.InCycle)
@@ -455,14 +550,15 @@ internal sealed class OrderRun
                 ready.Add(item.Index);
         }
 
-        var networks = new PipeNetworks(_catalogue, _models);
+        var networks = _networks;
+        networks.Reset();
         while (ready.Count > 0)
         {
             var number = ordering.Stages.Count;
             var world = new SupportWorld(staged, number, true, _facts, _catalogue, ordering.Reads);
-            ready.Sort((a, b) => items[a].Ghost.Id.Value.CompareTo(items[b].Ghost.Id.Value));
-            var stage = new List<int>(ready.Count);
-            var later = new List<int>();
+            ready.Sort(byGhost);
+            picked.Clear();
+            later.Clear();
             var joined = false;
             networks.StartStage(number);
             foreach (var index in ready)
@@ -487,11 +583,11 @@ internal sealed class OrderRun
                 }
 
                 item.Stage = number;
-                stage.Add(index);
+                picked.Add(index);
             }
 
-            var newly = new List<int>();
-            foreach (var index in stage)
+            newly.Clear();
+            foreach (var index in picked)
             {
                 var item = items[index];
                 if (item.Take.TryGet(out var take))
@@ -514,9 +610,9 @@ internal sealed class OrderRun
                 }
             }
 
-            ordering.Stages.Add(stage);
+            ordering.Stages.Add(new List<int>(picked));
             later.AddRange(newly);
-            ready = later;
+            (ready, later) = (later, ready);
         }
     }
 
