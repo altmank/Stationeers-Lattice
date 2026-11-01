@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.22.10
+
+Added:
+- **Icon patterns.** `Style.PatternIcon` takes the new `IconPattern`: `None`, or `Tiled(icon, paint)` with `Size` (one
+  tile's world size, 0.5 m by default). It tiles an icon registered with `IGhostDrawing.Register(IconKey, Texture2D)`
+  over the fill in world space, coloured by its paint. With `Paint.FinishColour`, each ghost shows the colour it will
+  be painted. It replaces `Pattern` on that fill. An icon not registered draws no pattern and is logged once.
+  `docs/styles.md` says what the registered texture needs.
+- One texture sample per fill pixel, only for looks with an icon pattern: they draw from a copy of the fill material
+  with the keyword `LATTICE_ICON_PATTERN`, reading `_LatticePatternIcon` and `_LatticePatternIconSize`. Every other
+  look draws exactly as before. A fill override shows icon patterns only if its shader declares the keyword.
+- `StyleProperty.PatternIcon` names the property in a `StyleStory`.
+
 ## 0.22.9
 
 Added:

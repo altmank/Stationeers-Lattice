@@ -97,7 +97,7 @@ property's explicit none case (`EdgeLook.None`, `GlowLook.None`, ...).
 | Group | Properties |
 |---|---|
 | Body | `Presence` (drawn, hidden), `Fill` (ghost, solid, wire, none), `FillPaint`, `FillOpacity`, `Material` |
-| Lines and marks | `Edge` (solid, dashed, dotted, a width, a paint), `Pattern` (hatch, cross-hatch, dots), `Glow` |
+| Lines and marks | `Edge` (solid, dashed, dotted, a width, a paint), `Pattern` (hatch, cross-hatch, dots), `PatternIcon` (a registered icon tiled in its own paint, [icon patterns](#icon-patterns), 0.22.10), `Glow` |
 | Motion | `Effect` (steady, pulse, blink), `Enter` (flash when a thing comes to match), `Ease`, `Appear`, `Vanish` |
 | Depth and distance | `SeeThrough` (through walls, with a strength, a range and optionally its own opacity), `BeyondClip`, `DistanceFade`, `NearLimit`, `Dim` |
 | Words and icons | `Label` (what it says, text style, anchor, priority, range), `Icon` |
@@ -130,6 +130,62 @@ var planFill = new StyleLayerDescriptor(Must(StyleLayerId.Create(mod, "plan-fill
   ghosts, once.
 - A ghost moved to another plan takes the new plan's colour, in the same pass as any other change to it.
 - While no rule paints with `PlanColour`, a recolour restyles nothing. An unchanged board allocates nothing either way.
+
+## Icon patterns
+
+`Style.PatternIcon` (added in 0.22.10) tiles a registered icon over the fill in its own paint. Where it is set and the
+icon is registered, it takes the place of `Pattern` on that fill. It draws over the fill colour and under the edge.
+`IconPattern.None` clears one set by a lower layer. To show each painted ghost's spray-can icon in the colour it will be
+painted:
+
+```csharp
+LatticeDrawing.Current.TryGet(out var drawing);
+drawing.Register(sprayIcon, sprayTexture);          // IconKey, Texture2D: see "The registered texture" below
+var painted = new StyleLayerDescriptor(Must(StyleLayerId.Create(mod, "paint-icons")), StyleBand.Theme, 0,
+    ValueList.Of(new StyleRule(new StyleMatch.Finishes(),
+        new Style
+        {
+            PatternIcon = Option.Some<IconPattern>(new IconPattern.Tiled(sprayIcon, new Paint.FinishColour(LibraryPalette.Planned))
+            {
+                Size = Option.Some(Must(Metres.Create(0.5f))),
+            }),
+        })));
+```
+
+- **Where it sits.** Each face takes the icon on the world plane across its normal's main axis: top and bottom faces
+  on x and z, walls on their horizontal axis and y, upright, reading left to right from the side the face looks to.
+  The tiles stay put as the camera moves, and line up across neighbouring ghosts.
+- **Size.** One tile is `Size` metres square. None, or zero, gives `IconPattern.Tiled.DefaultSize`, 0.5 m: the small
+  grid, four tiles across a large-grid face.
+- **Colour.** The icon's alpha is the mask. Its colour is the pattern's `Paint`, at that paint's opacity, with the
+  look's `Dim` applied. Any paint works. `FinishColour(fallback)` gives the game's colour for the paint the finish asks
+  for, and the fallback token's colour for a ghost with no finish paint, or on a seat that does not know the game's
+  colours.
+- **An icon not registered** draws no pattern. Lattice logs it once per key. Registering the icon later, or disposing
+  its registration, restyles the looks that name it from the next frame.
+- **Cost.** One texture sample per fill pixel, only on materials whose look sets an icon pattern. Those draw from a
+  copy of the fill material with the shader keyword `LATTICE_ICON_PATTERN` on. Lattice makes the copy on first use and
+  destroys it with the material. Looks with no icon pattern draw the same materials, passes and values as before.
+- **A fill override** (`IGhostDrawing.Override`) shows icon patterns only when its shader declares the keyword
+  (`#pragma multi_compile_local __ LATTICE_ICON_PATTERN`) and reads `_LatticePatternIcon`, `_LatticePatternIconSize` and
+  `_LatticePatternColor`. `MaterialKeys` gives the contract. An override without the keyword draws its fill with no
+  icon pattern; Lattice makes no copy and logs it once.
+
+### The registered texture
+
+Lattice ships no game art: the icon is whatever `IGhostDrawing.Register(IconKey, Texture2D)` holds. The pattern
+samples the whole texture as one tile, with its own mipmaps and filtering, and ignores its wrap mode. So a consumer
+taking a game sprite (the spray can's `Sprite`, say) must hand Lattice a texture of just that sprite:
+
+- **Just the sprite's rect.** A sprite is usually one rect of a shared atlas. Copy `sprite.textureRect` into a texture
+  of its own; handing over `sprite.texture` tiles the whole atlas.
+- **Readable.** Game atlases are usually not CPU-readable. Draw the atlas into a temporary `RenderTexture` with
+  `Graphics.Blit`, then read the rect back with `Texture2D.ReadPixels` and `Apply()`.
+- **Alpha is the mask.** Use a format with alpha (RGBA32). Transparent where the icon is not. The colour channels are
+  not used.
+- **Mipmaps on** (`new Texture2D(w, h, TextureFormat.RGBA32, true)`, then `Apply(true)`), so small tiles far away do not
+  shimmer.
+- Keep the texture alive while the registration stands; dispose the registration before destroying it.
 
 ## Moving lines
 

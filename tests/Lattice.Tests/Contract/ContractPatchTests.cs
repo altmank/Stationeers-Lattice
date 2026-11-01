@@ -28,7 +28,7 @@ public sealed class ContractPatchTests
         Assert.Equal(ApiVersion.ContractMajor.ToString(), parts[0]);
         Assert.Equal(ApiVersion.ContractMinor.ToString(), parts[1]);
         Assert.Equal(ApiVersion.ContractPatch.ToString(), parts[2]);
-        Assert.Equal(9, ApiVersion.ContractPatch);
+        Assert.Equal(10, ApiVersion.ContractPatch);
         Assert.Equal(ApiVersion.ContractPatch, ApiVersion.CurrentPatch);
         Assert.Equal(new ApiVersion(0, 22), ApiVersion.Current);
     }
@@ -64,6 +64,14 @@ public sealed class ContractPatchTests
     [InlineData("T:Lattice.Api.UnderLine", "Added in 0.22.9.")]
     [InlineData("T:Lattice.Api.Speed", "Added in 0.22.9.")]
     [InlineData("F:Lattice.Api.MaterialKeys.Ants", "Added in 0.22.9.")]
+    [InlineData("T:Lattice.Api.IconPattern", "Added in 0.22.10.")]
+    [InlineData("T:Lattice.Api.IconPattern.None", "Added in 0.22.10.")]
+    [InlineData("T:Lattice.Api.IconPattern.Tiled", "Added in 0.22.10.")]
+    [InlineData("P:Lattice.Api.IconPattern.Tiled.Size", "Added in 0.22.10.")]
+    [InlineData("P:Lattice.Api.IconPattern.Tiled.SizeOrDefault", "Added in 0.22.10.")]
+    [InlineData("P:Lattice.Api.IconPattern.Tiled.DefaultSize", "Added in 0.22.10.")]
+    [InlineData("P:Lattice.Api.Style.PatternIcon", "Added in 0.22.10.")]
+    [InlineData("F:Lattice.Api.StyleProperty.PatternIcon", "Added in 0.22.10.")]
     public void Each_member_a_patch_added_names_its_patch(string member, string added) => Assert.Contains(added, Doc(member));
 
     [Fact]

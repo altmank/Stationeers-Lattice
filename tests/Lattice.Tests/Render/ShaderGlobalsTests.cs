@@ -109,7 +109,8 @@ public sealed class ShaderGlobalsTests
         {
             var text = File.ReadAllText(file);
             var name = Regex.Match(text, "Shader\\s+\"(?<n>[^\"]+)\"").Groups["n"].Value;
-            var properties = Regex.Match(text, @"Properties\s*\{(?<body>[^}]*)\}");
+            // A texture property's default ends in "{}", so the body takes those pairs along.
+            var properties = Regex.Match(text, @"Properties\s*\{(?<body>(?:[^{}]|\{\})*)\}");
             Assert.True(properties.Success, $"{Path.GetFileName(file)} has no Properties block");
             var declared = perDraw.Where(n => Regex.IsMatch(properties.Groups["body"].Value, @"(^|\s)" + Regex.Escape(n) + @"\s*\(")).ToHashSet();
             var code = text.Substring(properties.Index + properties.Length);

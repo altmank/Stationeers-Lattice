@@ -46,6 +46,42 @@ public enum Pattern
     Dots = 4,
 }
 
+/// <summary>
+/// A registered icon tiled over the fill in world space, in its own paint (<see cref="Style.PatternIcon"/>). Where it is
+/// set and its icon is registered it takes the place of <see cref="Style.Pattern"/> on that fill. Added in 0.22.10.
+/// </summary>
+public abstract record IconPattern
+{
+    private IconPattern() { }
+
+    /// <summary>No icon pattern: the fill shows <see cref="Style.Pattern"/>. Added in 0.22.10.</summary>
+    public sealed record None : IconPattern;
+
+    /// <summary>
+    /// The icon registered under <paramref name="Icon"/> (<c>IGhostDrawing.Register(IconKey, Texture2D)</c>), tiled over
+    /// the fill. Each face takes it on the world plane across its normal's main axis, upright on walls, so it stays put as
+    /// the camera moves. The icon's alpha is the mask; its colour is <paramref name="Paint"/>'s, at that paint's opacity.
+    /// An icon not registered draws no pattern. Added in 0.22.10.
+    /// </summary>
+    /// <param name="Icon">The registered icon.</param>
+    /// <param name="Paint">The pattern's colour, for example <see cref="Paint.FinishColour"/> for the paint a finish asks for.</param>
+    public sealed record Tiled(IconKey Icon, Paint Paint) : IconPattern
+    {
+        /// <summary>The tile size when <see cref="Size"/> gives none: 0.5 m. Added in 0.22.10.</summary>
+        public static Metres DefaultSize { get; } =
+            Metres.Create(0.5f).Match(static m => m, static why => throw new System.InvalidOperationException(why.ToString()));
+
+        /// <summary>
+        /// The world size of one tile, square. None, or zero: <see cref="DefaultSize"/> (0.5 m, the small grid: four tiles
+        /// across a large-grid face). Added in 0.22.10.
+        /// </summary>
+        public Option<Metres> Size { get; init; }
+
+        /// <summary>The tile size drawn: <see cref="Size"/>, or <see cref="DefaultSize"/> for none or zero. Added in 0.22.10.</summary>
+        public Metres SizeOrDefault => Size.TryGet(out var size) && size.Value > 0f ? size : DefaultSize;
+    }
+}
+
 /// <summary>How an edge line is drawn. Values are fixed for the life of the contract.</summary>
 public enum LineStyle
 {

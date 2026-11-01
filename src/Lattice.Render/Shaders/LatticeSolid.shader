@@ -7,6 +7,8 @@ Shader "Lattice/Solid"
         _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
         _LatticePattern ("Pattern", Float) = 0
         _LatticePatternColor ("Pattern colour", Color) = (1, 1, 1, 1)
+        _LatticePatternIcon ("Icon pattern", 2D) = "white" {}
+        _LatticePatternIconSize ("Icon pattern tile, metres", Float) = 0.5
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
         _LatticeOffsetUnits ("Depth offset units", Float) = 0
     }
@@ -27,6 +29,7 @@ Shader "Lattice/Solid"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma multi_compile_local __ LATTICE_PROCEDURAL
+            #pragma multi_compile_local __ LATTICE_ICON_PATTERN
             #pragma target 4.5
             #include "LatticeCommon.cginc"
 
@@ -35,7 +38,7 @@ Shader "Lattice/Solid"
                 float3 light = normalize(float3(0.3, 0.85, 0.45));
                 float shade = 0.55 + 0.45 * saturate(dot(normalize(i.worldNormal), light));
                 fixed4 colour = fixed4(_Color.rgb * shade, 1);
-                colour = LatticeApplyPattern(colour, i.worldPos);
+                colour = LatticeApplyFillPattern(colour, i.worldPos, i.worldNormal);
                 colour = LatticeApplyBeyond(colour, i.worldPos);
                 clip(colour.a - 0.5);
                 return fixed4(colour.rgb, 1);

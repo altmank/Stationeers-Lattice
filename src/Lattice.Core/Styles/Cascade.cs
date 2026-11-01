@@ -205,6 +205,9 @@ internal sealed class ResolvedLook(Style style, StyleSource[] sources, Rgba fill
     /// <summary>The edge's under-line colour with dim applied; clear for no under-line.</summary>
     public Rgba Under { get; } = under;
 
+    /// <summary>The icon pattern's colour with dim applied; clear for no icon pattern.</summary>
+    public Rgba PatternIcon { get; init; }
+
     public bool Hidden => Style.Presence.Reduce(Presence.Drawn) == Presence.Hidden;
 
     public bool Pickable => !Hidden && Style.Pickable.Reduce(Api.Pickable.Yes) == Api.Pickable.Yes;

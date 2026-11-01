@@ -11,6 +11,8 @@ Shader "Lattice/GhostEdged"
         _LatticeEdge ("Edge: line style, width px, dash m, speed m/s", Vector) = (0, 1, 0, 0)
         _LatticePattern ("Pattern", Float) = 0
         _LatticePatternColor ("Pattern colour", Color) = (1, 1, 1, 1)
+        _LatticePatternIcon ("Icon pattern", 2D) = "white" {}
+        _LatticePatternIconSize ("Icon pattern tile, metres", Float) = 0.5
         _LatticeEdgeColor ("Edge colour", Color) = (0.25, 0.45, 1, 1)
         _RimPower ("Rim power", Range(0.5, 8)) = 3
         _RimStrength ("Rim strength", Range(0, 2)) = 0.8

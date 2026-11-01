@@ -2882,7 +2882,7 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 9 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 10 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
 Lattice.Api.FlowChoice
 Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell
@@ -2949,3 +2949,18 @@ Lattice.Api.Speed.MetresPerSecond.get -> float
 static Lattice.Api.Speed.Zero.get -> Lattice.Api.Speed
 static Lattice.Api.Speed.Create(float metresPerSecond) -> Lattice.Api.Result<Lattice.Api.Speed, Lattice.Api.Reason!>
 static readonly Lattice.Api.MaterialKeys.Ants -> Lattice.Api.MaterialKey
+Lattice.Api.IconPattern
+Lattice.Api.IconPattern.None
+Lattice.Api.IconPattern.Tiled
+Lattice.Api.IconPattern.Tiled.Tiled(Lattice.Api.IconKey Icon, Lattice.Api.Paint! Paint) -> void
+Lattice.Api.IconPattern.Tiled.Icon.get -> Lattice.Api.IconKey
+Lattice.Api.IconPattern.Tiled.Icon.init -> void
+Lattice.Api.IconPattern.Tiled.Paint.get -> Lattice.Api.Paint!
+Lattice.Api.IconPattern.Tiled.Paint.init -> void
+Lattice.Api.IconPattern.Tiled.Size.get -> Lattice.Api.Option<Lattice.Api.Metres>
+Lattice.Api.IconPattern.Tiled.Size.init -> void
+Lattice.Api.IconPattern.Tiled.SizeOrDefault.get -> Lattice.Api.Metres
+static Lattice.Api.IconPattern.Tiled.DefaultSize.get -> Lattice.Api.Metres
+Lattice.Api.Style.PatternIcon.get -> Lattice.Api.Option<Lattice.Api.IconPattern!>
+Lattice.Api.Style.PatternIcon.init -> void
+Lattice.Api.StyleProperty.PatternIcon = 27 -> Lattice.Api.StyleProperty

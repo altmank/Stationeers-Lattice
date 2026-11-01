@@ -9,6 +9,8 @@ Shader "Lattice/Ghost"
         _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
         _LatticePattern ("Pattern", Float) = 0
         _LatticePatternColor ("Pattern colour", Color) = (1, 1, 1, 1)
+        _LatticePatternIcon ("Icon pattern", 2D) = "white" {}
+        _LatticePatternIconSize ("Icon pattern tile, metres", Float) = 0.5
         _RimPower ("Rim power", Range(0.5, 8)) = 3
         _RimStrength ("Rim strength", Range(0, 2)) = 0.8
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
@@ -33,6 +35,7 @@ Shader "Lattice/Ghost"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma multi_compile_local __ LATTICE_PROCEDURAL
+            #pragma multi_compile_local __ LATTICE_ICON_PATTERN
             #pragma target 4.5
             #include "LatticeCommon.cginc"
 
@@ -45,7 +48,7 @@ Shader "Lattice/Ghost"
                 fixed4 colour = _Color;
                 colour.rgb = saturate(colour.rgb * (1 + rim));
                 colour.a = saturate(colour.a * (1 + rim));
-                colour = LatticeApplyPattern(colour, i.worldPos);
+                colour = LatticeApplyFillPattern(colour, i.worldPos, i.worldNormal);
                 return LatticeApplyBeyond(colour, i.worldPos);
             }
             ENDCG

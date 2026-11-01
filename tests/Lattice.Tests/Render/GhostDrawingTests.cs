@@ -25,6 +25,17 @@ internal sealed class FakeObjects : IUnityObjects
     private readonly Dictionary<object, IGpuMaterial> _materials = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<object, IGpuMesh> _meshes = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<IGpuMaterial, Material> _back = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<object, IGpuTexture> _textures = new(ReferenceEqualityComparer.Instance);
+
+    public Texture2D Texture(FakeTexture fake)
+    {
+        var texture = UnityStub.Make<Texture2D>();
+        _textures[texture] = fake;
+        return texture;
+    }
+
+    IGpuTexture IUnityObjects.Texture(Texture2D texture) =>
+        _textures.TryGetValue(texture, out var held) ? held : _textures[texture] = new FakeTexture("texture");
 
     public Material Material(FakeMaterial fake)
     {

@@ -75,6 +75,9 @@ internal readonly record struct GroupKey(PrefabKey Piece, Style Style, Rgba Fill
 {
     /// <summary>The look's under-line colour: a plan's colour can reach it alone.</summary>
     public Rgba Under { get; init; }
+
+    /// <summary>The look's icon pattern colour: a finish's paint can reach it alone.</summary>
+    public Rgba PatternIcon { get; init; }
 }
 
 /// <summary>Render's view of one of Core's batches: the group it draws in, and what that group last copied of it.</summary>
@@ -317,7 +320,7 @@ internal sealed class DrawState(RenderPorts ports)
         if (draw.Claim is not { Parts: ClaimParts.Everything } && Piece(batch.Piece) is { } piece)
         {
             var existing = batch.Part == PartKind.Existing;
-            var key = new GroupKey(batch.Piece, look.Style, look.Fill, look.Edge, look.Glow, batch.Start, existing, draw.Claim is not null) { Under = look.Under };
+            var key = new GroupKey(batch.Piece, look.Style, look.Fill, look.Edge, look.Glow, batch.Start, existing, draw.Claim is not null) { Under = look.Under, PatternIcon = look.PatternIcon };
             if (!_byKey.TryGetValue(key, out group) || group.Retired)
             {
                 group = new DrawGroup(key, piece, ports.Gpu);
@@ -850,6 +853,8 @@ internal sealed class Submission
     private readonly MaterialTable _materials;
     private readonly DrawState _state;
     private readonly Rebuilds _rebuilds;
+    private readonly HashSet<IconKey> _unknownIcons = new();
+    private readonly HashSet<MaterialKey> _noIconPattern = new();
     private int _skippedLayers;
 
     public Submission(IDrawPlan plan, RenderPorts ports, MaterialTable materials, DrawState state, Rebuilds rebuilds)
@@ -1005,10 +1010,15 @@ internal sealed class Submission
         fill.Combined = combined is not null;
         if (fill.On)
         {
-            var pattern = PatternCode(style.Pattern.Reduce(Pattern.None));
-            fill.Block.Set(ShaderProp.Pattern, pattern);
-            var patternColour = look.Edge.A > 0 ? Colour(look.Edge) : Colour(look.Fill);
-            fill.Block.Set(ShaderProp.PatternColor, new Vector4(patternColour.x, patternColour.y, patternColour.z, Math.Min(1f, patternColour.w * 2f)));
+            if (style.PatternIcon.TryGet(out var iconLook) && iconLook is Api.IconPattern.Tiled tiled)
+                SetIconPattern(fill, fillKey, tiled, look);
+            else
+            {
+                var pattern = PatternCode(style.Pattern.Reduce(Pattern.None));
+                fill.Block.Set(ShaderProp.Pattern, pattern);
+                var patternColour = look.Edge.A > 0 ? Colour(look.Edge) : Colour(look.Fill);
+                fill.Block.Set(ShaderProp.PatternColor, new Vector4(patternColour.x, patternColour.y, patternColour.z, Math.Min(1f, patternColour.w * 2f)));
+            }
         }
 
         var edge = group.Layer[Edge];
@@ -1069,6 +1079,35 @@ internal sealed class Submission
                 group.Layer[i].Block.Set(ShaderProp.Effect, effect);
 
         group.NeedsPages = needsPages;
+    }
+
+    /// <summary>
+    /// The fill's icon pattern: the registered icon tiled at the look's size in its paint, drawn from the fill material's
+    /// icon pattern copy in place of the enum pattern. An icon not registered, or a fill material whose shader lacks the
+    /// keyword (an override), draws no pattern; each is logged once.
+    /// </summary>
+    private void SetIconPattern(LayerDraw fill, MaterialKey fillKey, Api.IconPattern.Tiled tiled, ResolvedLook look)
+    {
+        fill.Block.Set(ShaderProp.Pattern, 0f);
+        if (!_materials.Icons.TryGet(tiled.Icon, out var texture))
+        {
+            if (_unknownIcons.Add(tiled.Icon))
+                _ports.Log($"Lattice render: no icon registered as {tiled.Icon.Value}; its icon pattern is not drawn.");
+            return;
+        }
+
+        if (_materials.IconPattern(fill.Material!) is not { } iconed)
+        {
+            var key = fill.Combined ? MaterialTable.FillAndEdgeKey : fillKey;
+            if (_noIconPattern.Add(key))
+                _ports.Log($"Lattice render: material {key.Value} has no LATTICE_ICON_PATTERN keyword; its icon patterns are not drawn.");
+            return;
+        }
+
+        fill.Material = iconed;
+        fill.Block.Set(ShaderProp.PatternIcon, texture);
+        fill.Block.Set(ShaderProp.PatternIconSize, tiled.SizeOrDefault.Value);
+        fill.Block.Set(ShaderProp.PatternColor, Colour(look.PatternIcon));
     }
 
     /// <summary>Whether any of the look's layers would draw instanced (an override or the stand-in).</summary>

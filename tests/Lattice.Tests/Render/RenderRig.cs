@@ -18,7 +18,7 @@ internal sealed class RenderRig
 
     public List<string> Log { get; } = new();
 
-    /// <summary>The bundle's material, one per key, unless a key is left out to stand for the stand-in's gaps.</summary>
+    /// <summary>The bundle's material, one per key (the fill shaders with the icon pattern keyword, as the bundle's have), unless a key is left out to stand for the stand-in's gaps.</summary>
     public Dictionary<MaterialKey, FakeMaterial> Bundle { get; } = new();
 
     public RenderRig(bool bundle = true)
@@ -26,8 +26,8 @@ internal sealed class RenderRig
         if (!bundle)
             return;
         foreach (var key in Lattice.Render.Materials.MaterialTable.LatticeKeys)
-            Bundle[key] = new FakeMaterial(key.Value, procedural: true);
-        Bundle[Lattice.Render.Materials.MaterialTable.FillAndEdgeKey] = new FakeMaterial("ghost-edged", procedural: true);
+            Bundle[key] = new FakeMaterial(key.Value, procedural: true, iconPattern: key == MaterialKeys.Ghost || key == MaterialKeys.Solid);
+        Bundle[Lattice.Render.Materials.MaterialTable.FillAndEdgeKey] = new FakeMaterial("ghost-edged", procedural: true, iconPattern: true);
         Bundle[Lattice.Render.Materials.MaterialTable.EdgeUnderKey] = new FakeMaterial("edge-under", procedural: true);
     }
 

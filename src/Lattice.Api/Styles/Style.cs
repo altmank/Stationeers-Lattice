@@ -30,6 +30,12 @@ public sealed record Style
     /// <summary>A pattern over the fill.</summary>
     public Option<Pattern> Pattern { get; init; }
 
+    /// <summary>
+    /// A registered icon tiled over the fill in its own paint; where set and registered it takes the place of
+    /// <see cref="Pattern"/> on that fill. Without an opinion: <see cref="IconPattern.None"/>. Added in 0.22.10.
+    /// </summary>
+    public Option<IconPattern> PatternIcon { get; init; }
+
     /// <summary>A glow.</summary>
     public Option<GlowLook> Glow { get; init; }
 
@@ -171,4 +177,7 @@ public enum StyleProperty
 
     /// <summary><see cref="Style.Pickable"/>.</summary>
     Pickable = 26,
+
+    /// <summary><see cref="Style.PatternIcon"/>. Added in 0.22.10.</summary>
+    PatternIcon = 27,
 }

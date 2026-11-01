@@ -45,6 +45,9 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.22.10
+- Added: mods can tile an icon over a ghost in a colour of their choice, such as the spray can in the colour it will be painted.
+
 v0.22.9
 - Added: mods can fill ghosts with their plan's colour, and draw moving dashed outlines ("marching ants") with an optional dark line beneath.
 

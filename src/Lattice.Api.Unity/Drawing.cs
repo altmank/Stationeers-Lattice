@@ -30,7 +30,12 @@ public interface IGhostDrawing
     /// <summary>Registers a text style labels can name. Refused (<c>invalid-value</c>) for a size of zero or less, (<c>already-registered</c>) for a key already registered.</summary>
     Result<IDisposable, Reason> Register(TextStyleKey key, TextStyle style);
 
-    /// <summary>Registers an image icon styles can name. Refused (<c>already-registered</c>) for a key already registered.</summary>
+    /// <summary>
+    /// Registers an image icon styles can name (<see cref="IconLook.Shown"/>, and from 0.22.10 <see cref="Style.PatternIcon"/>).
+    /// Refused (<c>already-registered</c>) for a key already registered. An icon pattern tiles the whole texture and uses its
+    /// alpha as the mask, so a consumer taking a game sprite hands Lattice a texture of just the sprite's rect (not its
+    /// atlas), read back into a texture of its own with alpha and mipmaps; <c>docs/styles.md</c> shows how.
+    /// </summary>
     Result<IDisposable, Reason> Register(IconKey key, Texture2D icon);
 
     /// <summary>Registers a decoration mesh, drawn with its material, that <see cref="Style.Mark"/> can name. Refused (<c>already-registered</c>) for a key already registered.</summary>

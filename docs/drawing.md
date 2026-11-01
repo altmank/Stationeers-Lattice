@@ -68,7 +68,9 @@ Must(drawing.Register(Must(DecorationKey.Create(mod, "arrow")), arrowMesh, arrow
 
 - A `TextStyle` is a TextMeshPro font asset, a size and a colour, with `Wording` for the reason codes a label shows.
   A label names it by key (`LabelLook.Shown`). `LibraryText.Default` uses a font the game ships.
-- An icon is a `Texture2D` a style shows with `IconLook.Shown`. `LibraryIcons` are Lattice's glyph icons.
+- An icon is a `Texture2D` a style shows with `IconLook.Shown`, or tiles over a fill with `Style.PatternIcon`
+  (0.22.10; [the registered texture](styles.md#the-registered-texture) says what that texture needs). `LibraryIcons`
+  are Lattice's glyph icons.
 - A decoration is a mesh with its material, shown with `Style.Mark`.
 
 ## Piece looks

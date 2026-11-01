@@ -1102,7 +1102,8 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     private static bool Paints<TPaint>(Style style) where TPaint : Paint =>
         style.FillPaint.TryGet(out var fill) && fill is TPaint
         || style.Edge.TryGet(out var edge) && edge is EdgeLook.Line line && (line.Paint is TPaint || line.Under.TryGet(out var under) && under.Paint is TPaint)
-        || style.Glow.TryGet(out var glow) && glow is GlowLook.Lit { Paint: TPaint };
+        || style.Glow.TryGet(out var glow) && glow is GlowLook.Lit { Paint: TPaint }
+        || style.PatternIcon.TryGet(out var pattern) && pattern is IconPattern.Tiled { Paint: TPaint };
 
     // ---- structures ----
 

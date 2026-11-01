@@ -133,6 +133,43 @@ fixed4 LatticeApplyPattern(fixed4 colour, float3 worldPos)
     return colour;
 }
 
+// The icon pattern (keyword LATTICE_ICON_PATTERN, Style.PatternIcon): a registered icon tiled on the world plane across
+// the face normal's main axis, one tile _LatticePatternIconSize metres square, upright on walls and reading left to right
+// from the side the face looks to. One texture sample a pixel: tex2Dgrad takes its gradients from the unwrapped
+// coordinate, so tile borders show no seam and the texture's wrap mode does not matter. The icon's alpha times
+// _LatticePatternColor's is the mask. Without the keyword nothing here is compiled in.
+#if defined(LATTICE_ICON_PATTERN)
+sampler2D _LatticePatternIcon;
+float _LatticePatternIconSize;
+
+float LatticeIconMask(float3 worldPos, float3 worldNormal)
+{
+    float3 n = abs(worldNormal);
+    float2 uv;
+    if (n.y >= n.x && n.y >= n.z)
+        uv = worldPos.xz;
+    else if (n.x >= n.z)
+        uv = float2(worldPos.z * (worldNormal.x >= 0 ? 1 : -1), worldPos.y);
+    else
+        uv = float2(worldPos.x * (worldNormal.z >= 0 ? -1 : 1), worldPos.y);
+    uv /= max(_LatticePatternIconSize, 0.001);
+    return tex2Dgrad(_LatticePatternIcon, frac(uv), ddx(uv), ddy(uv)).a * _LatticePatternColor.a;
+}
+#endif
+
+// A fill's pattern: the icon pattern under its keyword, else the hatch, cross-hatch or dots of _LatticePattern.
+fixed4 LatticeApplyFillPattern(fixed4 colour, float3 worldPos, float3 worldNormal)
+{
+#if defined(LATTICE_ICON_PATTERN)
+    float mask = LatticeIconMask(worldPos, worldNormal);
+    colour.rgb = lerp(colour.rgb, _LatticePatternColor.rgb, mask);
+    colour.a = max(colour.a, mask);
+    return colour;
+#else
+    return LatticeApplyPattern(colour, worldPos);
+#endif
+}
+
 // Whether a broken line keeps the point at stripe coordinate s (metres): 1 kept, 0 cut. edge is _LatticeEdge. A
 // dash is 3/5 of its period, a dot 1/4; edge.z is the dash or dot length (0: the style's own, a period of 0.25 m);
 // edge.w is the speed in metres per second, moving the dashes towards rising s; the phase is Unity's _Time.y.

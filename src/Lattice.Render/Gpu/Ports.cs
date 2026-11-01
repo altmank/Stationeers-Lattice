@@ -60,6 +60,12 @@ internal enum ShaderProp
 
     /// <summary><c>_LatticeEdgeUnderColor</c>: the under-line's colour, effects and dim applied.</summary>
     EdgeUnderColor = 16,
+
+    /// <summary><c>_LatticePatternIcon</c>: the icon pattern's texture, under keyword <c>LATTICE_ICON_PATTERN</c>.</summary>
+    PatternIcon = 17,
+
+    /// <summary><c>_LatticePatternIconSize</c>, a float: one icon tile's world size in metres.</summary>
+    PatternIconSize = 18,
 }
 
 /// <summary>The shader name of each <see cref="ShaderProp"/>, in the enum's order.</summary>
@@ -70,6 +76,7 @@ internal static class ShaderNames
         "_Color", "_LatticePattern", "_LatticePatternColor", "_LatticeEffect", "_LatticeTime", "_LatticeSeeThrough",
         "_LatticeEdge", "_LatticeBeyond", "_LatticeClipMode", "_LatticeClipPlane", "_LatticeClipMin", "_LatticeClipMax",
         "_LatticeInstances", "_LatticeLocal", "_LatticeEdgeColor", "_LatticeEdgeUnder", "_LatticeEdgeUnderColor",
+        "_LatticePatternIcon", "_LatticePatternIconSize",
     };
 
     public static int Count => Names.Length;
@@ -81,6 +88,11 @@ internal static class ShaderNames
 internal interface IGpuMesh
 {
     int Submeshes { get; }
+}
+
+/// <summary>A texture a material samples per draw: a registered icon (<see cref="ShaderProp.PatternIcon"/>).</summary>
+internal interface IGpuTexture
+{
 }
 
 /// <summary>
@@ -102,12 +114,21 @@ internal interface IGpuMaterial
     /// </summary>
     bool HasProcedural { get; }
 
+    /// <summary>Whether its shader declares the icon pattern keyword <c>LATTICE_ICON_PATTERN</c>.</summary>
+    bool HasIconPattern { get; }
+
     /// <summary>
     /// A copy at <paramref name="queue"/>, with the depth offset for drawing over a built original when
     /// <paramref name="overlay"/> (shaders that declare <c>_LatticeOffsetFactor</c> and <c>_LatticeOffsetUnits</c>),
     /// in its procedural variant when <paramref name="procedural"/>.
     /// </summary>
     IGpuMaterial Copy(int queue, bool overlay, bool procedural = false);
+
+    /// <summary>
+    /// A copy with the keyword <c>LATTICE_ICON_PATTERN</c> on and everything else as this material has it (queue, depth
+    /// offset, procedural variant). Asked only of a material whose shader <see cref="HasIconPattern"/>.
+    /// </summary>
+    IGpuMaterial IconPattern();
 
     /// <summary>Destroys a copy Lattice made. Never called on a consumer's own material.</summary>
     void Destroy();
@@ -124,6 +145,8 @@ internal interface IGpuBlock
     void Set(ShaderProp prop, Matrix4x4 value);
 
     void Set(ShaderProp prop, IGpuBuffer buffer);
+
+    void Set(ShaderProp prop, IGpuTexture texture);
 }
 
 /// <summary>Instance matrices on the GPU for procedural draws: written only when a draw group is rebuilt.</summary>

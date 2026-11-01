@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Lattice.Api;
+using Lattice.Render.Drawing;
 using Lattice.Render.Gpu;
 
 namespace Lattice.Render.Materials;
@@ -132,18 +133,20 @@ internal sealed class Override(MaterialEntry entry, IGpuMaterial consumer, IGpuM
 }
 
 /// <summary>
-/// Lattice's materials by key, for one world. Loaded once at render
-/// start; <see cref="Revision"/> rises with every override change so drawing re-reads a batch's materials only then.
-/// <see cref="End"/> destroys every material Render made.
+/// Lattice's materials by key, for one world, and the registered icons they sample. Loaded once at render
+/// start; <see cref="Revision"/> rises with every override or icon change so drawing re-reads a batch's materials only
+/// then. <see cref="End"/> destroys every material Render made.
 /// </summary>
 internal sealed class MaterialTable
 {
     private readonly Dictionary<MaterialKey, MaterialEntry> _entries = new(16);
+    private readonly Dictionary<IGpuMaterial, IGpuMaterial> _iconed = new(8);
     private readonly DrawOrder _order;
 
     public MaterialTable(DrawOrder order)
     {
         _order = order;
+        Icons = new Registry<IconKey, IGpuTexture>("icon", static key => key.Value, _ => Revision++);
         foreach (var key in LatticeKeys)
             _entries.Add(key, NewEntry(key));
         var ghost = _entries[MaterialKeys.Ghost];
@@ -174,6 +177,30 @@ internal sealed class MaterialTable
     public static MaterialKey EdgeUnderKey { get; } = MaterialKey.Known("edge-under");
 
     public long Revision { get; private set; } = 1;
+
+    /// <summary>Registered image icons (<c>IGhostDrawing.Register(IconKey, Texture2D)</c>), for icon patterns.</summary>
+    public Registry<IconKey, IGpuTexture> Icons { get; }
+
+    /// <summary>
+    /// The copy of <paramref name="basis"/> that draws icon patterns (keyword <c>LATTICE_ICON_PATTERN</c>), made on first
+    /// ask and kept while <paramref name="basis"/> lives; none when its shader lacks the keyword, so no copy is made that
+    /// would draw the same.
+    /// </summary>
+    public IGpuMaterial? IconPattern(IGpuMaterial basis)
+    {
+        if (!basis.HasIconPattern)
+            return null;
+        if (!_iconed.TryGetValue(basis, out var copy))
+        {
+            copy = basis.IconPattern();
+            _iconed.Add(basis, copy);
+        }
+
+        return copy;
+    }
+
+    /// <summary>How many icon pattern copies are held.</summary>
+    public int IconPatternCopies => _iconed.Count;
 
     /// <summary>The fill-and-edge material, when the bundle has one.</summary>
     public MaterialEntry FillAndEdge { get; }
@@ -264,6 +291,10 @@ internal sealed class MaterialTable
 
     public void End()
     {
+        foreach (var copy in _iconed.Values)
+            copy.Destroy();
+        _iconed.Clear();
+        Icons.End();
         foreach (var entry in _entries.Values)
             entry.End();
         FillAndEdge.End();
@@ -273,8 +304,19 @@ internal sealed class MaterialTable
 
     private void Remove(Override installed)
     {
+        DropIconPattern(installed.Placement);
+        DropIconPattern(installed.Overlay);
         if (installed.Entry.Pop(installed))
             Revision++;
+    }
+
+    private void DropIconPattern(IGpuMaterial basis)
+    {
+        if (_iconed.TryGetValue(basis, out var copy))
+        {
+            copy.Destroy();
+            _iconed.Remove(basis);
+        }
     }
 
     private MaterialEntry NewEntry(MaterialKey key)

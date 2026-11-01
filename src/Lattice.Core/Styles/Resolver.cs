@@ -10,7 +10,7 @@ namespace Lattice.Core.Styles;
 /// </summary>
 internal sealed class Resolver(PaletteInForce palette)
 {
-    private const int Properties = (int)StyleProperty.Pickable + 1;
+    private const int Properties = (int)StyleProperty.PatternIcon + 1;
 
     private static readonly StyleSource DefaultSource = new StyleSource.Default();
 
@@ -33,7 +33,10 @@ internal sealed class Resolver(PaletteInForce palette)
         }
 
         var style = MotionTiming.Apply(Defaults(look), palette.Motion);
-        return new ResolvedLook(style, sources, Fill(style, signature), Edge(style, signature), Glow(style, signature), Under(style, signature));
+        return new ResolvedLook(style, sources, Fill(style, signature), Edge(style, signature), Glow(style, signature), Under(style, signature))
+        {
+            PatternIcon = PatternIcon(style, signature),
+        };
     }
 
     private Rgba Fill(Style style, Signature signature)
@@ -50,6 +53,9 @@ internal sealed class Resolver(PaletteInForce palette)
         style.Edge.TryGet(out var edge) && edge is EdgeLook.Line line && line.Under.TryGet(out var under)
             ? Times(palette.Colour(under.Paint, signature), Dim(style))
             : default;
+
+    private Rgba PatternIcon(Style style, Signature signature) =>
+        style.PatternIcon.TryGet(out var pattern) && pattern is IconPattern.Tiled tiled ? Times(palette.Colour(tiled.Paint, signature), Dim(style)) : default;
 
     private Rgba Glow(Style style, Signature signature) =>
         style.Glow.TryGet(out var glow) && glow is GlowLook.Lit lit ? Times(palette.Colour(lit.Paint, signature), lit.Strength.Value * Dim(style)) : default;
@@ -72,6 +78,7 @@ internal sealed class Resolver(PaletteInForce palette)
             FillOpacity = Or(look.FillOpacity, DefaultOpacity),
             Edge = Or<EdgeLook>(look.Edge, new EdgeLook.None()),
             Pattern = Or(look.Pattern, Pattern.None),
+            PatternIcon = Or<IconPattern>(look.PatternIcon, new IconPattern.None()),
             Glow = Or<GlowLook>(look.Glow, new GlowLook.None()),
             Effect = Or<EffectLook>(look.Effect, new EffectLook.Steady()),
             Enter = Or<EnterLook>(look.Enter, new EnterLook.None()),
@@ -137,6 +144,7 @@ internal sealed class Resolver(PaletteInForce palette)
         if (rule.WaitsLinks.IsSome) { look = look with { WaitsLinks = rule.WaitsLinks }; sources[(int)StyleProperty.WaitsLinks] = source; }
         if (rule.Mark.IsSome) { look = look with { Mark = rule.Mark }; sources[(int)StyleProperty.Mark] = source; }
         if (rule.Material.IsSome) { look = look with { Material = rule.Material }; sources[(int)StyleProperty.Material] = source; }
+        if (rule.PatternIcon.IsSome) { look = look with { PatternIcon = rule.PatternIcon }; sources[(int)StyleProperty.PatternIcon] = source; }
         if (rule.Pickable.IsSome) { look = look with { Pickable = rule.Pickable }; sources[(int)StyleProperty.Pickable] = source; }
         return look;
     }

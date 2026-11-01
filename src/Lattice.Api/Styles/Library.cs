@@ -220,6 +220,14 @@ public static class LibraryIcons
 /// <c>_LatticeEdgeUnder</c> (x the under-line's width in pixels, 0 for none; added in 0.22.9) and
 /// <c>_LatticeEdgeUnderColor</c> (the under-line's colour, effects and dim applied; added in 0.22.9). Lattice's own
 /// edge draws the under-line itself; an <c>edge</c> override that wants one draws it from these two values.</item>
+/// <item>Icon patterns (<see cref="Style.PatternIcon"/>; added in 0.22.10): a fill whose look tiles a registered icon
+/// draws from a copy of its material with the local keyword <c>LATTICE_ICON_PATTERN</c> on, and gets
+/// <c>_LatticePatternIcon</c> (the icon's texture), <c>_LatticePatternIconSize</c> (a float, one tile's world size in
+/// metres) and <c>_LatticePatternColor</c> (the pattern paint's colour, dim applied). The shader samples the texture once
+/// per pixel on the world plane across the face normal's main axis and uses its alpha as the mask. An override's shader
+/// must declare the keyword (<c>#pragma multi_compile_local __ LATTICE_ICON_PATTERN</c>) to show icon patterns; one
+/// without it draws its fill with no icon pattern, and Lattice logs that once per material. Looks with no icon pattern
+/// draw exactly as before, with no keyword and none of these values.</item>
 /// <item>The clip, as globals: <c>_LatticeClipPlane</c> (xyz unit normal, w = dot(normal, a point on the plane); a
 /// point p is beyond when dot(normal, p) &gt; w) or <c>_LatticeClipMin</c> and <c>_LatticeClipMax</c> (beyond is
 /// outside the box), with <c>_LatticeClipMode</c> (0 none, 1 plane, 2 box) and <c>_LatticeBeyond</c> (x mode: 0 drawn,

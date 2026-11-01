@@ -17,6 +17,8 @@ internal interface IUnityObjects
 
     IGpuMesh Mesh(Mesh mesh);
 
+    IGpuTexture Texture(Texture2D texture);
+
     /// <summary>The engine material behind one of Render's: Lattice's own copy, or the consumer's material as given.</summary>
     Material Unwrap(IGpuMaterial material);
 }
@@ -39,12 +41,11 @@ internal sealed class GhostDrawing : IGhostDrawing
         _renderer = renderer;
         _objects = objects;
         _camera = camera;
-        Icons = new Registry<IconKey, Texture2D>("icon", static key => key.Value);
         Decorations = new Registry<DecorationKey, Decoration>("decoration", static key => key.Value);
     }
 
-    /// <summary>Registered image icons.</summary>
-    public Registry<IconKey, Texture2D> Icons { get; }
+    /// <summary>Registered image icons, held by the renderer's materials so icon patterns can draw them.</summary>
+    public Registry<IconKey, IGpuTexture> Icons => _renderer.Materials.Icons;
 
     /// <summary>Registered decoration meshes.</summary>
     public Registry<DecorationKey, Decoration> Decorations { get; }
@@ -73,7 +74,7 @@ internal sealed class GhostDrawing : IGhostDrawing
     {
         if (icon is null)
             throw new ArgumentNullException(nameof(icon));
-        return Icons.Register(key, icon);
+        return Icons.Register(key, _objects.Texture(icon));
     }
 
     public Result<IDisposable, Reason> Register(DecorationKey key, Mesh mesh, Material material)
@@ -101,10 +102,9 @@ internal sealed class GhostDrawing : IGhostDrawing
 
     public Result<IDisposable, Reason> Claim(RendererClaimDescriptor claim) => _renderer.Claim(claim);
 
-    /// <summary>Drops the icon and decoration registrations (world end; the renderer ends its own).</summary>
+    /// <summary>Drops the decoration registrations (world end; the renderer ends its own and the icons).</summary>
     public void End()
     {
-        Icons.End();
         Decorations.End();
     }
 }

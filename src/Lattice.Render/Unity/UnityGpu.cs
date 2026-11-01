@@ -49,6 +49,7 @@ internal sealed class UnityMesh(Mesh mesh) : IGpuMesh
 internal sealed class UnityMaterial : IGpuMaterial
 {
     private const string ProceduralKeyword = "LATTICE_PROCEDURAL";
+    private const string IconPatternKeyword = "LATTICE_ICON_PATTERN";
 
     // Pulls an overlay toward the camera so it wins the depth test over the built original it covers.
     private const float OverlayOffset = -1f;
@@ -63,6 +64,7 @@ internal sealed class UnityMaterial : IGpuMaterial
         // A queue set on the material differs from its shader's; the shader's own queue is no queue of the material's.
         OwnQueue = material.shader != null && material.renderQueue != material.shader.renderQueue ? Option.Some(material.renderQueue) : Option<int>.None;
         HasProcedural = material.shader != null && material.shader.keywordSpace.FindKeyword(ProceduralKeyword).isValid;
+        HasIconPattern = material.shader != null && material.shader.keywordSpace.FindKeyword(IconPatternKeyword).isValid;
     }
 
     public Material Material { get; }
@@ -72,6 +74,8 @@ internal sealed class UnityMaterial : IGpuMaterial
     public Option<int> OwnQueue { get; }
 
     public bool HasProcedural { get; }
+
+    public bool HasIconPattern { get; }
 
     public IGpuMaterial Copy(int queue, bool overlay, bool procedural = false)
     {
@@ -86,6 +90,14 @@ internal sealed class UnityMaterial : IGpuMaterial
 
         if (procedural && HasProcedural)
             copy.EnableKeyword(new LocalKeyword(copy.shader, ProceduralKeyword));
+        return new UnityMaterial(copy, copy: true);
+    }
+
+    public IGpuMaterial IconPattern()
+    {
+        var copy = new Material(Material) { name = Material.name + " (icon pattern)" };
+        if (HasIconPattern)
+            copy.EnableKeyword(new LocalKeyword(copy.shader, IconPatternKeyword));
         return new UnityMaterial(copy, copy: true);
     }
 
@@ -114,6 +126,14 @@ internal sealed class UnityBlock : IGpuBlock
     public void Set(ShaderProp prop, Matrix4x4 value) => Block.SetMatrix(ShaderIds.Of(prop), value);
 
     public void Set(ShaderProp prop, IGpuBuffer buffer) => Block.SetBuffer(ShaderIds.Of(prop), ((UnityBuffer)buffer).Buffer);
+
+    public void Set(ShaderProp prop, IGpuTexture texture) => Block.SetTexture(ShaderIds.Of(prop), ((UnityTexture)texture).Texture);
+}
+
+/// <summary>A registered icon's texture, as the consumer handed it.</summary>
+internal sealed class UnityTexture(Texture2D texture) : IGpuTexture
+{
+    public Texture2D Texture { get; } = texture;
 }
 
 /// <summary>A draw group's instance matrices: a structured buffer of 64-byte matrices.</summary>
@@ -197,6 +217,8 @@ internal sealed class UnityObjects : IUnityObjects
     public IGpuMaterial Material(Material material) => new UnityMaterial(material);
 
     public IGpuMesh Mesh(Mesh mesh) => new UnityMesh(mesh);
+
+    public IGpuTexture Texture(Texture2D texture) => new UnityTexture(texture);
 
     public Material Unwrap(IGpuMaterial material) => ((UnityMaterial)material).Material;
 }

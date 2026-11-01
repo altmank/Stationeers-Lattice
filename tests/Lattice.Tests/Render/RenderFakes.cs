@@ -20,13 +20,18 @@ internal sealed class FakeMesh(string name, int submeshes = 1) : IGpuMesh
 /// A material: a consumer's (made by the test) or one of Lattice's copies of it. <c>procedural</c> stands for Lattice's
 /// own shaders, which have the procedural variant.
 /// </summary>
-internal sealed class FakeMaterial(string name, bool instanced = true, int? ownQueue = null, bool procedural = false) : IGpuMaterial
+internal sealed class FakeMaterial(string name, bool instanced = true, int? ownQueue = null, bool procedural = false, bool iconPattern = false) : IGpuMaterial
 {
     public string Name { get; } = name;
 
     public bool Instanced { get; } = instanced;
 
     public bool HasProcedural { get; } = procedural;
+
+    public bool HasIconPattern { get; } = iconPattern;
+
+    /// <summary>A copy with the icon pattern keyword on.</summary>
+    public bool IconPatterned { get; private init; }
 
     /// <summary>A copy in the procedural variant.</summary>
     public bool Procedural { get; private init; }
@@ -50,9 +55,19 @@ internal sealed class FakeMaterial(string name, bool instanced = true, int? ownQ
 
     public IGpuMaterial Copy(int queue, bool overlay, bool procedural = false)
     {
-        var copy = new FakeMaterial(Name + "@" + queue + (overlay ? "+offset" : "") + (procedural ? "+procedural" : ""), Instanced, ownQueue, HasProcedural)
+        var copy = new FakeMaterial(Name + "@" + queue + (overlay ? "+offset" : "") + (procedural ? "+procedural" : ""), Instanced, ownQueue, HasProcedural, HasIconPattern)
         {
             Queue = ownQueue ?? queue, Overlay = overlay, CopyOf = this, Procedural = procedural,
+        };
+        Copies.Add(copy);
+        return copy;
+    }
+
+    public IGpuMaterial IconPattern()
+    {
+        var copy = new FakeMaterial(Name + "+icon", Instanced, ownQueue, HasProcedural, HasIconPattern)
+        {
+            Queue = Queue, Overlay = Overlay, CopyOf = this, Procedural = Procedural, IconPatterned = true,
         };
         Copies.Add(copy);
         return copy;
@@ -73,6 +88,7 @@ internal sealed class FakeBlock : IGpuBlock
     public readonly Vector4[] Values = new Vector4[ShaderNames.Count];
     public readonly Matrix4x4[] Matrices = new Matrix4x4[16];
     public readonly FakeBuffer?[] Buffers = new FakeBuffer?[16];
+    public readonly IGpuTexture?[] Textures = new IGpuTexture?[ShaderNames.Count];
     public readonly bool[] IsSet = new bool[ShaderNames.Count];
 
     /// <summary>Whether a property was last set through the float setter, else through the vector one.</summary>
@@ -102,6 +118,13 @@ internal sealed class FakeBlock : IGpuBlock
         Writes++;
     }
 
+    public void Set(ShaderProp prop, IGpuTexture texture)
+    {
+        Textures[(int)prop] = texture;
+        IsSet[(int)prop] = true;
+        Writes++;
+    }
+
     public void Set(ShaderProp prop, Vector4 value)
     {
         Values[(int)prop] = value;
@@ -111,6 +134,14 @@ internal sealed class FakeBlock : IGpuBlock
     }
 
     public Vector4 this[ShaderProp prop] => Values[(int)prop];
+}
+
+/// <summary>A texture as an identity.</summary>
+internal sealed class FakeTexture(string name) : IGpuTexture
+{
+    public string Name { get; } = name;
+
+    public override string ToString() => Name;
 }
 
 /// <summary>Instance matrices "on the GPU": what the last upload wrote.</summary>
