@@ -23,6 +23,12 @@ namespace Lattice.Tests.Validation.RealBase;
 /// plan, its completion, a 5,000-ghost new plan's validation, then <see cref="SteadyFrames"/> steady frames. Each frame
 /// records the checking and saving the scheduler spent, whether validation was sweeping, whether plan state was working
 /// and the saving lines still queued. The lines go to <c>tests/fixtures/generated/frame-costs.txt</c>.
+/// <para>
+/// The saving window is judged on its cost per line written: its saving judged on thread CPU and pauses, less the
+/// pauses, over the lines its files grew by. Its frame count, raw and judged, and the lines queued at its start are
+/// reported, not asserted: saving packs fixed-size steps into a 1 ms slice, so the frames follow how much of the queue
+/// the completion window left behind, which moves by more than a thousand lines from run to run, not Lattice's cost.
+/// </para>
 /// </summary>
 [Collection(LatticeSystemCollection.Name)]
 public sealed class FrameCostsTests(ITestOutputHelper output)
@@ -32,7 +38,9 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
     private const int SteadyFrames = 600;
     private const int SweepFrames = 20;
     private const double SavingFrame = 3.0;
-    private const int SavingFrames = 60;
+    // Saving's cost per line written, in microseconds. Measured with v0.6.0 and 0.22.12 run in turn on one machine: v0.6.0
+    // 6.4 to 8.4, 0.22.12 7.0 to 7.8 (mean 7.3). 10 leaves about 30% over the worst run and still fails on growth that size.
+    private const double SavingPerLine = 10.0;
     private static readonly TimeSpan CheckCost = TimeSpan.FromMilliseconds(0.05);
     private static readonly TimeSpan FrameGap = TimeSpan.FromMilliseconds(40);
 
@@ -82,13 +90,20 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
         }
 
         var completion = probe.Run("completion", until: w => w.Settled, TimeSpan.FromSeconds(120));
+        var queued = bench.Saving.Pending;
+        var before = SavedLines(bench.Root);
         var saved = probe.Run("saving", until: w => bench.Saving.Pending == 0, TimeSpan.FromSeconds(120));
+        var written = SavedLines(bench.Root) - before;
+        var savingFrames = saved.Frames.Where(f => f.Saving > 0).ToList();
+        var perLine = written > 0 ? savingFrames.Sum(f => f.JudgedSaving - f.Gc) * 1000 / written : double.PositiveInfinity;
+        var savingCost = $"saving queued at the start {queued}; lines written {written}; frames {saved.Frames.Count}, judged {saved.JudgedFrames:F1}; " +
+                         $"per line {perLine:F2} us judged on thread CPU without pauses (at most {SavingPerLine} us)";
         var fresh = FreshCells(built, PlanSize).Select(c => RealBaseBench.Draft(new Placement(bench.Catalogue.Named("StructureFrame").Key, c, default))).ToList();
         Assert.IsType<Outcome.Applied>(bench.Submit(new Command.CreatePlan(RealBaseBench.Plan("New wing")) { Ghosts = ValueList.From(fresh) }));
         probe.Run("validation", until: w => w.Settled, TimeSpan.FromSeconds(120));
         var steady = probe.Run("steady", until: w => w.Frames.Count >= SteadyFrames, TimeSpan.FromSeconds(120));
 
-        var lines = probe.Windows.Select(w => w.ToString()).Append($"check cost {CheckCost.TotalMilliseconds} ms; checks {bench.Check.Calls.Count}").ToList();
+        var lines = probe.Windows.Select(w => w.ToString()).Append(savingCost).Append($"check cost {CheckCost.TotalMilliseconds} ms; checks {bench.Check.Calls.Count}").ToList();
         foreach (var line in lines)
             output.WriteLine(line);
         File.WriteAllLines(Path.Combine(Fixtures.Generated, "frame-costs.txt"), lines);
@@ -97,7 +112,8 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
         Assert.True(steady.Frames.Count(f => f.Planning) == 0, steady.ToString());
         Assert.True(steady.Frames.Count(f => f.Saving > 0) == 0, steady.ToString());
         Assert.True(completion.Settled && completion.Frames.Count(f => f.Sweeping) <= SweepFrames, completion.ToString());
-        Assert.True(bench.Saving.Pending == 0 && saved.Frames.Count <= SavingFrames, saved.ToString());
+        Assert.True(bench.Saving.Pending == 0, saved.ToString());
+        Assert.True(perLine <= SavingPerLine, $"{savingCost}; {saved}");
         Assert.True(spawn.Concat(completion.Frames).Concat(saved.Frames).Max(f => f.JudgedSaving - f.Gc) <= SavingFrame, saved.ToString());
     }
 
@@ -113,6 +129,14 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
         /// <summary>Saving on Lattice's own cost: its wall time, but no more than the frame's thread CPU plus its collector pauses.</summary>
         public double JudgedSaving => Math.Min(Saving, Cpu + Gc);
 
+        /// <summary>
+        /// The share of a frame saving's slice was Lattice's: its judged saving over its wall saving, and 1 for a frame
+        /// with no saving in it. Saving steps are fixed-size and packed into the slice by wall time, so a descheduled
+        /// thread fits fewer steps in a frame and the same lines take more frames; each such frame counts as the part
+        /// of it the thread ran or was paused for a collection. On a quiet machine every share is 1.
+        /// </summary>
+        public double JudgedFrame => Saving > 0 ? JudgedSaving / Saving : 1;
+
         /// <summary>Wall time the frame's thread spent neither running nor in a collector pause.</summary>
         public double Stall => Math.Max(0, Whole - Cpu - Gc);
     }
@@ -122,6 +146,9 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
         public int Idle { get; set; }
 
         public bool Settled => Idle >= 3;
+
+        /// <summary>The window's frame count judged on thread CPU and pauses: the sum of its frames' <see cref="Frame.JudgedFrame"/>.</summary>
+        public double JudgedFrames => Frames.Sum(f => f.JudgedFrame);
 
         public override string ToString()
         {
@@ -134,7 +161,7 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
                    $"saving queued at the end {Frames.LastOrDefault().Queued}; " +
                    $"collector over the window {Frames.Aggregate(default(Collector), (sum, f) => sum + f.Collector)}, " +
                    $"in the worst saving frame {saving.OrderByDescending(f => f.Saving).FirstOrDefault().Collector}; " +
-                   $"saving judged on thread CPU and pauses {saving.Sum(f => f.JudgedSaving):F1} ms in all, max {Max(saving.Select(f => f.JudgedSaving)):F3} ms; " +
+                   $"saving judged on thread CPU and pauses {saving.Sum(f => f.JudgedSaving):F1} ms in all over {JudgedFrames:F1} judged frames, max {Max(saving.Select(f => f.JudgedSaving)):F3} ms; " +
                    $"stalled {Frames.Sum(f => f.Stall):F1} ms in all, in {Frames.Count(f => f.Stall > 0.1)} frames over 0.1 ms, max {Max(Frames.Select(f => f.Stall)):F3} ms";
         }
     }
@@ -185,6 +212,15 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
 
             return window;
         }
+    }
+
+    // Lines in the saved files under the bench's root; the game's own save folder left out.
+    private static long SavedLines(string root)
+    {
+        var game = Path.Combine(root, "game") + Path.DirectorySeparatorChar;
+        return Directory.Exists(root)
+            ? Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Where(f => !f.StartsWith(game, StringComparison.OrdinalIgnoreCase)).Sum(f => File.ReadLines(f).LongCount())
+            : 0;
     }
 
     // Large cells in a layer 20 m over the base's highest large cell, starting at its lowest corner, one cell apart.
