@@ -20,7 +20,7 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
     /// <summary>Whether the match is a leaf: not a combinator, not <c>Everything</c>, and a case this Lattice knows.</summary>
     public static bool IsLeaf(StyleMatch match) => match is StyleMatch.Picks or StyleMatch.Intent or StyleMatch.Part
         or StyleMatch.State or StyleMatch.Finding or StyleMatch.Status or StyleMatch.Family or StyleMatch.InSet
-        or StyleMatch.Mine or StyleMatch.Tinted or StyleMatch.Finishes or StyleMatch.Draft or StyleMatch.Pending or StyleMatch.Structure
+        or StyleMatch.Mine or StyleMatch.Tinted or StyleMatch.Finishes or StyleMatch.Painted or StyleMatch.Named or StyleMatch.Draft or StyleMatch.Pending or StyleMatch.Structure
         or StyleMatch.Facing;
 
     /// <summary>A selector the board answers as a whole: network, room, run through, joined, or an and/or holding one.</summary>
@@ -54,6 +54,8 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
         StyleMatch.Mine => LeafKind.Mine,
         StyleMatch.Tinted => LeafKind.Tinted,
         StyleMatch.Finishes => LeafKind.Finishes,
+        StyleMatch.Painted => LeafKind.Painted,
+        StyleMatch.Named => LeafKind.Named,
         StyleMatch.Draft => LeafKind.Draft,
         StyleMatch.Pending => LeafKind.Pending,
         StyleMatch.Structure => LeafKind.Structure,
@@ -82,6 +84,8 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
             LeafKind.Mine => !structure && (thing.Kind == ThingKind.Draft || thing.Record is { } ghost && ghost.PlacedBy == Viewer),
             LeafKind.Tinted => !structure && thing.Tint.IsSome,
             LeafKind.Finishes => !structure && FinishOf(thing.Intent) is not null,
+            LeafKind.Painted => !structure && FinishOf(thing.Intent) is { Colour.IsSome: true },
+            LeafKind.Named => !structure && FinishOf(thing.Intent) is { Name.IsSome: true },
             LeafKind.Draft => thing.Kind == ThingKind.Draft,
             LeafKind.Pending => thing.Kind == ThingKind.Draft && thing.Pending,
             LeafKind.Structure => structure,
@@ -136,6 +140,8 @@ internal sealed class Facets(Actor viewer, StyleSets sets, Relations relations)
             StyleMatch.Mine => !structure && (thing.Kind == ThingKind.Draft || thing.Record is { } ghost && ghost.PlacedBy == Viewer),
             StyleMatch.Tinted => !structure && thing.Tint.IsSome,
             StyleMatch.Finishes => !structure && FinishOf(thing.Intent) is not null,
+            StyleMatch.Painted => !structure && FinishOf(thing.Intent) is { Colour.IsSome: true },
+            StyleMatch.Named => !structure && FinishOf(thing.Intent) is { Name.IsSome: true },
             StyleMatch.Draft => thing.Kind == ThingKind.Draft,
             StyleMatch.Pending => thing.Kind == ThingKind.Draft && thing.Pending,
             StyleMatch.Structure => structure,

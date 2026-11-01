@@ -36,6 +36,7 @@ internal sealed class Resolver(PaletteInForce palette)
         return new ResolvedLook(style, sources, Fill(style, signature), Edge(style, signature), Glow(style, signature), Under(style, signature))
         {
             PatternIcon = PatternIcon(style, signature),
+            PatternIcon2 = PatternIcon2(style, signature),
         };
     }
 
@@ -54,8 +55,15 @@ internal sealed class Resolver(PaletteInForce palette)
             ? Times(palette.Colour(under.Paint, signature), Dim(style))
             : default;
 
-    private Rgba PatternIcon(Style style, Signature signature) =>
-        style.PatternIcon.TryGet(out var pattern) && pattern is IconPattern.Tiled tiled ? Times(palette.Colour(tiled.Paint, signature), Dim(style)) : default;
+    private Rgba PatternIcon(Style style, Signature signature) => style.PatternIcon.TryGet(out var pattern) ? pattern switch
+    {
+        IconPattern.Tiled tiled => Times(palette.Colour(tiled.Paint, signature), Dim(style)),
+        IconPattern.Alternating alternating => Times(palette.Colour(alternating.First.Paint, signature), Dim(style)),
+        _ => default,
+    } : default;
+
+    private Rgba PatternIcon2(Style style, Signature signature) =>
+        style.PatternIcon.TryGet(out var pattern) && pattern is IconPattern.Alternating alternating ? Times(palette.Colour(alternating.Second.Paint, signature), Dim(style)) : default;
 
     private Rgba Glow(Style style, Signature signature) =>
         style.Glow.TryGet(out var glow) && glow is GlowLook.Lit lit ? Times(palette.Colour(lit.Paint, signature), lit.Strength.Value * Dim(style)) : default;

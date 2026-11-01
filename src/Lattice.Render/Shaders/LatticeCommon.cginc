@@ -137,12 +137,20 @@ fixed4 LatticeApplyPattern(fixed4 colour, float3 worldPos)
 // the face normal's main axis, one tile _LatticePatternIconSize metres square, upright on walls and reading left to right
 // from the side the face looks to. One texture sample a pixel: tex2Dgrad takes its gradients from the unwrapped
 // coordinate, so tile borders show no seam and the texture's wrap mode does not matter. The icon's alpha times
-// _LatticePatternColor's is the mask. Without the keyword nothing here is compiled in.
+// _LatticePatternColor's is the mask. With _LatticePatternAlternate at 1 the tiles alternate in a checkerboard: the tile
+// at t = floor(uv) draws _LatticePatternIcon in _LatticePatternColor where t.x + t.y is even, and _LatticePatternIcon2 in
+// _LatticePatternColor2 where it is odd (frac((t.x + t.y) * 0.5) is 0 or 0.5, negatives included). Still one sample a
+// pixel: the branch picks the texture first, and tex2Dgrad's explicit gradients let it stay a real branch. Without the
+// keyword nothing here is compiled in.
 #if defined(LATTICE_ICON_PATTERN)
 sampler2D _LatticePatternIcon;
+sampler2D _LatticePatternIcon2;
 float _LatticePatternIconSize;
+fixed4 _LatticePatternColor2;
+float _LatticePatternAlternate;
 
-float LatticeIconMask(float3 worldPos, float3 worldNormal)
+// The icon pattern at a point: rgb its colour, a its mask.
+fixed4 LatticeIconPattern(float3 worldPos, float3 worldNormal)
 {
     float3 n = abs(worldNormal);
     float2 uv;
@@ -153,7 +161,22 @@ float LatticeIconMask(float3 worldPos, float3 worldNormal)
     else
         uv = float2(worldPos.x * (worldNormal.z >= 0 ? -1 : 1), worldPos.y);
     uv /= max(_LatticePatternIconSize, 0.001);
-    return tex2Dgrad(_LatticePatternIcon, frac(uv), ddx(uv), ddy(uv)).a * _LatticePatternColor.a;
+    float2 tile = floor(uv);
+    float2 dx = ddx(uv);
+    float2 dy = ddy(uv);
+    bool second = _LatticePatternAlternate > 0.5 && frac((tile.x + tile.y) * 0.5) > 0.25;
+    fixed4 colour;
+    [branch] if (second)
+    {
+        colour = _LatticePatternColor2;
+        colour.a *= tex2Dgrad(_LatticePatternIcon2, uv - tile, dx, dy).a;
+    }
+    else
+    {
+        colour = _LatticePatternColor;
+        colour.a *= tex2Dgrad(_LatticePatternIcon, uv - tile, dx, dy).a;
+    }
+    return colour;
 }
 #endif
 
@@ -161,9 +184,9 @@ float LatticeIconMask(float3 worldPos, float3 worldNormal)
 fixed4 LatticeApplyFillPattern(fixed4 colour, float3 worldPos, float3 worldNormal)
 {
 #if defined(LATTICE_ICON_PATTERN)
-    float mask = LatticeIconMask(worldPos, worldNormal);
-    colour.rgb = lerp(colour.rgb, _LatticePatternColor.rgb, mask);
-    colour.a = max(colour.a, mask);
+    fixed4 icon = LatticeIconPattern(worldPos, worldNormal);
+    colour.rgb = lerp(colour.rgb, icon.rgb, icon.a);
+    colour.a = max(colour.a, icon.a);
     return colour;
 #else
     return LatticeApplyPattern(colour, worldPos);

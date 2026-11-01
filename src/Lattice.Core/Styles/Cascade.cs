@@ -205,8 +205,11 @@ internal sealed class ResolvedLook(Style style, StyleSource[] sources, Rgba fill
     /// <summary>The edge's under-line colour with dim applied; clear for no under-line.</summary>
     public Rgba Under { get; } = under;
 
-    /// <summary>The icon pattern's colour with dim applied; clear for no icon pattern.</summary>
+    /// <summary>The icon pattern's colour (an alternating pattern's first half) with dim applied; clear for no icon pattern.</summary>
     public Rgba PatternIcon { get; init; }
+
+    /// <summary>An alternating icon pattern's second half's colour with dim applied; clear for any other.</summary>
+    public Rgba PatternIcon2 { get; init; }
 
     public bool Hidden => Style.Presence.Reduce(Presence.Drawn) == Presence.Hidden;
 

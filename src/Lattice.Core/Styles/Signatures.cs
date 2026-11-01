@@ -66,6 +66,8 @@ internal enum LeafKind
     Highlight = 14,
     Finishes = 15,
     Facing = 16,
+    Painted = 17,
+    Named = 18,
 }
 
 /// <summary>

@@ -295,7 +295,9 @@ public sealed class IconPatternTests
 
         var common = Shader("LatticeCommon.cginc");
         Assert.Contains("#if defined(LATTICE_ICON_PATTERN)", common);
-        Assert.Single(Regex.Matches(common, @"tex2D\w*\("));
+        // One sample a pixel: an alternating pattern's two textures sit on the two sides of one branch.
+        Assert.Equal(2, Regex.Matches(common, @"tex2D\w*\(").Count);
+        Assert.Matches(@"\[branch\] if \(second\)\s*\{[^{}]*tex2Dgrad\([^{}]*\}\s*else\s*\{[^{}]*tex2Dgrad\(", common);
     }
 
     [Fact]
@@ -305,7 +307,11 @@ public sealed class IconPatternTests
         var doc = string.Join(" ", docs.Descendants("member").Single(static m => (string?)m.Attribute("name") == "T:Lattice.Api.MaterialKeys").Value
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-        foreach (var named in new[] { "LATTICE_ICON_PATTERN", "_LatticePatternIcon", "_LatticePatternIconSize", "must declare the keyword" })
+        foreach (var named in new[]
+        {
+            "LATTICE_ICON_PATTERN", "_LatticePatternIcon", "_LatticePatternIconSize", "must declare the keyword",
+            "_LatticePatternIcon2", "_LatticePatternColor2", "_LatticePatternAlternate", "i + j is odd",
+        })
             Assert.Contains(named, doc);
     }
 

@@ -75,6 +75,15 @@ public abstract record StyleMatch
     /// <summary>Its intent carries a finish (paint, name or setting): a finish-only ghost, or a build or swap with one.</summary>
     public sealed record Finishes : StyleMatch;
 
+    /// <summary>Its intent carries a finish that sets a paint colour (<see cref="Finish.Colour"/>). Added in 0.22.12.</summary>
+    public sealed record Painted : StyleMatch;
+
+    /// <summary>
+    /// Its intent carries a finish that sets a name (<see cref="Finish.Name"/>). A labeller setting alone
+    /// (<see cref="Finish.Setting"/>) is not a name. Added in 0.22.12.
+    /// </summary>
+    public sealed record Named : StyleMatch;
+
     /// <summary>Shown by a drafts handle, not on the board.</summary>
     public sealed record Draft : StyleMatch;
 

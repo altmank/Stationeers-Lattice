@@ -2883,7 +2883,7 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 11 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 12 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
 Lattice.Api.FlowChoice
 Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell
@@ -2965,3 +2965,11 @@ static Lattice.Api.IconPattern.Tiled.DefaultSize.get -> Lattice.Api.Metres
 Lattice.Api.Style.PatternIcon.get -> Lattice.Api.Option<Lattice.Api.IconPattern!>
 Lattice.Api.Style.PatternIcon.init -> void
 Lattice.Api.StyleProperty.PatternIcon = 27 -> Lattice.Api.StyleProperty
+Lattice.Api.IconPattern.Alternating
+Lattice.Api.IconPattern.Alternating.Alternating(Lattice.Api.IconPattern.Tiled! First, Lattice.Api.IconPattern.Tiled! Second) -> void
+Lattice.Api.IconPattern.Alternating.First.get -> Lattice.Api.IconPattern.Tiled!
+Lattice.Api.IconPattern.Alternating.First.init -> void
+Lattice.Api.IconPattern.Alternating.Second.get -> Lattice.Api.IconPattern.Tiled!
+Lattice.Api.IconPattern.Alternating.Second.init -> void
+Lattice.Api.StyleMatch.Painted
+Lattice.Api.StyleMatch.Named

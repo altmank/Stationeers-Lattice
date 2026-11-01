@@ -80,6 +80,18 @@ public abstract record IconPattern
         /// <summary>The tile size drawn: <see cref="Size"/>, or <see cref="DefaultSize"/> for none or zero. Added in 0.22.10.</summary>
         public Metres SizeOrDefault => Size.TryGet(out var size) && size.Value > 0f ? size : DefaultSize;
     }
+
+    /// <summary>
+    /// Two tiled icons in a checkerboard, each tile in its own icon and paint: for example a painted and named ghost's
+    /// spray can in its paint colour beside a white name tag. Tiles sit on the same world planes as <see cref="Tiled"/>,
+    /// at <paramref name="First"/>'s <see cref="Tiled.SizeOrDefault"/>; <paramref name="Second"/>'s size is ignored.
+    /// The tile at whole numbers (i, j) on a face's plane, i = floor(u / size) and j = floor(v / size), draws
+    /// <paramref name="First"/> where i + j is even and <paramref name="Second"/> where it is odd, negatives included.
+    /// A half whose icon is not registered draws no pattern in its tiles. Added in 0.22.12.
+    /// </summary>
+    /// <param name="First">The icon and paint of the even tiles, and the tile size.</param>
+    /// <param name="Second">The icon and paint of the odd tiles.</param>
+    public sealed record Alternating(Tiled First, Tiled Second) : IconPattern;
 }
 
 /// <summary>How an edge line is drawn. Values are fixed for the life of the contract.</summary>

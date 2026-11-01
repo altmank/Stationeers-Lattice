@@ -227,7 +227,12 @@ public static class LibraryIcons
 /// per pixel on the world plane across the face normal's main axis and uses its alpha as the mask. An override's shader
 /// must declare the keyword (<c>#pragma multi_compile_local __ LATTICE_ICON_PATTERN</c>) to show icon patterns; one
 /// without it draws its fill with no icon pattern, and Lattice logs that once per material. Looks with no icon pattern
-/// draw exactly as before, with no keyword and none of these values.</item>
+/// draw exactly as before, with no keyword and none of these values. An alternating icon pattern
+/// (<see cref="IconPattern.Alternating"/>; added in 0.22.12) draws from the same copy and adds
+/// <c>_LatticePatternIcon2</c> and <c>_LatticePatternColor2</c> (the second half's texture and colour) and
+/// <c>_LatticePatternAlternate</c> (a float, 1); a single icon sets none of the three, and the shader's default for
+/// <c>_LatticePatternAlternate</c> must be 0. The tile at i = floor(u / size), j = floor(v / size) draws the second half
+/// where i + j is odd; the shader picks the texture by that parity before its one sample.</item>
 /// <item>The clip, as globals: <c>_LatticeClipPlane</c> (xyz unit normal, w = dot(normal, a point on the plane); a
 /// point p is beyond when dot(normal, p) &gt; w) or <c>_LatticeClipMin</c> and <c>_LatticeClipMax</c> (beyond is
 /// outside the box), with <c>_LatticeClipMode</c> (0 none, 1 plane, 2 box) and <c>_LatticeBeyond</c> (x mode: 0 drawn,

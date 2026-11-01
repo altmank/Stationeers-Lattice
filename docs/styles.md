@@ -70,6 +70,7 @@ per ghost. A mod with logic of its own computes a set and pushes it ([sets](#set
 | `Facing(axis)` | A piece on a face of a large cell whose face, after its turn, is square to the axis: `Facing(Y)` for floors and ceilings, `Facing(X)` and `Facing(Z)` for upright faces. Never a piece in a cell's centre or on the small grid. `IPieceCatalogue.FacingOf` answers the same axis for a placement ([facing](catalogue.md#facing)). Contract 0.7. |
 | `InSet(set)` | Members of a ghost set or structure set. |
 | `Mine`, `Tinted`, `Finishes` | Placed by the local viewer; has a tint; asks for a finish. |
+| `Painted`, `Named` | Asks for a finish that sets a paint colour (`Finish.Colour`); asks for a finish that sets a name (`Finish.Name`). A labeller setting alone (`Finish.Setting`) is neither. A finish change restyles the ghost once. 0.22.12. |
 | `Draft`, `Pending`, `Structure` | Shown by a drafts handle; a draft sent to the host and not yet answered; a structure overlay. |
 | `All`, `Any`, `Not` | Combinations. |
 
@@ -170,6 +171,40 @@ var painted = new StyleLayerDescriptor(Must(StyleLayerId.Create(mod, "paint-icon
   (`#pragma multi_compile_local __ LATTICE_ICON_PATTERN`) and reads `_LatticePatternIcon`, `_LatticePatternIconSize` and
   `_LatticePatternColor`. `MaterialKeys` gives the contract. An override without the keyword draws its fill with no
   icon pattern; Lattice makes no copy and logs it once.
+
+### Alternating icons
+
+`IconPattern.Alternating(First, Second)` (added in 0.22.12) takes two `Tiled` halves and lays them in a checkerboard,
+each tile in its own icon and paint. To show a ghost that is both painted and named with the spray can in its paint
+colour and a white name tag, in alternate tiles:
+
+```csharp
+var both = new StyleRule(new StyleMatch.All(ValueList.From(new StyleMatch[] { new StyleMatch.Painted(), new StyleMatch.Named() })),
+    new Style
+    {
+        PatternIcon = Option.Some<IconPattern>(new IconPattern.Alternating(
+            new IconPattern.Tiled(sprayIcon, new Paint.FinishColour(LibraryPalette.Planned)),
+            new IconPattern.Tiled(tagIcon, new Paint.Fixed(new Rgba(255, 255, 255, 255))))),
+    });
+```
+
+- **The tiles.** `size` is `First.SizeOrDefault`; `Second`'s size is ignored. At a world point (x, y, z) on a face with
+  world normal n, the plane coordinate (u, v) is:
+  - |n.y| >= |n.x| and |n.y| >= |n.z| (top and bottom): u = x, v = z;
+  - else |n.x| >= |n.z| (walls facing along x): u = z when n.x >= 0, u = -z when n.x < 0; v = y;
+  - else (walls facing along z): u = -x when n.z >= 0, u = x when n.z < 0; v = y.
+
+  The tile is i = floor(u / size), j = floor(v / size). It draws `First` where i + j is even and `Second` where i + j
+  is odd, negatives included: tile (0, 0) is `First`, (1, 0) and (-1, 0) are `Second`. The shader tests it as
+  frac((i + j) * 0.5) > 0.25. Within a tile, the icon covers (u / size - i, v / size - j), from 0 to 1 on each axis.
+- **Colour.** Each tile takes its own half's paint, at that paint's opacity, with the look's `Dim` applied.
+- **A half not registered** draws nothing in its tiles; the other half's tiles still draw. Each key not registered is
+  logged once. With neither registered the fill draws no pattern.
+- **Cost.** Still one texture sample per fill pixel: the shader picks the texture by the tile's parity, then samples
+  it once. Alternating looks draw from the same `LATTICE_ICON_PATTERN` copy as single icons, with no new keyword. They
+  also set `_LatticePatternIcon2`, `_LatticePatternColor2` and `_LatticePatternAlternate` (1). A single `Tiled` icon
+  sets none of the three and draws exactly as in 0.22.10. A fill override that wants alternating icons reads them, with
+  `_LatticePatternAlternate` defaulting to 0.
 
 ### The registered texture
 

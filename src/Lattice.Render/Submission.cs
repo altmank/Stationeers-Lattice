@@ -78,6 +78,9 @@ internal readonly record struct GroupKey(PrefabKey Piece, Style Style, Rgba Fill
 
     /// <summary>The look's icon pattern colour: a finish's paint can reach it alone.</summary>
     public Rgba PatternIcon { get; init; }
+
+    /// <summary>The look's alternating icon pattern's second colour: a finish's paint can reach it alone.</summary>
+    public Rgba PatternIcon2 { get; init; }
 }
 
 /// <summary>Render's view of one of Core's batches: the group it draws in, and what that group last copied of it.</summary>
@@ -320,7 +323,7 @@ internal sealed class DrawState(RenderPorts ports)
         if (draw.Claim is not { Parts: ClaimParts.Everything } && Piece(batch.Piece) is { } piece)
         {
             var existing = batch.Part == PartKind.Existing;
-            var key = new GroupKey(batch.Piece, look.Style, look.Fill, look.Edge, look.Glow, batch.Start, existing, draw.Claim is not null) { Under = look.Under, PatternIcon = look.PatternIcon };
+            var key = new GroupKey(batch.Piece, look.Style, look.Fill, look.Edge, look.Glow, batch.Start, existing, draw.Claim is not null) { Under = look.Under, PatternIcon = look.PatternIcon, PatternIcon2 = look.PatternIcon2 };
             if (!_byKey.TryGetValue(key, out group) || group.Retired)
             {
                 group = new DrawGroup(key, piece, ports.Gpu);
@@ -1012,6 +1015,8 @@ internal sealed class Submission
         {
             if (style.PatternIcon.TryGet(out var iconLook) && iconLook is Api.IconPattern.Tiled tiled)
                 SetIconPattern(fill, fillKey, tiled, look);
+            else if (iconLook is Api.IconPattern.Alternating alternating)
+                SetIconPattern(fill, fillKey, alternating, look);
             else
             {
                 var pattern = PatternCode(style.Pattern.Reduce(Pattern.None));
@@ -1089,25 +1094,56 @@ internal sealed class Submission
     private void SetIconPattern(LayerDraw fill, MaterialKey fillKey, Api.IconPattern.Tiled tiled, ResolvedLook look)
     {
         fill.Block.Set(ShaderProp.Pattern, 0f);
-        if (!_materials.Icons.TryGet(tiled.Icon, out var texture))
-        {
-            if (_unknownIcons.Add(tiled.Icon))
-                _ports.Log($"Lattice render: no icon registered as {tiled.Icon.Value}; its icon pattern is not drawn.");
+        if (Icon(tiled.Icon) is not { } texture || IconPatterned(fill, fillKey) is not { } iconed)
             return;
-        }
-
-        if (_materials.IconPattern(fill.Material!) is not { } iconed)
-        {
-            var key = fill.Combined ? MaterialTable.FillAndEdgeKey : fillKey;
-            if (_noIconPattern.Add(key))
-                _ports.Log($"Lattice render: material {key.Value} has no LATTICE_ICON_PATTERN keyword; its icon patterns are not drawn.");
-            return;
-        }
 
         fill.Material = iconed;
         fill.Block.Set(ShaderProp.PatternIcon, texture);
         fill.Block.Set(ShaderProp.PatternIconSize, tiled.SizeOrDefault.Value);
         fill.Block.Set(ShaderProp.PatternColor, Colour(look.PatternIcon));
+    }
+
+    /// <summary>
+    /// The fill's alternating icon pattern: both halves' icons and colours, the alternate flag, and the first half's tile
+    /// size. A half whose icon is not registered draws clear in its tiles, its texture slot holding the other half's
+    /// so the shader samples a bound texture; with neither registered, no pattern is drawn.
+    /// </summary>
+    private void SetIconPattern(LayerDraw fill, MaterialKey fillKey, Api.IconPattern.Alternating alternating, ResolvedLook look)
+    {
+        fill.Block.Set(ShaderProp.Pattern, 0f);
+        var first = Icon(alternating.First.Icon);
+        var second = Icon(alternating.Second.Icon);
+        if ((first ?? second) is not { } any || IconPatterned(fill, fillKey) is not { } iconed)
+            return;
+
+        fill.Material = iconed;
+        fill.Block.Set(ShaderProp.PatternIcon, first ?? any);
+        fill.Block.Set(ShaderProp.PatternIconSize, alternating.First.SizeOrDefault.Value);
+        fill.Block.Set(ShaderProp.PatternColor, first is null ? Vector4.zero : Colour(look.PatternIcon));
+        fill.Block.Set(ShaderProp.PatternIcon2, second ?? any);
+        fill.Block.Set(ShaderProp.PatternColor2, second is null ? Vector4.zero : Colour(look.PatternIcon2));
+        fill.Block.Set(ShaderProp.PatternAlternate, 1f);
+    }
+
+    /// <summary>A registered icon's texture; none for a key not registered, logged once per key.</summary>
+    private IGpuTexture? Icon(IconKey icon)
+    {
+        if (_materials.Icons.TryGet(icon, out var texture))
+            return texture;
+        if (_unknownIcons.Add(icon))
+            _ports.Log($"Lattice render: no icon registered as {icon.Value}; its icon pattern is not drawn.");
+        return null;
+    }
+
+    /// <summary>The fill material's icon pattern copy; none for a shader without the keyword, logged once per material.</summary>
+    private IGpuMaterial? IconPatterned(LayerDraw fill, MaterialKey fillKey)
+    {
+        if (_materials.IconPattern(fill.Material!) is { } iconed)
+            return iconed;
+        var key = fill.Combined ? MaterialTable.FillAndEdgeKey : fillKey;
+        if (_noIconPattern.Add(key))
+            _ports.Log($"Lattice render: material {key.Value} has no LATTICE_ICON_PATTERN keyword; its icon patterns are not drawn.");
+        return null;
     }
 
     /// <summary>Whether any of the look's layers would draw instanced (an override or the stand-in).</summary>

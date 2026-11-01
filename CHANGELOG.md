@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.22.12
+
+Added:
+- **Alternating icons.** `IconPattern.Alternating(First, Second)` lays two tiled icons in a checkerboard, each tile in
+  its own icon and paint, for example the spray can in its paint colour beside a white name tag. The tile at
+  i = floor(u / size), j = floor(v / size) on the face's plane draws `First` where i + j is even and `Second` where it
+  is odd; `docs/styles.md` gives u and v exactly. The tiles take `First`'s size. A half not registered draws nothing in
+  its tiles and is logged once. Still one texture sample a pixel, under the same `LATTICE_ICON_PATTERN` keyword, with
+  `_LatticePatternIcon2`, `_LatticePatternColor2` and `_LatticePatternAlternate`. A single tiled icon draws exactly as
+  before.
+- **`StyleMatch.Painted` and `StyleMatch.Named`.** A ghost whose finish sets a paint colour, and one whose finish sets a
+  name. A labeller setting alone is neither. `Finishes` still matches any finish.
+
 ## 0.22.11
 
 Added:

@@ -28,7 +28,7 @@ public sealed class ContractPatchTests
         Assert.Equal(ApiVersion.ContractMajor.ToString(), parts[0]);
         Assert.Equal(ApiVersion.ContractMinor.ToString(), parts[1]);
         Assert.Equal(ApiVersion.ContractPatch.ToString(), parts[2]);
-        Assert.Equal(11, ApiVersion.ContractPatch);
+        Assert.Equal(12, ApiVersion.ContractPatch);
         Assert.Equal(ApiVersion.ContractPatch, ApiVersion.CurrentPatch);
         Assert.Equal(new ApiVersion(0, 22), ApiVersion.Current);
     }
@@ -73,6 +73,10 @@ public sealed class ContractPatchTests
     [InlineData("P:Lattice.Api.Style.PatternIcon", "Added in 0.22.10.")]
     [InlineData("F:Lattice.Api.StyleProperty.PatternIcon", "Added in 0.22.10.")]
     [InlineData("M:Lattice.Api.IPlans.BuildableNext(Lattice.Api.Selector)", "Added in 0.22.11.")]
+    [InlineData("T:Lattice.Api.IconPattern.Alternating", "Added in 0.22.12.")]
+    [InlineData("M:Lattice.Api.IconPattern.Alternating.#ctor(Lattice.Api.IconPattern.Tiled,Lattice.Api.IconPattern.Tiled)", "Added in 0.22.12.")]
+    [InlineData("T:Lattice.Api.StyleMatch.Painted", "Added in 0.22.12.")]
+    [InlineData("T:Lattice.Api.StyleMatch.Named", "Added in 0.22.12.")]
     public void Each_member_a_patch_added_names_its_patch(string member, string added) => Assert.Contains(added, Doc(member));
 
     [Fact]

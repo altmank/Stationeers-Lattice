@@ -66,6 +66,15 @@ internal enum ShaderProp
 
     /// <summary><c>_LatticePatternIconSize</c>, a float: one icon tile's world size in metres.</summary>
     PatternIconSize = 18,
+
+    /// <summary><c>_LatticePatternIcon2</c>: an alternating icon pattern's odd tiles' texture, under <c>LATTICE_ICON_PATTERN</c>.</summary>
+    PatternIcon2 = 19,
+
+    /// <summary><c>_LatticePatternColor2</c>: an alternating icon pattern's odd tiles' colour, dim applied.</summary>
+    PatternColor2 = 20,
+
+    /// <summary><c>_LatticePatternAlternate</c>, a float: 1 for an alternating icon pattern, 0 (the default) for one icon.</summary>
+    PatternAlternate = 21,
 }
 
 /// <summary>The shader name of each <see cref="ShaderProp"/>, in the enum's order.</summary>
@@ -76,7 +85,8 @@ internal static class ShaderNames
         "_Color", "_LatticePattern", "_LatticePatternColor", "_LatticeEffect", "_LatticeTime", "_LatticeSeeThrough",
         "_LatticeEdge", "_LatticeBeyond", "_LatticeClipMode", "_LatticeClipPlane", "_LatticeClipMin", "_LatticeClipMax",
         "_LatticeInstances", "_LatticeLocal", "_LatticeEdgeColor", "_LatticeEdgeUnder", "_LatticeEdgeUnderColor",
-        "_LatticePatternIcon", "_LatticePatternIconSize",
+        "_LatticePatternIcon", "_LatticePatternIconSize", "_LatticePatternIcon2", "_LatticePatternColor2",
+        "_LatticePatternAlternate",
     };
 
     public static int Count => Names.Length;

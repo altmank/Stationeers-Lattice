@@ -9,6 +9,9 @@ Shader "Lattice/Solid"
         _LatticePatternColor ("Pattern colour", Color) = (1, 1, 1, 1)
         _LatticePatternIcon ("Icon pattern", 2D) = "white" {}
         _LatticePatternIconSize ("Icon pattern tile, metres", Float) = 0.5
+        _LatticePatternIcon2 ("Icon pattern, odd tiles", 2D) = "white" {}
+        _LatticePatternColor2 ("Icon pattern colour, odd tiles", Color) = (1, 1, 1, 1)
+        _LatticePatternAlternate ("Icon pattern alternates", Float) = 0
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
         _LatticeOffsetUnits ("Depth offset units", Float) = 0
     }
