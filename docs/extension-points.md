@@ -1,8 +1,9 @@
 # Extension points
 
 Every place Lattice calls your code, and what it promises and asks there. Lattice sits under your mod and does not
-police it: what your code throws leaves the call that ran it, and Lattice does not time it or switch it off. The one
-exception is validation rules (below), because a rule's verdict decides what everyone sees.
+police it: what your code throws leaves the call that ran it, and Lattice does not time it or switch it off. There are
+two exceptions: validation rules (below), because a rule's verdict decides what everyone sees, and the board's `Changed`
+and `BoardReset` handlers on a started world, where one that throws is logged and skipped so the others still run.
 
 Every registration belongs to one world. It returns an `IDisposable` (or a handle) that ends it early, and it ends
 with the world. Register when `LatticeSystem.Started` is raised. Registering an id twice is refused

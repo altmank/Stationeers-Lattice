@@ -210,9 +210,12 @@ Limits on client commands, the access policy and what never syncs are in [multip
 ## 8. What Lattice never does
 
 Lattice sits under your mod and does not police it. It does not catch, time or switch off your event handlers,
-access policy, analyzers, command expanders or sliced work: what they throw leaves the call that ran them. The one
-exception is validation rules from other mods (`RuleDescriptor`, `SupportRuleDescriptor`): each call has a time limit, a rule that runs over it gives a
-`rule-timed-out` finding, and a rule that throws is switched off for the world and reported once.
+access policy, analyzers, command expanders or sliced work: what they throw leaves the call that ran them. There
+are two exceptions. Validation rules from other mods (`RuleDescriptor`, `SupportRuleDescriptor`): each call has a time limit, a rule that runs over it gives a
+`rule-timed-out` finding, and a rule that throws is switched off for the world and reported once. The board's
+`Changed` and `BoardReset` handlers on a started world: a handler that throws is logged and skipped and the event's
+other handlers still run, so one mod's bug never keeps sync or saving from a change. Such a handler is not timed or
+switched off.
 
 ## 9. Testing against Lattice
 
