@@ -14,8 +14,10 @@ fixed4 _LatticePatternColor;
 float4 _LatticeEffect;       // kind (0 steady, 1 pulse, 2 blink), period s, low or duty, phase s
 float _LatticeTime;          // seconds, unscaled
 float4 _LatticeSeeThrough;   // strength 0..1, range m, square-on share
-float4 _LatticeEdge;         // line style (0 solid, 1 dashed, 2 dotted), width px
+float4 _LatticeEdge;         // line style (0 solid, 1 dashed, 2 dotted), width px, dash or dot m (0: the style's own), speed m/s
 fixed4 _LatticeEdgeColor;    // the edge colour when one material draws fill and edge (keyword LATTICE_EDGE_OWN_COLOUR)
+float4 _LatticeEdgeUnder;    // the under-line's width px (0: none)
+fixed4 _LatticeEdgeUnderColor; // the under-line's colour
 
 // Lattice's own procedural draws (keyword LATTICE_PROCEDURAL, Graphics.DrawMeshInstancedProcedural): a draw group's
 // instance matrices in a buffer written only when the group is rebuilt, and the part's matrix in its piece's space.
@@ -129,6 +131,38 @@ fixed4 LatticeApplyPattern(fixed4 colour, float3 worldPos)
     colour.rgb = lerp(colour.rgb, _LatticePatternColor.rgb, mask);
     colour.a = max(colour.a, mask * _LatticePatternColor.a);
     return colour;
+}
+
+// Whether a broken line keeps the point at stripe coordinate s (metres): 1 kept, 0 cut. edge is _LatticeEdge. A
+// dash is 3/5 of its period, a dot 1/4; edge.z is the dash or dot length (0: the style's own, a period of 0.25 m);
+// edge.w is the speed in metres per second, moving the dashes towards rising s; the phase is Unity's _Time.y.
+// Solid lines keep every point. Lattice's ghost edges pass s = x + y + z in world metres; the ants material passes
+// the length along its line. docs/styles.md states the same rule for other renderers.
+float LatticeDash(float s, float4 edge)
+{
+    if (edge.x < 0.5)
+        return 1;
+    float duty = edge.x < 1.5 ? 0.6 : 0.25;
+    float period = edge.z > 0 ? edge.z / duty : 0.25;
+    float phase = frac((s - edge.w * _Time.y) / period);
+    return step(phase, duty);
+}
+
+// An inverted-hull vertex: the vertex pushed out along its normal by widthPx screen pixels.
+LatticeVaryings LatticeHullVert(LatticeAttributes v, float widthPx)
+{
+    LatticeVaryings o;
+    float4x4 objectToWorld = LatticeObjectToWorld(v);
+    float3 world = mul(objectToWorld, v.vertex).xyz;
+    float3 normal = LatticeWorldNormal(objectToWorld, v.normal);
+    float4 clipPos = UnityWorldToClipPos(world);
+    float2 clipNormal = mul((float3x3)UNITY_MATRIX_VP, normal).xy;
+    float len = max(length(clipNormal), 1e-5);
+    clipPos.xy += clipNormal / len * max(widthPx, 1) * 2 / _ScreenParams.xy * clipPos.w;
+    o.pos = clipPos;
+    o.worldPos = world;
+    o.worldNormal = normal;
+    return o;
 }
 
 // How strongly a surface faces away from the viewer: 0 facing, 1 at the silhouette.

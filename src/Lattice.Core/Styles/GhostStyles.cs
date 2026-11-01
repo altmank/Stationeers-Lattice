@@ -356,11 +356,13 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
         _sets.Highlights.Add(highlight);
         var owner = Paints<Paint.OwnerColour>(request.Style);
         var finish = Paints<Paint.FinishColour>(request.Style);
+        var plan = Paints<Paint.PlanColour>(request.Style);
         foreach (var generation in _generations)
         {
             generation.Program.Insert(generation, highlight);
             generation.UsesOwner |= owner;
             generation.UsesFinish |= finish;
+            generation.UsesPlanColour |= plan;
         }
 
         Touch(highlight);
@@ -699,8 +701,20 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
             Enqueue(ghost.Id);
         foreach (var change in changes.Changed)
             Enqueue(change.After.Id);
+        foreach (var plan in changes.PlansChanged)
+            if (!plan.Before.Colour.Equals(plan.After.Colour))
+                Recoloured(plan.After.Id);
         _awaiting.Add((changes.Id, _enqueued));
         Landed();
+    }
+
+    /// <summary>A plan's colour changed: while some rule paints with it, the plan's ghosts take new signatures. Linear in the plan's ghosts.</summary>
+    private void Recoloured(PlanId plan)
+    {
+        if (!Newest.UsesPlanColour)
+            return;
+        foreach (var ghost in _board.Index.InPlan(plan))
+            Enqueue(ghost);
     }
 
     private void OnVerdicts(ValueList<VerdictChange> changes)
@@ -928,8 +942,15 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
                 _scratch[bit >> 6] |= 1UL << (bit & 63);
         var owner = generation.UsesOwner ? OwnerOf(thing) : -1;
         var finish = generation.UsesFinish && Facets.FinishOf(thing.Intent) is { } asked && asked.Colour.TryGet(out var paint) ? paint.Index : -1;
-        return generation.Intern(_scratch, words, thing.Tint, owner, finish);
+        var plan = generation.UsesPlanColour ? PlanColourOf(thing) : Option<Tint>.None;
+        return generation.Intern(_scratch, words, thing.Tint, owner, finish, plan);
     }
+
+    /// <summary>The colour of a ghost's plan; none for a draft, a structure or a plan the board does not hold. Constant cost.</summary>
+    private Option<Tint> PlanColourOf(Thing thing) =>
+        thing.Kind == ThingKind.Ghost && thing.Record is { } ghost && _board.Index.Plans.TryGetValue(ghost.Plan, out var entry)
+            ? entry.Plan.Colour
+            : Option<Tint>.None;
 
     private int OwnerOf(Thing thing)
     {
@@ -1013,6 +1034,7 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
         {
             generation.UsesOwner |= Paints<Paint.OwnerColour>(rule.Style);
             generation.UsesFinish |= Paints<Paint.FinishColour>(rule.Style);
+            generation.UsesPlanColour |= Paints<Paint.PlanColour>(rule.Style);
         }
 
         foreach (var watch in _watches)
@@ -1079,7 +1101,7 @@ internal sealed class GhostStyles : IGhostStyles, IMembership, ISlicedWork
     /// <summary>Whether a style paints anything with a paint of this kind.</summary>
     private static bool Paints<TPaint>(Style style) where TPaint : Paint =>
         style.FillPaint.TryGet(out var fill) && fill is TPaint
-        || style.Edge.TryGet(out var edge) && edge is EdgeLook.Line { Paint: TPaint }
+        || style.Edge.TryGet(out var edge) && edge is EdgeLook.Line line && (line.Paint is TPaint || line.Under.TryGet(out var under) && under.Paint is TPaint)
         || style.Glow.TryGet(out var glow) && glow is GlowLook.Lit { Paint: TPaint };
 
     // ---- structures ----

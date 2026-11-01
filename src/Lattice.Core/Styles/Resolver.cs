@@ -33,7 +33,7 @@ internal sealed class Resolver(PaletteInForce palette)
         }
 
         var style = MotionTiming.Apply(Defaults(look), palette.Motion);
-        return new ResolvedLook(style, sources, Fill(style, signature), Edge(style, signature), Glow(style, signature));
+        return new ResolvedLook(style, sources, Fill(style, signature), Edge(style, signature), Glow(style, signature), Under(style, signature));
     }
 
     private Rgba Fill(Style style, Signature signature)
@@ -45,6 +45,11 @@ internal sealed class Resolver(PaletteInForce palette)
 
     private Rgba Edge(Style style, Signature signature) =>
         style.Edge.TryGet(out var edge) && edge is EdgeLook.Line line ? Times(palette.Colour(line.Paint, signature), Dim(style)) : default;
+
+    private Rgba Under(Style style, Signature signature) =>
+        style.Edge.TryGet(out var edge) && edge is EdgeLook.Line line && line.Under.TryGet(out var under)
+            ? Times(palette.Colour(under.Paint, signature), Dim(style))
+            : default;
 
     private Rgba Glow(Style style, Signature signature) =>
         style.Glow.TryGet(out var glow) && glow is GlowLook.Lit lit ? Times(palette.Colour(lit.Paint, signature), lit.Strength.Value * Dim(style)) : default;

@@ -8,7 +8,7 @@ Shader "Lattice/GhostEdged"
     {
         _Color ("Colour", Color) = (0.25, 0.45, 1, 0.3)
         _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
-        _LatticeEdge ("Edge: line style, width px", Vector) = (0, 1, 0, 0)
+        _LatticeEdge ("Edge: line style, width px, dash m, speed m/s", Vector) = (0, 1, 0, 0)
         _LatticePattern ("Pattern", Float) = 0
         _LatticePatternColor ("Pattern colour", Color) = (1, 1, 1, 1)
         _LatticeEdgeColor ("Edge colour", Color) = (0.25, 0.45, 1, 1)

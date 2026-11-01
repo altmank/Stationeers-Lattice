@@ -106,11 +106,105 @@ property's explicit none case (`EdgeLook.None`, `GlowLook.None`, ...).
 | Picking | `Pickable` |
 
 Colours are `Paint`: `Fixed(rgba)`, `Token(key)` from the palette in force, `GhostTint(fallback)` for the ghost's own
-tint, `OwnerColour` from the palette's owner ramp, or `FinishColour(fallback)` for the paint a finish asks for.
+tint, `OwnerColour` from the palette's owner ramp, `FinishColour(fallback)` for the paint a finish asks for, or
+`PlanColour(fallback)` for the ghost's plan's colour ([plan colour](#plan-colour), 0.22.9).
 
 Labels say a `LabelText`: the ghost's label, its finish name, its finding's reason (worded by the text style), its
 plan's name, its step number in build order, its piece count in the plan's bill, or fixed words. Lattice shows the
 nearest labels in range first, by priority, culls overlaps and caps how many show.
+
+## Plan colour
+
+`Paint.PlanColour(fallback)` (added in 0.22.9) paints with the ghost's plan's `Plan.Colour`. It uses the palette's
+colour for `fallback` when the plan has no colour, for a draft (even one that names a coloured plan), and for a
+structure overlay. To fill every planned ghost with its plan's colour:
+
+```csharp
+var planFill = new StyleLayerDescriptor(Must(StyleLayerId.Create(mod, "plan-fill")), StyleBand.Theme, 0,
+    ValueList.Of(new StyleRule(new StyleMatch.Everything(),
+        new Style { FillPaint = Option.Some<Paint>(new Paint.PlanColour(LibraryPalette.Planned)) })));
+```
+
+- A plan recoloured with `PlanEdit.Recolour` restyles that plan's ghosts in the next drawing burst. The ghosts
+  themselves are not written: no change set names them and their revisions stay. The cost is linear in the plan's
+  ghosts, once.
+- A ghost moved to another plan takes the new plan's colour, in the same pass as any other change to it.
+- While no rule paints with `PlanColour`, a recolour restyles nothing. An unchanged board allocates nothing either way.
+
+## Moving lines
+
+`EdgeLook.Line` has three `init` properties, added in 0.22.9. A line built as before has none of them set and draws
+exactly as before.
+
+| Property | Default | Meaning |
+|---|---|---|
+| `Dash` | none | The length of one dash (`Dashed`) or dot (`Dotted`), in world metres. None or 0: the style's own, 0.15 m dashes and 0.0625 m dots. |
+| `Speed` | 0 | How fast the dashes move along the line, in metres per second. The sign is the direction. 0 is still. |
+| `Under` | none | An `UnderLine(width, paint)`: a wider, unbroken line in its own paint, drawn beneath. |
+
+Solid lines ignore `Dash` and `Speed`. Motion `Reduced` and `Off` draw every line still. The marching ants of a removal
+or a selection: 3 px red or white dashes moving over a 5 px dark line.
+
+```csharp
+var removing = new EdgeLook.Line(LineStyle.Dashed, Must(Pixels.Create(3f)), new Paint.Token(LibraryPalette.Remove))
+{
+    Dash = Option.Some(Must(Metres.Create(0.2f))),
+    Speed = Must(Speed.Create(0.5f)),
+    Under = Option.Some(new UnderLine(Must(Pixels.Create(5f)), new Paint.Fixed(new Rgba(20, 20, 20, 200)))),
+};
+```
+
+Moving costs no CPU work per frame and nothing per ghost: the shader takes the phase from Unity's shared clock. An
+under-line draws the edge with Lattice's internal edge-and-under-line material, so only looks that have one pay for
+the extra pass. With the `edge` material overridden, your material draws the edge and is given `_LatticeEdgeUnder`
+and `_LatticeEdgeUnderColor` to draw its own under-line.
+
+### The dash rule, for other renderers
+
+A renderer that draws its own lines (an outline round built pieces) matches Lattice's ghosts with this rule, from
+`LatticeDash` in `src/Lattice.Render/Shaders/LatticeCommon.cginc`:
+
+```
+duty   = 0.6 for dashed, 0.25 for dotted (solid keeps every point)
+period = dash > 0 ? dash / duty : 0.25          metres
+phase  = frac((s - speed * _Time.y) / period)
+kept   = phase <= duty
+```
+
+- `s` is the stripe coordinate in metres. Lattice's ghost edges use `s = x + y + z`, the world position's sum. Along
+  an edge parallel to a world axis, one metre of edge is one metre of `s`. An edge square to (1, 1, 1) keeps one
+  value of `s` all along, so it shows no dashes, as dashed edges always have. Dashes are cut in the world, so they
+  don't crawl when the camera moves.
+- `speed` is `Line.Speed` in metres per second. A positive speed moves the dashes towards rising `s`.
+- `_Time.y` is Unity's shared shader time in seconds since the level loaded. It follows the game's time scale, so
+  the dashes stop while the game is paused. Its origin is the level load, the same for every material, so two
+  renderers that read it stay in step.
+- In the material, `_LatticeEdge` is (x line style: 0 solid, 1 dashed, 2 dotted; y width in pixels; z `dash` in
+  metres, 0 for the style's own; w `speed` in metres per second).
+
+### The ants material
+
+`MaterialKeys.Ants` (added in 0.22.9) is Lattice's material for a mod's own line meshes. Get it with
+`IGhostDrawing.Material(MaterialKeys.Ants)`. It cuts dashes with the same `LatticeDash`, with `s` the length along the
+line instead of `x + y + z`. That spaces dashes evenly round corners and draws them on edges of every direction.
+
+- Properties: `_Color` (the colour), and `_LatticeEdge` laid out as above: style, width in pixels, dash in metres,
+  speed in metres per second. Set them per draw through a `MaterialPropertyBlock`. The clip globals apply.
+- Mesh: triangles, never `MeshTopology.Lines`. Unity's lines are one pixel wide on D3D11 and Vulkan, so they can't
+  draw a 3 px line. Each segment from A to B is a quad of four vertices (two triangles):
+
+| Channel | Holds |
+|---|---|
+| `POSITION` | This vertex's end of the segment, in object space. |
+| `TEXCOORD0` | xyz: the segment's other end, in object space. w: the side, +1 or -1. |
+| `TEXCOORD1.x` | The length along the line at this vertex's end, in metres, counted from the line's start. The ants material requires it: its dashes are cut by it. |
+
+  The shader pushes each vertex sideways in screen space by half the width, so the line is the width in pixels at
+  any distance. Write `TEXCOORD1` with `Mesh.SetUVs(1, ...)`.
+- Under-line: draw the same mesh twice with the ants material, the under-line first: style 0 (solid), the wider
+  width and the dark colour in one property block, then the dashes in another. That costs the same as a second pass,
+  and the shader stays one pass for lines without one.
+- It draws alpha-blended, with no depth write, both sides, depth-tested against the world.
 
 ## Palettes and motion
 
@@ -120,8 +214,8 @@ nearest labels in range first, by priority, culls overlaps and caps how many sho
   `ColourSafe` (Okabe-Ito hues) or `HighContrast`. A theme takes one whole and changes a few tokens.
 - `LibraryPalette` lists every token the starter library paints with (`planned`, `next`, `waits`, `fail`, `warn`,
   `remove`, `stale`, `draft`, `select`). A theme that covers them all restyles every library look.
-- `Motion`: `Full`, `Reduced` (pulses, blinks and flashes steady; eases at most 100 ms) or `Off`. The last enabled
-  layer that states one wins.
+- `Motion`: `Full`, `Reduced` (pulses, blinks, flashes and moving dashes steady; eases at most 100 ms) or `Off`.
+  The last enabled layer that states one wins.
 
 ## The starter library
 

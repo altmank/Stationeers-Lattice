@@ -1,6 +1,6 @@
 // Material key `edge`: the outline, as an inverted hull pushed out along the normal by a width in pixels. It reads
 // nothing from the mesh on the CPU, so it works on meshes the game keeps unreadable. Dashed and dotted lines are cut
-// by world-distance stripes. The hull reads _Color, or _LatticeEdgeColor under LATTICE_EDGE_OWN_COLOUR (Lattice/GhostEdged).
+// by world-distance stripes (LatticeDash over x + y + z), moving at _LatticeEdge.w metres per second. The hull reads _Color, or _LatticeEdgeColor under LATTICE_EDGE_OWN_COLOUR (Lattice/GhostEdged).
 // Ghost fills write no depth, so the hull's back faces would show through the fill across the whole ghost. Three
 // passes on the same draw mask the inside by stencil instead: the un-extruded mesh marks one stencil bit, the hull
 // draws where that bit is clear, and the mesh clears the bit again, leaving the buffer as it was found.
@@ -13,7 +13,7 @@ Shader "Lattice/Edge"
     {
         _Color ("Colour", Color) = (0.25, 0.45, 1, 1)
         _LatticeBeyond ("Beyond the clip: mode, dim", Vector) = (0, 1, 0, 0)
-        _LatticeEdge ("Edge: line style, width px", Vector) = (0, 1, 0, 0)
+        _LatticeEdge ("Edge: line style, width px, dash m, speed m/s", Vector) = (0, 1, 0, 0)
         _LatticeEdgeColor ("Edge colour", Color) = (0.25, 0.45, 1, 1)
         _LatticeOffsetFactor ("Depth offset factor", Float) = 0
         _LatticeOffsetUnits ("Depth offset units", Float) = 0
@@ -93,27 +93,12 @@ Shader "Lattice/Edge"
 
             LatticeVaryings vert(LatticeAttributes v)
             {
-                LatticeVaryings o;
-                float4x4 objectToWorld = LatticeObjectToWorld(v);
-                float3 world = mul(objectToWorld, v.vertex).xyz;
-                float3 normal = LatticeWorldNormal(objectToWorld, v.normal);
-                float4 clipPos = UnityWorldToClipPos(world);
-                float2 clipNormal = mul((float3x3)UNITY_MATRIX_VP, normal).xy;
-                float len = max(length(clipNormal), 1e-5);
-                float width = max(_LatticeEdge.y, 1);
-                clipPos.xy += clipNormal / len * width * 2 / _ScreenParams.xy * clipPos.w;
-                o.pos = clipPos;
-                o.worldPos = world;
-                o.worldNormal = normal;
-                return o;
+                return LatticeHullVert(v, _LatticeEdge.y);
             }
 
             fixed4 frag(LatticeVaryings i) : SV_Target
             {
-                float style = _LatticeEdge.x;
-                float along = frac((i.worldPos.x + i.worldPos.y + i.worldPos.z) * 4);
-                float keep = style < 0.5 ? 1 : (style < 1.5 ? step(along, 0.6) : step(along, 0.25));
-                clip(keep - 0.5);
+                clip(LatticeDash(i.worldPos.x + i.worldPos.y + i.worldPos.z, _LatticeEdge) - 0.5);
                 return LatticeApplyBeyond(LATTICE_EDGE_COLOUR, i.worldPos);
             }
             ENDCG

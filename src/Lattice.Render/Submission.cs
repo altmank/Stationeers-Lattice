@@ -58,6 +58,9 @@ internal sealed class LayerDraw(IGpuBlock block)
     /// <summary>The edge colour before effects, for the one material that draws fill and edge.</summary>
     public Vector4 EdgeColour { get; set; }
 
+    /// <summary>The under-line colour before effects; clear for none.</summary>
+    public Vector4 UnderColour { get; set; }
+
     public bool Combined { get; set; }
 
     public bool On { get; set; }
@@ -68,7 +71,11 @@ internal sealed class LayerDraw(IGpuBlock block)
 /// whether a claim draws the mesh itself (<see cref="ClaimParts.Mesh"/>: the group draws no fill). Core's batches of that
 /// key in every chunk in view draw from one instance buffer.
 /// </summary>
-internal readonly record struct GroupKey(PrefabKey Piece, Style Style, Rgba Fill, Rgba Edge, Rgba Glow, long Start, bool Existing, bool MeshClaimed);
+internal readonly record struct GroupKey(PrefabKey Piece, Style Style, Rgba Fill, Rgba Edge, Rgba Glow, long Start, bool Existing, bool MeshClaimed)
+{
+    /// <summary>The look's under-line colour: a plan's colour can reach it alone.</summary>
+    public Rgba Under { get; init; }
+}
 
 /// <summary>Render's view of one of Core's batches: the group it draws in, and what that group last copied of it.</summary>
 internal sealed class BatchDraw(Batch batch)
@@ -310,7 +317,7 @@ internal sealed class DrawState(RenderPorts ports)
         if (draw.Claim is not { Parts: ClaimParts.Everything } && Piece(batch.Piece) is { } piece)
         {
             var existing = batch.Part == PartKind.Existing;
-            var key = new GroupKey(batch.Piece, look.Style, look.Fill, look.Edge, look.Glow, batch.Start, existing, draw.Claim is not null);
+            var key = new GroupKey(batch.Piece, look.Style, look.Fill, look.Edge, look.Glow, batch.Start, existing, draw.Claim is not null) { Under = look.Under };
             if (!_byKey.TryGetValue(key, out group) || group.Retired)
             {
                 group = new DrawGroup(key, piece, ports.Gpu);
@@ -987,7 +994,8 @@ internal sealed class Submission
         var needsPages = false;
 
         var fillKey = FillKey(group, look);
-        var combined = look.Edge.A > 0 && fillKey.Value.Length > 0 ? _materials.Combined(fillKey, group.Existing) : null;
+        var underlined = look.Edge.A > 0 && look.Under.A > 0 ? _materials.Underlined(group.Existing) : null;
+        var combined = look.Edge.A > 0 && underlined is null && fillKey.Value.Length > 0 ? _materials.Combined(fillKey, group.Existing) : null;
 
         var fill = group.Layer[Fill];
         if (combined is not null)
@@ -1004,10 +1012,27 @@ internal sealed class Submission
         }
 
         var edge = group.Layer[Edge];
-        Set(group, edge, look.Edge.A > 0 && combined is null ? MaterialKeys.Edge : default, Colour(look.Edge), beyond, ref needsPages);
-        var line = style.Edge.TryGet(out var edgeLook) && edgeLook is EdgeLook.Line l ? new Vector4(LineCode(l.Style), l.Width.Value, 0f, 0f) : Vector4.zero;
+        if (underlined is not null)
+        {
+            SetOwn(group, edge, underlined, Colour(look.Edge), beyond);
+            edge.Combined = false;
+        }
+        else
+            Set(group, edge, look.Edge.A > 0 && combined is null ? MaterialKeys.Edge : default, Colour(look.Edge), beyond, ref needsPages);
+        var lineLook = style.Edge.TryGet(out var edgeLook) && edgeLook is EdgeLook.Line l ? l : null;
+        var line = lineLook is not null ? LineValues(lineLook) : Vector4.zero;
+        edge.UnderColour = default;
         if (edge.On)
+        {
             edge.Block.Set(ShaderProp.Edge, line);
+            if (look.Under.A > 0 && lineLook is not null && lineLook.Under.TryGet(out var under))
+            {
+                edge.UnderColour = Colour(look.Under);
+                edge.Block.Set(ShaderProp.EdgeUnder, new Vector4(under.Width.Value, 0f, 0f, 0f));
+                edge.Block.Set(ShaderProp.EdgeUnderColor, edge.UnderColour);
+            }
+        }
+
         if (fill.Combined)
         {
             fill.EdgeColour = Colour(look.Edge);
@@ -1051,9 +1076,10 @@ internal sealed class Submission
     {
         var style = look.Style;
         var fillKey = FillKey(group, look);
-        var combined = look.Edge.A > 0 && fillKey.Value.Length > 0 && _materials.Combined(fillKey, group.Existing) is not null;
+        var underlined = look.Edge.A > 0 && look.Under.A > 0 && _materials.Underlined(group.Existing) is not null;
+        var combined = look.Edge.A > 0 && !underlined && fillKey.Value.Length > 0 && _materials.Combined(fillKey, group.Existing) is not null;
         return Instanced(group, fillKey) && !combined
-            || look.Edge.A > 0 && !combined && Instanced(group, MaterialKeys.Edge)
+            || look.Edge.A > 0 && !combined && !underlined && Instanced(group, MaterialKeys.Edge)
             || look.Glow.A > 0 && Instanced(group, MaterialKeys.Glow)
             || style.SeeThrough.TryGet(out var through) && through is SeeThroughLook.Through t && SeeThroughColour(look, t).w > 0f
                 && Instanced(group, MaterialKeys.SeeThrough);
@@ -1170,6 +1196,12 @@ internal sealed class Submission
                 layer.Block.Set(ShaderProp.EdgeColor, new Vector4(e.x, e.y, e.z, e.w * factor));
             }
 
+            if (layer.UnderColour.w > 0f)
+            {
+                var u = layer.UnderColour;
+                layer.Block.Set(ShaderProp.EdgeUnderColor, new Vector4(u.x, u.y, u.z, u.w * factor));
+            }
+
             layer.Block.Set(ShaderProp.Time, t);
         }
     }
@@ -1193,6 +1225,13 @@ internal sealed class Submission
         Pattern.Dots => 3f,
         _ => 0f,
     };
+
+    /// <summary>
+    /// <c>_LatticeEdge</c>: line code, width in pixels, dash length in metres (0: the style's own) and speed in metres per
+    /// second; a line built as before writes (code, width, 0, 0).
+    /// </summary>
+    private static Vector4 LineValues(EdgeLook.Line line) =>
+        new(LineCode(line.Style), line.Width.Value, line.Dash.TryGet(out var dash) ? dash.Value : 0f, line.Speed.MetresPerSecond);
 
     private static float LineCode(LineStyle style) => style switch
     {

@@ -70,14 +70,14 @@ internal sealed class FakeMaterial(string name, bool instanced = true, int? ownQ
 
 internal sealed class FakeBlock : IGpuBlock
 {
-    public readonly Vector4[] Values = new Vector4[16];
+    public readonly Vector4[] Values = new Vector4[ShaderNames.Count];
     public readonly Matrix4x4[] Matrices = new Matrix4x4[16];
     public readonly FakeBuffer?[] Buffers = new FakeBuffer?[16];
-    public readonly bool[] IsSet = new bool[16];
+    public readonly bool[] IsSet = new bool[ShaderNames.Count];
 
     /// <summary>Whether a property was last set through the float setter, else through the vector one.</summary>
-    public readonly bool[] AsFloat = new bool[16];
-    public readonly bool[] AsVector = new bool[16];
+    public readonly bool[] AsFloat = new bool[ShaderNames.Count];
+    public readonly bool[] AsVector = new bool[ShaderNames.Count];
     public int Writes;
 
     public void Set(ShaderProp prop, float value)
@@ -156,10 +156,10 @@ internal struct DrawCall
 internal sealed class FakeGpu : IGpu
 {
     public readonly List<DrawCall> Draws = new(4096);
-    public readonly Vector4[] Globals = new Vector4[16];
-    public readonly bool[] GlobalSet = new bool[16];
-    public readonly bool[] GlobalAsFloat = new bool[16];
-    public readonly bool[] GlobalAsVector = new bool[16];
+    public readonly Vector4[] Globals = new Vector4[ShaderNames.Count];
+    public readonly bool[] GlobalSet = new bool[ShaderNames.Count];
+    public readonly bool[] GlobalAsFloat = new bool[ShaderNames.Count];
+    public readonly bool[] GlobalAsVector = new bool[ShaderNames.Count];
     public int Calls;
     public int Blocks;
     public readonly List<FakeBuffer> Buffers = new();

@@ -119,21 +119,23 @@ internal abstract class Compiled
 }
 
 /// <summary>
-/// The facets of a drawn thing as one value: the bits of its generation's leaves that hold, its tint, and its owner
-/// (only while some rule paints with the owner's colour; -1 otherwise). Things with equal signatures look alike, so
+/// The facets of a drawn thing as one value: the bits of its generation's leaves that hold, its tint, its owner
+/// (only while some rule paints with the owner's colour; -1 otherwise), its finish's paint and its plan's colour (each
+/// only while some rule paints with it). Things with equal signatures look alike, so
 /// the look is resolved and cached per signature. Interned per generation; compared by reference.
 /// </summary>
 internal sealed class Signature
 {
     private readonly ulong[] _words;
 
-    public Signature(Generation generation, ulong[] words, Option<Tint> tint, int owner, int finish = -1)
+    public Signature(Generation generation, ulong[] words, Option<Tint> tint, int owner, int finish = -1, Option<Tint> plan = default)
     {
         Generation = generation;
         _words = words;
         Tint = tint;
         Owner = owner;
         Finish = finish;
+        PlanColour = plan;
     }
 
     public Generation Generation { get; }
@@ -145,6 +147,9 @@ internal sealed class Signature
 
     /// <summary>The game paint index the thing's finish asks for, while some rule paints with it; -1 for none.</summary>
     public int Finish { get; }
+
+    /// <summary>The colour of the thing's plan, while some rule paints with it; none for no colour, a draft or a structure.</summary>
+    public Option<Tint> PlanColour { get; }
 
     /// <summary>The look, as of <see cref="LookVersion"/>; null until first resolved.</summary>
     public ResolvedLook? Look { get; set; }
@@ -191,6 +196,9 @@ internal sealed class Generation
     /// <summary>Whether some rule paints with the finish's colour, so signatures carry the finish's paint.</summary>
     public bool UsesFinish { get; set; }
 
+    /// <summary>Whether some rule paints with the plan's colour, so signatures carry it.</summary>
+    public bool UsesPlanColour { get; set; }
+
     public int SignatureCount => _signatures.Count;
 
     public IEnumerable<Signature> Signatures => _signatures.Values;
@@ -208,16 +216,16 @@ internal sealed class Generation
 
     public bool TryBit(Leaf leaf, out int bit) => _bits.TryGetValue(leaf, out bit);
 
-    /// <summary>The signature with these words, tint and owner: an existing one without allocating, else a new one.</summary>
-    public Signature Intern(ulong[] words, int count, Option<Tint> tint, int owner, int finish = -1)
+    /// <summary>The signature with these words, tint, owner, finish paint and plan colour: an existing one without allocating, else a new one.</summary>
+    public Signature Intern(ulong[] words, int count, Option<Tint> tint, int owner, int finish = -1, Option<Tint> plan = default)
     {
-        var probe = new SignatureKey(words, count, tint, owner, finish);
+        var probe = new SignatureKey(words, count, tint, owner, finish, plan);
         if (_signatures.TryGetValue(probe, out var found))
             return found;
         var own = new ulong[Trimmed(words, count)];
         Array.Copy(words, own, own.Length);
-        var made = new Signature(this, own, tint, owner, finish);
-        _signatures[new SignatureKey(own, own.Length, tint, owner, finish)] = made;
+        var made = new Signature(this, own, tint, owner, finish, plan);
+        _signatures[new SignatureKey(own, own.Length, tint, owner, finish, plan)] = made;
         return made;
     }
 
@@ -241,20 +249,21 @@ internal sealed class Generation
         return count;
     }
 
-    /// <summary>A signature's identity: words compared with missing words as zero, then tint, owner and finish paint.</summary>
-    private readonly struct SignatureKey(ulong[] words, int count, Option<Tint> tint, int owner, int finish)
+    /// <summary>A signature's identity: words compared with missing words as zero, then tint, owner, finish paint and plan colour.</summary>
+    private readonly struct SignatureKey(ulong[] words, int count, Option<Tint> tint, int owner, int finish, Option<Tint> plan)
     {
         private readonly ulong[] _words = words;
         private readonly int _count = count;
         private readonly Option<Tint> _tint = tint;
         private readonly int _owner = owner;
         private readonly int _finish = finish;
+        private readonly Option<Tint> _plan = plan;
 
         public sealed class Comparer : IEqualityComparer<SignatureKey>
         {
             public bool Equals(SignatureKey a, SignatureKey b)
             {
-                if (a._owner != b._owner || a._finish != b._finish || !a._tint.Equals(b._tint))
+                if (a._owner != b._owner || a._finish != b._finish || !a._tint.Equals(b._tint) || !a._plan.Equals(b._plan))
                     return false;
                 var most = Math.Max(a._count, b._count);
                 for (var i = 0; i < most; i++)
@@ -270,7 +279,7 @@ internal sealed class Generation
 
             public int GetHashCode(SignatureKey key)
             {
-                var hash = (((key._owner * 397) ^ key._finish) * 397) ^ key._tint.GetHashCode();
+                var hash = (((((key._owner * 397) ^ key._finish) * 397) ^ key._tint.GetHashCode()) * 397) ^ key._plan.GetHashCode();
                 for (var i = 0; i < key._count; i++)
                     if (key._words[i] != 0)
                         hash = (hash * 31) ^ i ^ key._words[i].GetHashCode();

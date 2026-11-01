@@ -22,6 +22,8 @@ public static class LatticeBundleBuild
         ("glow", "Lattice/Glow"),
         ("faded", "Lattice/Faded"),
         ("ghost-edged", "Lattice/GhostEdged"),
+        ("edge-under", "Lattice/EdgeUnder"),
+        ("ants", "Lattice/Ants"),
     };
 
     // The game's own shaders are compiled for D3D11, OpenGLCore and Vulkan (ShaderCompilerPlatform 4, 15 and 18 on

@@ -53,6 +53,7 @@ internal sealed class ShaderBundle
             foreach (var key in MaterialTable.LatticeKeys)
                 Take(bundle, key, materials, log);
             Take(bundle, MaterialTable.FillAndEdgeKey, materials, log);
+            Take(bundle, MaterialTable.EdgeUnderKey, materials, log);
             if (materials.Count > 0)
                 return new ShaderBundle(bundle, materials, new List<Material>(0));
             bundle.Unload(true);

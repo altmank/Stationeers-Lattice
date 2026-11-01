@@ -28,7 +28,7 @@ public sealed class ContractPatchTests
         Assert.Equal(ApiVersion.ContractMajor.ToString(), parts[0]);
         Assert.Equal(ApiVersion.ContractMinor.ToString(), parts[1]);
         Assert.Equal(ApiVersion.ContractPatch.ToString(), parts[2]);
-        Assert.Equal(8, ApiVersion.ContractPatch);
+        Assert.Equal(9, ApiVersion.ContractPatch);
         Assert.Equal(ApiVersion.ContractPatch, ApiVersion.CurrentPatch);
         Assert.Equal(new ApiVersion(0, 22), ApiVersion.Current);
     }
@@ -57,6 +57,13 @@ public sealed class ContractPatchTests
     [InlineData("M:Lattice.Api.IExecutorHandle.SayMode(Lattice.Api.BuildMode,Lattice.Api.ValueList{Lattice.Api.SkippedGhost})", "Added in 0.22.8.")]
     [InlineData("M:Lattice.Api.IExecutorHandle.SetBatch(Lattice.Api.ValueSet{Lattice.Api.GhostId})", "Added in 0.22.8.")]
     [InlineData("P:Lattice.Api.IExecutorHandle.Batch", "Added in 0.22.8.")]
+    [InlineData("T:Lattice.Api.Paint.PlanColour", "Added in 0.22.9.")]
+    [InlineData("P:Lattice.Api.EdgeLook.Line.Dash", "Added in 0.22.9.")]
+    [InlineData("P:Lattice.Api.EdgeLook.Line.Speed", "Added in 0.22.9.")]
+    [InlineData("P:Lattice.Api.EdgeLook.Line.Under", "Added in 0.22.9.")]
+    [InlineData("T:Lattice.Api.UnderLine", "Added in 0.22.9.")]
+    [InlineData("T:Lattice.Api.Speed", "Added in 0.22.9.")]
+    [InlineData("F:Lattice.Api.MaterialKeys.Ants", "Added in 0.22.9.")]
     public void Each_member_a_patch_added_names_its_patch(string member, string added) => Assert.Contains(added, Doc(member));
 
     [Fact]

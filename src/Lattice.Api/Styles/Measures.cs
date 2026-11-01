@@ -93,6 +93,27 @@ public readonly record struct Metres
             : Result<Metres, Reason>.Error(Measure.Invalid(nameof(Metres), value, "not-negative"));
 }
 
+/// <summary>
+/// A speed in metres per second; the sign is the direction (<see cref="EdgeLook.Line.Speed"/>). <c>default</c> is zero:
+/// still. Added in 0.22.9.
+/// </summary>
+public readonly record struct Speed
+{
+    private Speed(float metresPerSecond) => MetresPerSecond = metresPerSecond;
+
+    /// <summary>The metres per second, either sign.</summary>
+    public float MetresPerSecond { get; }
+
+    /// <summary>Zero: still.</summary>
+    public static Speed Zero => default;
+
+    /// <summary>Refuses a non-finite value.</summary>
+    public static Result<Speed, Reason> Create(float metresPerSecond) =>
+        Measure.IsFinite(metresPerSecond)
+            ? Result<Speed, Reason>.Ok(new Speed(metresPerSecond))
+            : Result<Speed, Reason>.Error(Measure.Invalid(nameof(Speed), metresPerSecond, "finite"));
+}
+
 /// <summary>A line width in screen pixels, more than zero. <c>default</c> is zero: no line.</summary>
 public readonly record struct Pixels
 {

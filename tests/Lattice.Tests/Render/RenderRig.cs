@@ -28,6 +28,7 @@ internal sealed class RenderRig
         foreach (var key in Lattice.Render.Materials.MaterialTable.LatticeKeys)
             Bundle[key] = new FakeMaterial(key.Value, procedural: true);
         Bundle[Lattice.Render.Materials.MaterialTable.FillAndEdgeKey] = new FakeMaterial("ghost-edged", procedural: true);
+        Bundle[Lattice.Render.Materials.MaterialTable.EdgeUnderKey] = new FakeMaterial("edge-under", procedural: true);
     }
 
     /// <summary>Ports and joins for port and open-end marks; none draws no marks.</summary>

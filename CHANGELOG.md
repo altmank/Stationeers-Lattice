@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.22.9
+
+Added:
+- **Plan colour paint.** `Paint.PlanColour(fallback)` paints with the ghost's plan's `Plan.Colour`, or the palette's
+  colour for `fallback` when the plan has none, for a draft and for a structure. A recolour or a move between plans
+  restyles that plan's ghosts in the next drawing burst without writing them. An unchanged board allocates nothing.
+- **Moving lines.** `EdgeLook.Line` gains `Dash` (dash or dot length in metres), `Speed` (metres per second, the new
+  `Speed` value; 0 is still) and `Under` (the new `UnderLine(width, paint)`, a wider unbroken line beneath). A line
+  built as before draws exactly as before. The phase comes from Unity's shared shader time: no CPU work per frame.
+  Motion `Reduced` and `Off` draw lines still. `docs/styles.md` gives the dash rule for other renderers.
+- **The `ants` material.** `MaterialKeys.Ants`: moving dashes along a mod's own quad line mesh, cut by the same rule
+  as ghost edges, with the length along the line in `TEXCOORD1.x`. `docs/styles.md` gives the vertex layout.
+- `_LatticeEdge` z and w carry dash length and speed. `_LatticeEdgeUnder` and `_LatticeEdgeUnderColor` carry the
+  under-line. Only a look with an under-line draws the extra pass.
+
 ## 0.22.8
 
 Added:

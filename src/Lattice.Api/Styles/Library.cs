@@ -215,7 +215,11 @@ public static class LibraryIcons
 /// <c>_LatticePatternColor</c>, <c>_LatticeEffect</c> (x kind: 0 steady, 1 pulse, 2 blink; y period in seconds; z the
 /// low opacity or the duty; w phase in seconds), <c>_LatticeTime</c> (seconds, unscaled), <c>_LatticeSeeThrough</c>
 /// (x strength, y range in metres, z the share of the strength a face seen square-on shows), and on edge materials
-/// <c>_LatticeEdge</c> (x line style: 0 solid, 1 dashed, 2 dotted; y width in pixels).</item>
+/// <c>_LatticeEdge</c> (x line style: 0 solid, 1 dashed, 2 dotted; y width in pixels; z dash or dot length in world
+/// metres, 0 for the style's own; w the dashes' speed in metres per second, 0 still; z and w added in 0.22.9),
+/// <c>_LatticeEdgeUnder</c> (x the under-line's width in pixels, 0 for none; added in 0.22.9) and
+/// <c>_LatticeEdgeUnderColor</c> (the under-line's colour, effects and dim applied; added in 0.22.9). Lattice's own
+/// edge draws the under-line itself; an <c>edge</c> override that wants one draws it from these two values.</item>
 /// <item>The clip, as globals: <c>_LatticeClipPlane</c> (xyz unit normal, w = dot(normal, a point on the plane); a
 /// point p is beyond when dot(normal, p) &gt; w) or <c>_LatticeClipMin</c> and <c>_LatticeClipMax</c> (beyond is
 /// outside the box), with <c>_LatticeClipMode</c> (0 none, 1 plane, 2 box) and <c>_LatticeBeyond</c> (x mode: 0 drawn,
@@ -267,6 +271,19 @@ public static class MaterialKeys
     /// writes no depth, drawn at the faded-world draw order. Lattice ships it and fades nothing itself.
     /// </summary>
     public static readonly MaterialKey Faded = MaterialKey.Known("faded");
+
+    /// <summary>
+    /// Moving dashes along a consumer's own line mesh (an outline round built pieces), cut and moved by the same rule
+    /// as a ghost's dashed edge, so the two match. Lattice ships it and draws nothing with it. Reads <c>_Color</c> and
+    /// <c>_LatticeEdge</c> (x line style: 0 solid, 1 dashed, 2 dotted; y width in pixels; z dash or dot length in
+    /// metres, 0 for the style's own; w speed in metres per second, 0 still), plus the clip globals; instanced, alpha
+    /// blended, no depth write, both sides. The mesh is triangles, two per segment from A to B, four vertices: POSITION
+    /// this vertex's end (object space), TEXCOORD0 (xyz the segment's other end in object space, w the side, +1 or -1),
+    /// TEXCOORD1.x the length along the line at this vertex's end, in metres, which the dashes are cut by. The shader
+    /// pushes each vertex sideways in screen space by half the width. An under-line is a second draw of the same mesh,
+    /// first, with a wider solid line in its own colour. <c>docs/styles.md</c> gives the dash rule. Added in 0.22.9.
+    /// </summary>
+    public static readonly MaterialKey Ants = MaterialKey.Known("ants");
 }
 
 /// <summary>

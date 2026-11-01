@@ -119,6 +119,14 @@ public abstract record Paint
     /// </summary>
     /// <param name="Fallback">The token used when there is no finish paint to show.</param>
     public sealed record FinishColour(PaletteKey Fallback) : Paint;
+
+    /// <summary>
+    /// The colour of the ghost's plan (<see cref="Plan.Colour"/>), or the palette's colour for <paramref name="Fallback"/>
+    /// when the plan has none, for a draft, or for a structure. Changing a plan's colour, or moving a ghost to another
+    /// plan, restyles that plan's ghosts in the next drawing burst. Added in 0.22.9.
+    /// </summary>
+    /// <param name="Fallback">The token used when there is no plan colour to show.</param>
+    public sealed record PlanColour(PaletteKey Fallback) : Paint;
 }
 
 /// <summary>An outline.</summary>
@@ -133,8 +141,36 @@ public abstract record EdgeLook
     /// <param name="Style">Solid, dashed or dotted.</param>
     /// <param name="Width">Its width.</param>
     /// <param name="Paint">Its colour.</param>
-    public sealed record Line(LineStyle Style, Pixels Width, Paint Paint) : EdgeLook;
+    public sealed record Line(LineStyle Style, Pixels Width, Paint Paint) : EdgeLook
+    {
+        /// <summary>
+        /// The length of one dash (<see cref="LineStyle.Dashed"/>) or dot (<see cref="LineStyle.Dotted"/>) in world
+        /// metres; the gap keeps the style's own share: a dash is 3/5 of its period, a dot 1/4. None, or zero: the
+        /// style's own length, 0.15 m dashes and 0.0625 m dots, a period of 0.25 m either way. Solid lines ignore it.
+        /// <c>docs/styles.md</c> gives the rule. Added in 0.22.9.
+        /// </summary>
+        public Option<Metres> Dash { get; init; }
+
+        /// <summary>
+        /// How fast the dashes or dots move along the line, in metres per second; the sign is the direction. Zero (the
+        /// default): still. The phase comes from the shader's shared clock, so moving costs no CPU work per frame.
+        /// Motion <see cref="Motion.Reduced"/> and <see cref="Motion.Off"/> draw it still. Solid lines ignore it. Added in
+        /// 0.22.9.
+        /// </summary>
+        public Speed Speed { get; init; }
+
+        /// <summary>
+        /// A wider line in its own paint drawn beneath this one, unbroken, so dashes read on any background. None (the
+        /// default): no under-line. Added in 0.22.9.
+        /// </summary>
+        public Option<UnderLine> Under { get; init; }
+    }
 }
+
+/// <summary>A wider, unbroken line drawn beneath an outline (<see cref="EdgeLook.Line.Under"/>). Added in 0.22.9.</summary>
+/// <param name="Width">Its width; wider than the line above it, or it is hidden.</param>
+/// <param name="Paint">Its colour.</param>
+public sealed record UnderLine(Pixels Width, Paint Paint);
 
 /// <summary>A glow around a thing.</summary>
 public abstract record GlowLook

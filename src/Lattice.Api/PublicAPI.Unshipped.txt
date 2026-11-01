@@ -2882,7 +2882,7 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 8 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 9 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
 Lattice.Api.FlowChoice
 Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell
@@ -2927,3 +2927,25 @@ Lattice.Api.SkippedGhost.SkippedGhost(Lattice.Api.GhostId Ghost, Lattice.Api.Rea
 Lattice.Api.SkippedGhost.Why.get -> Lattice.Api.Reason!
 Lattice.Api.SkippedGhost.Why.init -> void
 static readonly Lattice.Api.ReasonCodes.NotSupported -> Lattice.Api.ReasonCode
+Lattice.Api.Paint.PlanColour
+Lattice.Api.Paint.PlanColour.PlanColour(Lattice.Api.PaletteKey Fallback) -> void
+Lattice.Api.Paint.PlanColour.Fallback.get -> Lattice.Api.PaletteKey
+Lattice.Api.Paint.PlanColour.Fallback.init -> void
+Lattice.Api.EdgeLook.Line.Dash.get -> Lattice.Api.Option<Lattice.Api.Metres>
+Lattice.Api.EdgeLook.Line.Dash.init -> void
+Lattice.Api.EdgeLook.Line.Speed.get -> Lattice.Api.Speed
+Lattice.Api.EdgeLook.Line.Speed.init -> void
+Lattice.Api.EdgeLook.Line.Under.get -> Lattice.Api.Option<Lattice.Api.UnderLine!>
+Lattice.Api.EdgeLook.Line.Under.init -> void
+Lattice.Api.UnderLine
+Lattice.Api.UnderLine.UnderLine(Lattice.Api.Pixels Width, Lattice.Api.Paint! Paint) -> void
+Lattice.Api.UnderLine.Width.get -> Lattice.Api.Pixels
+Lattice.Api.UnderLine.Width.init -> void
+Lattice.Api.UnderLine.Paint.get -> Lattice.Api.Paint!
+Lattice.Api.UnderLine.Paint.init -> void
+Lattice.Api.Speed
+Lattice.Api.Speed.Speed() -> void
+Lattice.Api.Speed.MetresPerSecond.get -> float
+static Lattice.Api.Speed.Zero.get -> Lattice.Api.Speed
+static Lattice.Api.Speed.Create(float metresPerSecond) -> Lattice.Api.Result<Lattice.Api.Speed, Lattice.Api.Reason!>
+static readonly Lattice.Api.MaterialKeys.Ants -> Lattice.Api.MaterialKey

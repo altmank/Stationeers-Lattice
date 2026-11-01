@@ -41,7 +41,11 @@ fill), `solid`, `wire`, `edge` (outlines), `see-through`, `glow`, `label` and `f
   `_Color` looks right.
 - For shaders that declare them: `_LatticePattern`, `_LatticePatternColor`, `_LatticeEffect`, `_LatticeTime`,
   `_LatticeSeeThrough` (strength, range in metres, and the share of the strength a face seen square-on shows), and on
-  edge materials `_LatticeEdge`.
+  edge materials `_LatticeEdge` (style, width in pixels, dash length in metres, speed in metres per second) and, for
+  a line with an under-line, `_LatticeEdgeUnder` (width in pixels) and `_LatticeEdgeUnderColor`. Dash length, speed
+  and the under-line were added in 0.22.9 ([moving lines](styles.md#moving-lines)).
+- `MaterialKeys.Ants` (0.22.9): Lattice's moving-dash material for your own line meshes, cut by the same rule as a
+  ghost's dashed edge ([the ants material](styles.md#the-ants-material)).
 - The clip as globals, set once a frame before any camera renders: `_LatticeClipMode`, `_LatticeClipPlane` or
   `_LatticeClipMin` and `_LatticeClipMax`, and `_LatticeBeyond`. Your own shaders can read them all frame.
 - Overlays on built structures draw from Lattice's copy at the overlays queue. A shader that declares

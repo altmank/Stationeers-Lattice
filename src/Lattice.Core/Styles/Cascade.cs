@@ -186,7 +186,7 @@ internal sealed class LeafBook
 /// A look after the cascade: every property set, where each came from, and the colours its paints turn into under the
 /// palette in force. Shared by every thing with the same signature.
 /// </summary>
-internal sealed class ResolvedLook(Style style, StyleSource[] sources, Rgba fill, Rgba edge, Rgba glow)
+internal sealed class ResolvedLook(Style style, StyleSource[] sources, Rgba fill, Rgba edge, Rgba glow, Rgba under = default)
 {
     public Style Style { get; } = style;
 
@@ -201,6 +201,9 @@ internal sealed class ResolvedLook(Style style, StyleSource[] sources, Rgba fill
 
     /// <summary>The glow colour with its strength and dim applied; clear for no glow.</summary>
     public Rgba Glow { get; } = glow;
+
+    /// <summary>The edge's under-line colour with dim applied; clear for no under-line.</summary>
+    public Rgba Under { get; } = under;
 
     public bool Hidden => Style.Presence.Reduce(Presence.Drawn) == Presence.Hidden;
 
@@ -309,6 +312,7 @@ internal sealed class PaletteInForce
         Paint.GhostTint tint => signature.Tint.TryGet(out var own) ? new Rgba(own.R, own.G, own.B, own.A) : Token(tint.Fallback),
         Paint.OwnerColour => signature.Owner >= 0 && _ramp.Count > 0 ? _ramp[signature.Owner % _ramp.Count] : Token(LibraryPalette.Planned),
         Paint.FinishColour finish => FinishPaint(signature).TryGet(out var shown) ? shown : Token(finish.Fallback),
+        Paint.PlanColour plan => signature.PlanColour.TryGet(out var colour) ? new Rgba(colour.R, colour.G, colour.B, colour.A) : Token(plan.Fallback),
         _ => Token(LibraryPalette.Planned),
     };
 
@@ -353,7 +357,10 @@ internal static class DefaultPalette
     private static KeyValuePair<PaletteKey, Rgba> Pair(PaletteKey key, Rgba colour) => new(key, colour);
 }
 
-/// <summary>What motion does to timing: Reduced draws pulses, blinks and flashes steady and caps eases at 100 ms; Off also sets every ease to 0.</summary>
+/// <summary>
+/// What motion does to timing: Reduced draws pulses, blinks, flashes and moving dashes steady and caps eases at 100 ms;
+/// Off also sets every ease to 0.
+/// </summary>
 internal static class MotionTiming
 {
     private const float ReducedCapSeconds = 0.1f;
@@ -369,6 +376,9 @@ internal static class MotionTiming
             Ease = Option.Some(Cap(style.Ease, motion)),
             Appear = Option.Some(Cap(style.Appear, motion)),
             Vanish = Option.Some(Cap(style.Vanish, motion)),
+            Edge = style.Edge.TryGet(out var edge) && edge is EdgeLook.Line line && line.Speed != Speed.Zero
+                ? Option.Some<EdgeLook>(line with { Speed = Speed.Zero })
+                : style.Edge,
         };
     }
 

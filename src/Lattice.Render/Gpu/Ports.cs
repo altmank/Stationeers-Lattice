@@ -28,7 +28,7 @@ internal enum ShaderProp
     /// <summary><c>_LatticeSeeThrough</c>: strength, range, square-on share.</summary>
     SeeThrough = 5,
 
-    /// <summary><c>_LatticeEdge</c>: line style, width in pixels.</summary>
+    /// <summary><c>_LatticeEdge</c>: line style, width in pixels, dash or dot length in metres (0: the style's own), speed in metres per second.</summary>
     Edge = 6,
 
     /// <summary><c>_LatticeBeyond</c>: mode, dim. A global (the viewer's default) and per draw (a style's own).</summary>
@@ -54,6 +54,12 @@ internal enum ShaderProp
 
     /// <summary><c>_LatticeEdgeColor</c>: the edge colour when one material draws fill and edge.</summary>
     EdgeColor = 14,
+
+    /// <summary><c>_LatticeEdgeUnder</c>: x the under-line's width in pixels, 0 for none.</summary>
+    EdgeUnder = 15,
+
+    /// <summary><c>_LatticeEdgeUnderColor</c>: the under-line's colour, effects and dim applied.</summary>
+    EdgeUnderColor = 16,
 }
 
 /// <summary>The shader name of each <see cref="ShaderProp"/>, in the enum's order.</summary>
@@ -63,7 +69,7 @@ internal static class ShaderNames
     {
         "_Color", "_LatticePattern", "_LatticePatternColor", "_LatticeEffect", "_LatticeTime", "_LatticeSeeThrough",
         "_LatticeEdge", "_LatticeBeyond", "_LatticeClipMode", "_LatticeClipPlane", "_LatticeClipMin", "_LatticeClipMax",
-        "_LatticeInstances", "_LatticeLocal", "_LatticeEdgeColor",
+        "_LatticeInstances", "_LatticeLocal", "_LatticeEdgeColor", "_LatticeEdgeUnder", "_LatticeEdgeUnderColor",
     };
 
     public static int Count => Names.Length;

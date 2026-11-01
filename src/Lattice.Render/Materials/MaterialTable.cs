@@ -148,13 +148,15 @@ internal sealed class MaterialTable
             _entries.Add(key, NewEntry(key));
         var ghost = _entries[MaterialKeys.Ghost];
         FillAndEdge = new MaterialEntry(FillAndEdgeKey, ghost.Queue, ghost.OverlayQueue);
+        var edge = _entries[MaterialKeys.Edge];
+        EdgeAndUnder = new MaterialEntry(EdgeUnderKey, edge.Queue, edge.OverlayQueue);
     }
 
     /// <summary>Lattice's own keys, in the order the bundle holds them.</summary>
     public static IReadOnlyList<MaterialKey> LatticeKeys { get; } = new[]
     {
         MaterialKeys.Ghost, MaterialKeys.Solid, MaterialKeys.Wire, MaterialKeys.Edge,
-        MaterialKeys.SeeThrough, MaterialKeys.Glow, MaterialKeys.Label, MaterialKeys.Faded,
+        MaterialKeys.SeeThrough, MaterialKeys.Glow, MaterialKeys.Label, MaterialKeys.Faded, MaterialKeys.Ants,
     };
 
     /// <summary>
@@ -164,10 +166,20 @@ internal sealed class MaterialTable
     /// </summary>
     public static MaterialKey FillAndEdgeKey { get; } = MaterialKey.Known("ghost-edged");
 
+    /// <summary>
+    /// Lattice's internal material for an edge with an under-line: the edge's passes with the under-line's pass between
+    /// the mask and the line (<c>_LatticeEdgeUnder</c>, <c>_LatticeEdgeUnderColor</c>). Not a contract key: used only for
+    /// a look with an under-line while <c>edge</c> is not overridden, so an edge without one keeps its three passes.
+    /// </summary>
+    public static MaterialKey EdgeUnderKey { get; } = MaterialKey.Known("edge-under");
+
     public long Revision { get; private set; } = 1;
 
     /// <summary>The fill-and-edge material, when the bundle has one.</summary>
     public MaterialEntry FillAndEdge { get; }
+
+    /// <summary>The edge-and-under-line material, when the bundle has one.</summary>
+    public MaterialEntry EdgeAndUnder { get; }
 
     /// <summary>Loads Lattice's own material for each key the source has one for (the bundle, or the stand-in).</summary>
     public void Load(Func<MaterialKey, Option<IGpuMaterial>> source)
@@ -177,6 +189,8 @@ internal sealed class MaterialTable
                 _entries[key].Load(loaded);
         if (source(FillAndEdgeKey).TryGet(out var both))
             FillAndEdge.Load(both);
+        if (source(EdgeUnderKey).TryGet(out var under))
+            EdgeAndUnder.Load(under);
         Revision++;
     }
 
@@ -190,6 +204,18 @@ internal sealed class MaterialTable
         if (fill != MaterialKeys.Ghost || _entries[MaterialKeys.Ghost].Overrides > 0 || edge.Overrides > 0 || edge.Own is null)
             return null;
         return existing ? FillAndEdge.ProceduralOverlay : FillAndEdge.ProceduralPlacement;
+    }
+
+    /// <summary>
+    /// The one procedural material for an edge with its under-line, for a placement or an existing part: only while
+    /// <c>edge</c> has no override.
+    /// </summary>
+    public IGpuMaterial? Underlined(bool existing)
+    {
+        var edge = _entries[MaterialKeys.Edge];
+        if (edge.Overrides > 0 || edge.Own is null)
+            return null;
+        return existing ? EdgeAndUnder.ProceduralOverlay : EdgeAndUnder.ProceduralPlacement;
     }
 
     /// <summary>The key's entry; a consumer's own key gets one on first ask (drawn once an override supplies it).</summary>
@@ -241,6 +267,7 @@ internal sealed class MaterialTable
         foreach (var entry in _entries.Values)
             entry.End();
         FillAndEdge.End();
+        EdgeAndUnder.End();
         Revision++;
     }
 
