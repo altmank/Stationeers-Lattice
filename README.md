@@ -107,6 +107,9 @@ and `LaunchPadDir` default from it and can be set one by one. The game's assembl
 `./build.ps1 -Configuration Debug` for a debug build. Needs a .NET SDK that targets net8.0 and the .NET 8 runtime.
 The mod lands in `artifacts/<Configuration>/Lattice`, and the test host for your own tests in
 `artifacts/<Configuration>/Lattice.Testing`.
+`./build.ps1 -Deploy` copies the package into the local mods folder after a green run; `./build.ps1 -DeployOnly`
+copies an already-built package and nothing else, and refuses if it was not built from HEAD. `-Target <folder>`
+copies somewhere else.
 
 ## Licence
 

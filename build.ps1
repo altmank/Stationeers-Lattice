@@ -12,6 +12,13 @@
 .PARAMETER Deploy
     After a green run, copy artifacts/<Configuration>/Lattice into the local mods folder
     (Documents/My Games/Stationeers/mods/Lattice). Refuses while Stationeers runs.
+.PARAMETER DeployOnly
+    Copy the already-built artifacts/<Configuration>/Lattice into the mods folder and do nothing else: no restore,
+    build or test. Refuses unless the package's Lattice.Api.dll was built from the commit at HEAD (run build.ps1
+    first); -Force does not skip that check. Same running-game refusal and target as -Deploy.
+.PARAMETER Target
+    The folder the package is copied into (default Documents/My Games/Stationeers/mods/Lattice). Its contents are
+    replaced.
 .PARAMETER Force
     Deploy even while Stationeers runs (only for a mod the running game has never loaded).
 #>
@@ -20,6 +27,8 @@ param(
     [string] $Configuration = 'Release',
     [switch] $Perf,
     [switch] $Deploy,
+    [switch] $DeployOnly,
+    [string] $Target = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\Stationeers\mods\Lattice'),
     [switch] $Force
 )
 
@@ -42,6 +51,40 @@ function Invoke-Step([string] $name, [scriptblock] $command) {
     }
 }
 
+$package = Join-Path $PSScriptRoot "artifacts\$Configuration\Lattice"
+
+function Invoke-Deploy {
+    # A running game holds the old dlls and keeps running them; someone may be playing.
+    if (-not $Force -and (Get-Process -Name 'rocketstation' -ErrorAction SilentlyContinue)) {
+        Write-Host '== deploy refused: Stationeers is running (close it, or -Force for a mod it has never loaded)' -ForegroundColor Red
+        exit 1
+    }
+    if (-not (Test-Path (Join-Path $package 'About\About.xml'))) {
+        Write-Host "== deploy failed: no package at $package" -ForegroundColor Red
+        exit 1
+    }
+    if (Test-Path $Target) { Remove-Item $Target -Recurse -Force }
+    New-Item -ItemType Directory -Path $Target -Force | Out-Null
+    Copy-Item (Join-Path $package '*') $Target -Recurse
+    Write-Host "== deployed to $Target" -ForegroundColor Green
+}
+
+function Assert-PackageCurrent {
+    $head = (git -C $PSScriptRoot rev-parse HEAD).Trim()
+    $api = Get-ChildItem $package -Recurse -Filter 'Lattice.Api.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $built = if ($api) { $api.VersionInfo.ProductVersion } else { 'nowhere (no Lattice.Api.dll)' }
+    if (-not $api -or -not $built.Contains($head)) {
+        Write-Host "== deploy refused: package is from $built, HEAD is $head`: run build.ps1 first" -ForegroundColor Red
+        exit 1
+    }
+}
+
+if ($DeployOnly) {
+    Assert-PackageCurrent
+    Invoke-Deploy
+    exit 0
+}
+
 Invoke-Step 'restore' { dotnet restore $solution }
 Invoke-Step 'build'   { dotnet build $solution --no-restore -c $Configuration }
 $filter = if ($Perf) { 'Category=Perf' } else { 'Category!=Perf' }
@@ -56,21 +99,5 @@ finally {
 
 Write-Host '== green' -ForegroundColor Green
 
-if ($Deploy) {
-    # A running game holds the old dlls and keeps running them; someone may be playing.
-    if (-not $Force -and (Get-Process -Name 'rocketstation' -ErrorAction SilentlyContinue)) {
-        Write-Host '== deploy refused: Stationeers is running (close it, or -Force for a mod it has never loaded)' -ForegroundColor Red
-        exit 1
-    }
-    $package = Join-Path $PSScriptRoot "artifacts\$Configuration\Lattice"
-    if (-not (Test-Path (Join-Path $package 'About\About.xml'))) {
-        Write-Host "== deploy failed: no package at $package" -ForegroundColor Red
-        exit 1
-    }
-    $mods = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\Stationeers\mods\Lattice'
-    if (Test-Path $mods) { Remove-Item $mods -Recurse -Force }
-    New-Item -ItemType Directory -Path $mods -Force | Out-Null
-    Copy-Item (Join-Path $package '*') $mods -Recurse
-    Write-Host "== deployed to $mods" -ForegroundColor Green
-}
+if ($Deploy) { Invoke-Deploy }
 exit 0
