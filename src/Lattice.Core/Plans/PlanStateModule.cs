@@ -19,7 +19,18 @@ internal interface IPlanStates
 
     /// <summary>The plan's state, or pending with its facts.</summary>
     Result<Answer<PlanState>, Reason> State(PlanId plan);
+
+    /// <summary>Moves whenever any plan's <see cref="Facts"/> answer may differ: equal versions, equal answers.</summary>
+    PlanStatesVersion Version { get; }
 }
+
+/// <summary>What the plan-state module's answers stand on: what the facts are worked out against, and how many times facts were stored or dropped.</summary>
+/// <param name="Board">The board revision.</param>
+/// <param name="Seen">The revision of the last change set read.</param>
+/// <param name="World">The world mirror's revision.</param>
+/// <param name="Findings">Validation's findings version.</param>
+/// <param name="Stored">Plans' facts stored, dropped or reset, counted.</param>
+internal readonly record struct PlanStatesVersion(Revision Board, Revision Seen, long World, int Findings, int Stored);
 
 /// <summary>The build safety warnings for a plan's ghosts, worked out in parts.</summary>
 internal interface IPlanSafety
@@ -87,6 +98,7 @@ internal sealed class PlanStateModule : IPlanStates
     private PlanJob? _job;
     private bool _working;
     private bool _askedPending;
+    private int _stored;
 
     public PlanStateModule(PlanStateParts parts)
     {
@@ -149,6 +161,9 @@ internal sealed class PlanStateModule : IPlanStates
         return Result<Answer<PlanState>, Reason>.Ok(new Answer<PlanState>.Pending(_parts.Board.Revision));
     }
 
+    public PlanStatesVersion Version =>
+        new(_parts.Board.Revision, _seen, _parts.Mirror.Revision, _parts.Validation.FindingsVersion, _stored);
+
     private Key Now() => new(_parts.Board.Revision, _seen, _parts.Mirror.Revision, _parts.Validation.FindingsVersion);
 
     /// <summary>Starts working out one plan; none while its change sets are not in for the board's revision. Constant.</summary>
@@ -180,6 +195,7 @@ internal sealed class PlanStateModule : IPlanStates
         var facts = job.Facts(_parts.Board.Index.Plans[job.Plan].Done);
         var state = PlanFactsMaker.StateOf(facts);
         var changed = !_known.TryGetValue(job.Plan, out var before) || !Equals(before.State.Value, state);
+        _stored++;
         _known[job.Plan] = new Known(job.At, new Answer<PlanFacts>.Ready(facts, job.Board), new Answer<PlanState>.Ready(state, job.Board));
         if (changed)
             _parts.Events.Queue(new PlanStateChangedEvent(job.Plan));
@@ -191,6 +207,7 @@ internal sealed class PlanStateModule : IPlanStates
     {
         _seen = _parts.Board.Revision;
         _known.Clear();
+        _stored++;
         _job = null;
     }
 
@@ -203,9 +220,8 @@ internal sealed class PlanStateModule : IPlanStates
         if (gone is null)
             return;
         foreach (var plan in gone)
-        {
             _known.Remove(plan);
-        }
+        _stored++;
     }
 
     private StepOutcome Step()

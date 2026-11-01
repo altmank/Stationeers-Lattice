@@ -909,6 +909,7 @@ Lattice.Api.IPlans.Find(Lattice.Api.PlanId plan) -> Lattice.Api.Option<Lattice.A
 Lattice.Api.IPlans.Finished.get -> Lattice.Api.ValueList<Lattice.Api.FinishedPlan!>!
 Lattice.Api.IPlans.LastLoad.get -> Lattice.Api.Option<Lattice.Api.LoadReport!>
 Lattice.Api.IPlans.State(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.PlanState!>!, Lattice.Api.Reason!>
+Lattice.Api.IPlans.BuildableNext(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.ValueList<Lattice.Api.GhostId>!>!, Lattice.Api.Reason!>
 Lattice.Api.IPolicyHandle
 Lattice.Api.IPolicyHandle.Changed() -> void
 Lattice.Api.IPreview
@@ -2882,7 +2883,7 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 10 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 11 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
 Lattice.Api.FlowChoice
 Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell

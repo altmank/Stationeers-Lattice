@@ -86,6 +86,18 @@ public interface IPlans
     Result<Answer<PlanState>, Reason> State(PlanId plan);
 
     /// <summary>
+    /// The ghosts buildable next across the board: each <see cref="PlanFacts.BuildableNext"/> of the active plans the
+    /// local side may see, kept only where <paramref name="which"/> selects them (<see cref="Selector.Everything"/> for
+    /// all) and the local side may see them. Plans in plan-id order, each plan's ghosts in its own build order; no build
+    /// order across plans. Read from the plan facts Lattice keeps: no validation work of its own. Pending while any plan
+    /// it needs (one holding a selected ghost) has pending facts, and <see cref="IGhostEvents.AnswersReady"/> is raised
+    /// as for <see cref="Facts"/>. Refused as the board refuses the selector; an empty board gives an empty ready answer.
+    /// Cached by the plan facts: a repeat read on an unchanged board allocates nothing; otherwise linear in the selected
+    /// ghosts and the needed plans' buildable ghosts. Added in 0.22.11.
+    /// </summary>
+    Result<Answer<ValueList<GhostId>>, Reason> BuildableNext(Selector which);
+
+    /// <summary>
     /// The index of finished plans the local side may see: the access policy judges each plan as it was when it
     /// finished. Read from the index file once per world. On the host only: empty on a client in this
     /// version, where no plan files are kept. A client can still submit <see cref="Command.Repair"/>,

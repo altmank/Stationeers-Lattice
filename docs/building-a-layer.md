@@ -448,8 +448,8 @@ The calls in order:
 2. **Say where you work** with `Locate` (below), and **answer** every plan in `PlansOf(me)` in the tick you register:
    a save keeps the players' assignments, and they read `Asked` until you answer.
 3. **Find work** in the plans assigned to you, or in every plan when none is. `Plans.Facts(plan).BuildableNext` lists
-   the ghosts whose support exists and that nothing blocks. Across plans, `Validation.Check` gives build order with
-   `Finding.Passes`.
+   the ghosts whose support exists and that nothing blocks. With no plan assigned, read them all at once with
+   `Plans.BuildableNext(selector)` (below). Across plans, `Validation.Check` gives build order with `Finding.Passes`.
 4. **Claim** one with a lease. A claim refused `claimed` means another executor has it: try the next. Many builders
    share a plan through claims: one executor per ghost.
 5. **Read its steps** with `Steps.For`, and report `ExecutorStatus.Working` so players see what the drone does.
@@ -457,6 +457,21 @@ The calls in order:
 7. **Renew** the claim while you work. A claim you stop renewing lapses, and the ghost is free again.
 8. **Done** is not yours to say. When the world matches the ghost, `Events.Completed` comes and the claim ends with
    it; the completion names you (`Completion.By`), so it counts as yours even when a player finishes the piece.
+
+### Work across every plan
+
+A builder with no assigned plans works every plan. Don't loop over `Plans.Facts` for each plan. Make one read:
+`Plans.BuildableNext(new Selector.Everything())`. Pass any other selector, such as `Selector.Box` around your reach
+or `Selector.Ids` for a batch, to keep only the ghosts it picks. The answer is the same ghosts the plans' facts list:
+plans in plan-id order, each plan's ghosts in its own build order. Lattice keeps no build order across plans. Ghosts
+and plans the local side may not see are left out.
+
+- `Pending` while any plan it needs is still being worked out. Ask again on `Events.AnswersReady`, as for `Facts`.
+- Refused with the board's reason for a selector the board refuses (a `Box` without the selectors module, say).
+- An empty board answers `Ready` with no ghosts at once.
+- A repeat read on an unchanged board allocates nothing, so reading it every tick is cheap.
+
+Added in 0.22.11: check `ApiVersion.CurrentPatch >= 11` before you call it, and loop over `Facts` on an older Lattice.
 
 ### Where it works and how it is doing
 

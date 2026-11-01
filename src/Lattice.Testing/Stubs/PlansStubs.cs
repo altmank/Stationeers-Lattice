@@ -37,6 +37,10 @@ public class StubPlans : IPlans
         throw Stub.NotSetUp("IPlans", "State", "StubPlans");
 
     /// <inheritdoc />
+    public virtual Result<Answer<ValueList<GhostId>>, Reason> BuildableNext(Selector which) =>
+        throw Stub.NotSetUp("IPlans", "BuildableNext", "StubPlans");
+
+    /// <inheritdoc />
     public virtual Result<int, Reason> AheadOfSave(PlanId plan) =>
         throw Stub.NotSetUp("IPlans", "AheadOfSave", "StubPlans");
 

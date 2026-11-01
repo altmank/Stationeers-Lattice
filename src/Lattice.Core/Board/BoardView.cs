@@ -145,6 +145,8 @@ internal sealed class PlansView(GhostBoard board, Actor viewer) : IPlans
     private ValueList<FinishedPlan> _finished = ValueList<FinishedPlan>.Empty;
     private ValueList<FinishedPlan>? _finishedFrom;
     private int _finishedPolicyEpoch = -1;
+    private readonly Dictionary<Selector, Result<Answer<ValueList<GhostId>>, Reason>> _buildable = new();
+    private BuildableKey _buildableKey = new(default, -1, -1, -1);
 
     public ValueList<Plan> All
     {
@@ -186,6 +188,74 @@ internal sealed class PlansView(GhostBoard board, Actor viewer) : IPlans
         board.PlanStates is not { } states ? Result<Answer<PlanState>, Reason>.Error(Missing("plan-state"))
         : Find(plan).IsSome ? states.State(plan)
         : Result<Answer<PlanState>, Reason>.Error(NotFound(plan));
+
+    /// <summary>
+    /// Every needed plan's buildable-next ghosts the viewer may see that the selector picks, plans in id order. A plan
+    /// with no ghosts on the board is not needed (it has none buildable); any other selector than
+    /// <see cref="Selector.Everything"/> is read through the viewer's board view, and the plans it needs are those of
+    /// the ghosts it picks. Ready answers and refusals are kept until the plan-state module's version, the board's
+    /// epoch, the policy's answers or what the selectors module reads move; a pending answer is asked again each read.
+    /// </summary>
+    public Result<Answer<ValueList<GhostId>>, Reason> BuildableNext(Selector which)
+    {
+        if (board.PlanStates is not { } states)
+            return Result<Answer<ValueList<GhostId>>, Reason>.Error(Missing("plan-state"));
+        var key = new BuildableKey(states.Version, board.Epoch, board.Policies.Epoch, board.Selectors?.Revision ?? 0);
+        if (key != _buildableKey)
+        {
+            _buildable.Clear();
+            _buildableKey = key;
+        }
+
+        if (_buildable.TryGetValue(which, out var known))
+            return known;
+        var answer = WorkOutBuildable(states, which);
+        if (!answer.TryGet(out var value) || value is Answer<ValueList<GhostId>>.Ready)
+            _buildable[which] = answer;
+        return answer;
+    }
+
+    private Result<Answer<ValueList<GhostId>>, Reason> WorkOutBuildable(IPlanStates states, Selector which)
+    {
+        HashSet<GhostId>? picked = null;
+        HashSet<PlanId>? needed = null;
+        if (which is not Selector.Everything)
+        {
+            var selected = board.ViewFor(viewer).Select(which);
+            if (selected.TryGetError(out var why))
+                return Result<Answer<ValueList<GhostId>>, Reason>.Error(why);
+            selected.TryGet(out var ghosts);
+            picked = new HashSet<GhostId>();
+            needed = new HashSet<PlanId>();
+            foreach (var ghost in ghosts)
+            {
+                picked.Add(ghost.Id);
+                needed.Add(ghost.Plan);
+            }
+        }
+
+        var buildable = new List<GhostId>();
+        foreach (var plan in All)
+        {
+            if (needed is null ? board.Index.Plans[plan.Id].Ghosts.Count == 0 : !needed.Contains(plan.Id))
+                continue;
+            var asked = states.Facts(plan.Id);
+            if (asked.TryGetError(out var refused))
+                return Result<Answer<ValueList<GhostId>>, Reason>.Error(refused);
+            asked.TryGet(out var facts);
+            if (facts is not Answer<PlanFacts>.Ready ready)
+                return Result<Answer<ValueList<GhostId>>, Reason>.Ok(new Answer<ValueList<GhostId>>.Pending(board.Revision));
+            foreach (var ghost in ready.Value.BuildableNext)
+                if (picked?.Contains(ghost) ?? MaySee(ghost))
+                    buildable.Add(ghost);
+        }
+
+        return Result<Answer<ValueList<GhostId>>, Reason>.Ok(new Answer<ValueList<GhostId>>.Ready(
+            buildable.Count == 0 ? ValueList<GhostId>.Empty : Lists.Own(buildable.ToArray()), board.Revision));
+    }
+
+    private bool MaySee(GhostId ghost) =>
+        board.Index.Ghosts.TryGetValue(ghost, out var entry) && board.Policies.MaySee(viewer, entry.Ghost);
 
     /// <summary>
     /// Saving's finished-plans index, only the plans whose record at finish the access policy lets the viewer see (a
@@ -262,4 +332,7 @@ internal sealed class PlansView(GhostBoard board, Actor viewer) : IPlans
 
     private static Reason Missing(string module) =>
         Reason.Of(ReasonCodes.ModuleMissing, LatticeIdentity.Board, ValueMap.Of("module", module));
+
+    /// <summary>What the buildable-next answers stand on.</summary>
+    private readonly record struct BuildableKey(PlanStatesVersion States, int Epoch, int PolicyEpoch, long Selectors);
 }

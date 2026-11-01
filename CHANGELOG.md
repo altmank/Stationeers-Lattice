@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.11
+
+Added:
+- **Board-wide buildable next.** `IPlans.BuildableNext(Selector which)` answers the ghosts buildable next across
+  every active plan the local side may see, or only those `which` selects (`Selector.Everything` for all): each
+  plan's `PlanFacts.BuildableNext`, plans in plan-id order and each plan's ghosts in its own build order. It is read
+  from the plan facts Lattice already keeps, with no validation work of its own. It is `Pending` while any plan it
+  needs has pending facts, and `AnswersReady` is raised as for `Facts`. A selector the board refuses is refused with
+  its reason; an empty board gives an empty `Ready`. A repeat read on an unchanged board allocates nothing.
+  `StubPlans` gains the member.
+
 ## 0.22.10
 
 Added:

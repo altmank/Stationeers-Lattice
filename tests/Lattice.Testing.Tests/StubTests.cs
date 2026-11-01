@@ -140,6 +140,23 @@ public sealed class StubTests
         public override PlanId Default => new(4);
     }
 
+    [Fact]
+    public void The_plans_stub_has_board_wide_buildable_next_failing_loudly_until_a_fake_overrides_it()
+    {
+        var failure = Assert.Throws<NotSupportedException>(() => new StubPlans().BuildableNext(new Selector.Everything()));
+        Assert.True(new BuildableFake().BuildableNext(new Selector.Everything()).TryGet(out var answer));
+        var ready = Assert.IsType<Answer<ValueList<GhostId>>.Ready>(answer);
+
+        Assert.Equal("IPlans.BuildableNext is not set up in StubPlans: override it", failure.Message);
+        Assert.Equal(ValueList.Of(new GhostId(7)), ready.Value);
+    }
+
+    private sealed class BuildableFake : StubPlans
+    {
+        public override Result<Answer<ValueList<GhostId>>, Reason> BuildableNext(Selector which) =>
+            Result<Answer<ValueList<GhostId>>, Reason>.Ok(new Answer<ValueList<GhostId>>.Ready(ValueList.Of(new GhostId(7)), new Revision(1)));
+    }
+
     private static MethodInfo Closed(MethodInfo method)
     {
         var arguments = method.GetGenericArguments().Select(static a =>

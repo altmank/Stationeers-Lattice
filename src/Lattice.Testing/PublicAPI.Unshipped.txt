@@ -296,6 +296,7 @@ virtual Lattice.Testing.Stubs.StubPlans.Find(Lattice.Api.PlanId plan) -> Lattice
 virtual Lattice.Testing.Stubs.StubPlans.Finished.get -> Lattice.Api.ValueList<Lattice.Api.FinishedPlan!>!
 virtual Lattice.Testing.Stubs.StubPlans.LastLoad.get -> Lattice.Api.Option<Lattice.Api.LoadReport!>
 virtual Lattice.Testing.Stubs.StubPlans.State(Lattice.Api.PlanId plan) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.PlanState!>!, Lattice.Api.Reason!>
+virtual Lattice.Testing.Stubs.StubPlans.BuildableNext(Lattice.Api.Selector! which) -> Lattice.Api.Result<Lattice.Api.Answer<Lattice.Api.ValueList<Lattice.Api.GhostId>!>!, Lattice.Api.Reason!>
 virtual Lattice.Testing.Stubs.StubPlans.ReadTemplate(string! text) -> Lattice.Api.Result<Lattice.Api.Template!, Lattice.Api.Reason!>
 virtual Lattice.Testing.Stubs.StubPlans.WriteTemplate(Lattice.Api.Template! template) -> string!
 Lattice.Testing.Stubs.StubSwaps
