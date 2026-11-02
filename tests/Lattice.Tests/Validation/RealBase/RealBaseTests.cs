@@ -17,16 +17,27 @@ namespace Lattice.Tests.Validation.RealBase;
 /// base's own pieces planned as 5,000 ghosts over an empty world, the world loaded again from the save, 5,000 ghosts
 /// planned over the standing base, and a new wing of 5,000 frames. Every plan's answers become ready, and the checking
 /// work the scheduler runs in a frame stays within the checking budget plus one step's allowance (as the 10,000-ghost
-/// scale test allows) at the 95th percentile, every frame counted with the collector pauses in it, and judged as the
-/// scale test judges it: the scheduler's checking time, but no more than the frame's thread CPU plus its collector
-/// pauses, so time the thread sat descheduled on a shared machine is not taken for Lattice's. The 99th percentile
-/// and the worst frames, with their pauses, are reported, not asserted: on a heap holding a 36,000-structure base a full
-/// collection takes tens of milliseconds, set mostly by what the base keeps alive, and a run of a few dozen frames on a
-/// loaded machine has a frame or two where the thread waits a scheduler quantum (about 15 ms) on next to no work.
-/// A 500-ghost plan in a world of its own runs first, so the timing starts with the code compiled (the game's runtime
-/// compiles a method once, on its first call; a cold test host compiles and recompiles hot methods on the main thread
-/// for the first few thousand ghosts). The whole-frame numbers (with the
-/// board's event bursts) are reported, not asserted. The lines go to <c>tests/fixtures/generated/realbase-perf.txt</c>.
+/// scale test allows) at the 95th percentile, every frame counted with the collector pauses in it.
+/// <para>
+/// The rule a frame is judged by: the scheduler's checking time, but no more than the checking work's own thread CPU
+/// plus the frame's collector pauses (<see cref="BaseFrame.JudgedChecking"/>). A pause is the cost of Lattice's garbage
+/// and counts; time the thread sat descheduled on a shared machine is the machine's and does not, and neither does the
+/// frame's other work. A phase of 25 frames has its 95th percentile in its second worst frame, so one descheduled frame
+/// judged on the whole frame's CPU (sending, saving and drawing with it) decided a phase; judged on its own CPU it
+/// cannot, while a step that does more than the allowance of work still fails, whatever the machine does.
+/// </para>
+/// <para>
+/// The 99th percentile and the worst frames, with their pauses, are reported, not asserted: on a heap holding a
+/// 36,000-structure base a full collection takes tens of milliseconds, set mostly by what the base keeps alive.
+/// </para>
+/// <para>
+/// A warm-up plan of the base phase's own 5,000 pieces runs first in a world of its own, because the first call to
+/// each path compiles it (the game's runtime compiles a method once, on its first call; the perf host compiles every
+/// method fully on its first call): a piece kind's first game ask, vent walk or control device costs a few
+/// milliseconds of compiling in one step. With every timed path run once before the timing, the timed phases measure
+/// steady work, so a regression still shows in the steady numbers. The whole-frame numbers (with the board's event
+/// bursts) are reported, not asserted. The lines go to <c>tests/fixtures/generated/realbase-perf.txt</c>.
+/// </para>
 /// </summary>
 [Collection(LatticeSystemCollection.Name)]
 public sealed class RealBaseTests(ITestOutputHelper output)
@@ -45,10 +56,10 @@ public sealed class RealBaseTests(ITestOutputHelper output)
         try
         {
             var built = bench.Built();
-            bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
-            lines.Add($"warm-up, 500 ghosts in a world of its own: {Phase(bench, new Command.CreatePlan(RealBaseBench.Plan("Warm")) { Ghosts = Drafts(built.Skip(3 * PlanSize).Take(500)) })}");
-
             var onBuilt = Drafts(built.Take(PlanSize));
+            bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
+            lines.Add($"warm-up, the base phase's pieces in a world of its own: {Phase(bench, new Command.CreatePlan(RealBaseBench.Plan("Warm")) { Ghosts = onBuilt })}");
+
             bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
             phases.Add(("base pieces over an empty world", Phase(bench, new Command.CreatePlan(RealBaseBench.Plan("The base")) { Ghosts = onBuilt })));
 

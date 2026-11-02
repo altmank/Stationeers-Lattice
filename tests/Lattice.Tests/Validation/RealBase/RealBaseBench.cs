@@ -27,11 +27,14 @@ namespace Lattice.Tests.Validation.RealBase;
 /// <summary>
 /// A whole world's Lattice over a real save read offline: the game's own catalogue fixture, the save's structures in a
 /// fake world, saving in a temp folder, and the game's runtime (a stopwatch frame clock, Lattice's named worker and
-/// rule threads). Every step is timed in wall time on .NET 8; the lines go to <see cref="Lines"/>.
+/// rule threads). Every step is timed in wall time on .NET 8; the frame clock also notes the main thread's CPU at each
+/// read (<see cref="CpuNotingClock"/>), so a frame's checking is given with its own thread CPU. The lines go to
+/// <see cref="Lines"/>.
 /// </summary>
 internal sealed class RealBaseBench : IDisposable
 {
     private static readonly Lazy<ThreadCpu> CpuClock = new(ThreadCpu.Calibrate);
+    private readonly CpuNotingClock _clock = new(Cpu);
     private readonly FakePlacementCheck _check = new();
     private readonly List<string> _log = new();
     private PlanSaving? _saving;
@@ -90,7 +93,7 @@ internal sealed class RealBaseBench : IDisposable
             World = Option.Some(new GamePorts(World, new FakeScan(World), World, _check)),
             Saving = Option.Some(new OpenedSaving(_saving, opened)),
         };
-        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add)));
+        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add) with { Clock = _clock }));
         watch.Stop();
         return watch.Elapsed;
     }
@@ -112,7 +115,8 @@ internal sealed class RealBaseBench : IDisposable
 
     /// <summary>
     /// Frames until validation has nothing left and every plan's facts are ready, refused past <paramref name="limit"/>.
-    /// Each frame is timed whole, with the checking work the scheduler ran in it and the GC pause it took.
+    /// Each frame is timed whole, with the checking work the scheduler ran in it (its wall time and its own thread CPU)
+    /// and the GC pause it took.
     /// </summary>
     public BaseFrameTimes Settle(TimeSpan limit)
     {
@@ -125,15 +129,18 @@ internal sealed class RealBaseBench : IDisposable
             var before = Collector.Now();
             var cycles = Cpu.Now();
             var frame = Stopwatch.StartNew();
+            _clock.StartFrame();
             Lattice.Frame();
             frame.Stop();
-            var cpu = Cpu.Between(cycles, Cpu.Now());
+            var cpu = Cpu.Measures ? Cpu.Between(cycles, Cpu.Now()) : frame.Elapsed;
             var gc = Collector.Now() - before;
+            var checking = Lattice.Scheduler.Spent(WorkKind.Checking);
             frames.Add(new BaseFrame(
                 frame.Elapsed.TotalMilliseconds,
-                Lattice.Scheduler.Spent(WorkKind.Checking).TotalMilliseconds,
+                checking.TotalMilliseconds,
                 gc.Pause.TotalMilliseconds,
-                Cpu.Measures ? cpu.TotalMilliseconds : frame.Elapsed.TotalMilliseconds,
+                cpu.TotalMilliseconds,
+                _clock.CpuOver(checking).Reduce(cpu).TotalMilliseconds,
                 gc));
             idleFrames = Lattice.ValidationModule is { Busy: true } || !AnswersReady() ? 0 : idleFrames + 1;
             if (idleFrames == 1)
@@ -194,16 +201,19 @@ internal sealed class RealBaseBench : IDisposable
 
 /// <summary>
 /// One frame's cost in milliseconds: whole, the checking work in it, the GC pause in it, the main thread's CPU time in it
-/// (whole when the thread's CPU is not measured), and the collector's counts over it.
+/// (whole when the thread's CPU is not measured), the main thread's CPU time over the checking work alone (the frame's
+/// when it is not measured), and the collector's counts over it.
 /// </summary>
-internal readonly record struct BaseFrame(double Whole, double Checking, double Gc, double Cpu, Collector Collector)
+internal readonly record struct BaseFrame(double Whole, double Checking, double Gc, double Cpu, double CheckingCpu, Collector Collector)
 {
     /// <summary>
-    /// Checking on Lattice's own cost: the scheduler's wall time for it, but no more than the frame's thread CPU plus
-    /// its collector pauses. Checking's own CPU and pauses fit in both, so a frame never judges below them; what the
-    /// cap takes off is time the thread was not running and not paused for a collection (descheduled on a shared machine).
+    /// Checking on Lattice's own cost: the scheduler's wall time for it, but no more than the checking work's own thread
+    /// CPU plus the frame's collector pauses. A pause is the cost of Lattice's garbage and always counts; time the thread
+    /// sat descheduled on a shared machine is the machine's and does not. Checking's own CPU and pauses fit in both, so
+    /// a frame never judges below them, and the frame's other work (sending, saving, drawing, events) is not taken for
+    /// checking's.
     /// </summary>
-    public double JudgedChecking => Math.Min(Checking, Cpu + Gc);
+    public double JudgedChecking => Math.Min(Checking, CheckingCpu + Gc);
 
     /// <summary>Wall time the frame's thread spent neither running nor in a collector pause.</summary>
     public double Stall => Math.Max(0, Whole - Cpu - Gc);
@@ -250,8 +260,8 @@ internal sealed record BaseFrameTimes(List<BaseFrame> Frames, TimeSpan Ready, bo
         $"whole frame median {Percentile(Frames.Select(f => f.Whole), 0.5):F2} ms, worst {WorstWhole.Whole:F2} ms (collector pause in it {WorstWhole.Gc:F1} ms); " +
         $"{Frames.Count(f => f.Gc > 0)} frames with a collector pause, longest {Frames.Select(f => f.Gc).DefaultIfEmpty().Max():F1} ms; " +
         $"worst checking frame {WorstChecking.Collector}; over the run {Frames.Aggregate(default(Collector), (sum, f) => sum + f.Collector)}; " +
-        $"judged checking (thread CPU and pauses) p95 {P95JudgedChecking:F2} ms; " +
-        $"slowest checking frames (checking, judged, thread CPU, pause, stall ms): {string.Join("; ", Frames.OrderByDescending(f => f.Checking).Take(3).Select(f => $"{f.Checking:F2} {f.JudgedChecking:F2} {f.Cpu:F2} {f.Gc:F1} {f.Stall:F2}"))}; " +
+        $"judged checking (its own thread CPU and pauses) p95 {P95JudgedChecking:F2} ms; " +
+        $"slowest checking frames (checking, judged, checking CPU, thread CPU, pause, stall ms): {string.Join("; ", Frames.OrderByDescending(f => f.Checking).Take(3).Select(f => $"{f.Checking:F2} {f.JudgedChecking:F2} {f.CheckingCpu:F2} {f.Cpu:F2} {f.Gc:F1} {f.Stall:F2}"))}; " +
         $"checking p95 in frames without a collection {Percentile(Frames.Where(f => f.Gc == 0).Select(f => f.Checking), 0.95):F2} ms; " +
         $"frames with a collection (checking ms, collector): {string.Join("; ", Frames.Where(f => f.Gc > 0).Select(f => $"{f.Checking:F2} ms, {f.Collector}"))}";
 
