@@ -9,7 +9,8 @@ Fixed:
 - **A run that leaves the end of a long straight turns it into a corner.** Starting or ending a run side-on at the
   open end cell of a multi-cell cable, pipe or chute straight (or a modded one) now lays a corner there, as for a
   single end piece since 0.14.1. Before, cable and pipe got a tee with an open stub there, and a chute run failed
-  `no-piece`. A face that joins a neighbour is still kept, and leaving mid-way along the straight is still a tee.
+  `no-piece`. A face that joins a neighbour is still kept, leaving mid-way along the straight is still a tee, and a
+  long straight that no line ends in is left as it was.
 
 ## 0.22.14
 

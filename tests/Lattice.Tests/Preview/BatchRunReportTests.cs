@@ -114,6 +114,42 @@ public sealed class BatchRunReportTests
         Assert.NotEqual(batched.Runs[0].Pieces, batched.Runs[1].Pieces);
     }
 
+    [Fact]
+    public void Submitting_two_equal_run_steps_applies_the_second_laid_against_the_first()
+    {
+        var batchedBench = new PreviewBench().Start();
+        var run = new Command.PlanRun(batchedBench.Runs.Run(batchedBench.Runs.Cable, At(0, 0, 0), At(6, 0, 0)));
+        var batched = TestBoard.Applied(Submit(batchedBench, Batch(run, run)));
+
+        var oneByOne = new PreviewBench().Start();
+        var first = TestBoard.Applied(Submit(oneByOne, run));
+        var second = TestBoard.Applied(Submit(oneByOne, run));
+
+        Assert.NotEmpty(first.Added);
+        Assert.Equal(first.Added.Select(g => g.Intent).Concat(second.Added.Select(g => g.Intent)), batched.Added.Select(g => g.Intent));
+        Assert.Equal(first.Removed.Count + second.Removed.Count, batched.Removed.Count);
+        Assert.Equal(first.Changed.Count + second.Changed.Count, batched.Changed.Count);
+    }
+
+    [Fact]
+    public void Submitting_two_equal_route_steps_applies_the_second_laid_against_the_first()
+    {
+        var batchedBench = new PreviewBench().Start();
+        var route = new Command.PlanRoute(new RouteRequest(batchedBench.Runs.Cable, At(2, 2, 2), At(6, 2, 6), Off, Option<PlanId>.None, TestBoard.TestMaker));
+        var batched = Submit(batchedBench, Batch(route, route));
+
+        var oneByOne = new PreviewBench().Start();
+        var first = TestBoard.Applied(Submit(oneByOne, route));
+        var second = Submit(oneByOne, route);
+
+        var applied = TestBoard.Applied(batched);
+        Assert.NotEmpty(first.Added);
+        var expected = first.Added.Select(g => g.Intent).ToList();
+        if (second is Outcome.Applied later)
+            expected.AddRange(later.Changes.Added.Select(g => g.Intent));
+        Assert.Equal(expected, applied.Added.Select(g => g.Intent));
+    }
+
     private static Outcome Submit(PreviewBench bench, Command command)
     {
         var id = new CommandId(Guid.NewGuid());

@@ -388,7 +388,7 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
             foreach (var cell in occupant.Cells)
                 _done.Add(cell);
             var bare = BareEnds(occupant, joins);
-            if (bare.Count == 0 && Keeps(occupant, joins))
+            if (bare is null && Keeps(occupant, joins))
                 return;
 
             var split = SplitPlanner.Split(kit, occupant, joins, grid, kit.HasSteering ? FlowOf : null, bare);
@@ -414,10 +414,13 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         /// The open outer face of each cell the run leaves a multi-cell piece from (a way the piece lacks), where the piece is a line's end there:
         /// the face leads out of the piece and no neighbour's end points in, the run lays no cell there and leaves the
         /// cell no way through it. The run turns such an end, as it does a single piece's (<see cref="Turned"/>).
+        /// Null when none is bare, and for a piece no neighbour joins (it is no line's end).
         /// </summary>
-        private Dictionary<Cell, Directions> BareEnds(Occupant occupant, Dictionary<Cell, Directions> joins)
+        private Dictionary<Cell, Directions>? BareEnds(Occupant occupant, Dictionary<Cell, Directions> joins)
         {
-            var bare = new Dictionary<Cell, Directions>();
+            if (!JoinsNeighbour(occupant))
+                return null;
+            Dictionary<Cell, Directions>? bare = null;
             foreach (var cell in joins.Keys)
             {
                 var had = PieceCells.At(occupant, cell, grid);
@@ -436,10 +439,19 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
                 }
 
                 if (!open.IsEmpty)
-                    bare[cell] = open;
+                    (bare ??= [])[cell] = open;
             }
 
             return bare;
+        }
+
+        /// <summary>Whether some cell of the piece has a way a neighbour's end points into: only then is the piece part of a line.</summary>
+        private bool JoinsNeighbour(Occupant occupant)
+        {
+            foreach (var cell in occupant.Cells)
+                if (!PieceCells.At(occupant, cell, grid).Intersect(around.EndsInto(cell, kit)).IsEmpty)
+                    return true;
+            return false;
         }
 
         private static bool Fills(Occupant occupant, Cell cell)

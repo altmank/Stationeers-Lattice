@@ -103,7 +103,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         if (previewed.Searching is not null)
             return new Answer<Expanding>.Pending(at);
 
-        switch (Expand(command, default, actor, previewed.Parts, 0, null, ""))
+        switch (Expand(command, default, actor, previewed.Parts, 0, null, null))
         {
             case Expanded.Ready done:
                 return Settle(previewed, Expanding.Ok(done.Command));
@@ -126,7 +126,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return new Answer<Expanding>.Ready(expansion, previewed.At);
     }
 
-    private void FoundForPreview(Previewed previewed, Command part, string path, Expanding found)
+    private void FoundForPreview(Previewed previewed, Command part, StepPath? path, Expanding found)
     {
         previewed.Searching = null;
         previewed.Parts.Add(part, path, found);
@@ -199,7 +199,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// <summary>Applies the command if its expansion is complete, else starts the work for its next part and parks it.</summary>
     private Option<Outcome> Attempt(Submitted submitted)
     {
-        switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0, null, ""))
+        switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0, null, null))
         {
             case Expanded.Ready ready:
                 return Keep(submitted, Run(submitted.Id, ready.Command, submitted.Actor));
@@ -231,7 +231,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return Option.Some(outcome);
     }
 
-    private void Resume(Submitted submitted, Command part, string path, Expanding found)
+    private void Resume(Submitted submitted, Command part, StepPath? path, Expanding found)
     {
         submitted.Parts.Add(part, path, found);
         if (_applying)
@@ -259,7 +259,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// for the board to refuse. A sliced part not yet found stops the expansion with the work that finds it. An expander
     /// begins (and its work steps) with <paramref name="staging"/> on the board: a batch's earlier steps.
     /// </summary>
-    private Expanded Expand(Command command, CommandId id, Actor actor, Parts parts, int depth, Staging? staging, string path)
+    private Expanded Expand(Command command, CommandId id, Actor actor, Parts parts, int depth, Staging? staging, StepPath? path)
     {
         if (command is Command.Batch batch)
             return ExpandSteps(batch, id, actor, parts, depth, staging, path);
@@ -295,14 +295,14 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     }
 
     // Each step expands with the steps before it staged (as expanded), over whatever an enclosing batch staged.
-    private Expanded ExpandSteps(Command.Batch batch, CommandId id, Actor actor, Parts parts, int depth, Staging? outer, string path)
+    private Expanded ExpandSteps(Command.Batch batch, CommandId id, Actor actor, Parts parts, int depth, Staging? outer, StepPath? path)
     {
         Command[]? steps = null;
         for (var i = 0; i < batch.Steps.Count; i++)
         {
             var staging = i > 0 && Expands(batch.Steps[i]) ? new Staging(this, board, actor, outer, Earlier(batch, steps, i)) : outer;
             Command step;
-            switch (Expand(batch.Steps[i], id, actor, parts, depth, staging, path + i + "."))
+            switch (Expand(batch.Steps[i], id, actor, parts, depth, staging, new StepPath(path, i)))
             {
                 case Expanded.Ready ready:
                     step = ready.Command;
@@ -410,21 +410,24 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
             }
         }
 
-        public sealed record Waits(Command Part, string Path, IExpansionWork Work, Staging? Staging) : Expanded;
+        public sealed record Waits(Command Part, StepPath? Path, IExpansionWork Work, Staging? Staging) : Expanded;
     }
+
+    /// <summary>The place of a step in nested batches: its index in the batch, under the path of the batch (null at the top).</summary>
+    private sealed record StepPath(StepPath? Parent, int Index);
 
     /// <summary>The expansions found so far for the module-owned parts of one command, by part and the path of steps that leads to it, so equal steps of a batch keep their own.</summary>
     private sealed class Parts
     {
-        private Dictionary<(Command Part, string Path), Expanding>? _found;
+        private Dictionary<(Command Part, StepPath? Path), Expanding>? _found;
 
-        public bool TryGet(Command part, string path, out Expanding found)
+        public bool TryGet(Command part, StepPath? path, out Expanding found)
         {
             found = default;
             return _found is not null && _found.TryGetValue((part, path), out found);
         }
 
-        public void Add(Command part, string path, Expanding found) => (_found ??= new Dictionary<(Command Part, string Path), Expanding>())[(part, path)] = found;
+        public void Add(Command part, StepPath? path, Expanding found) => (_found ??= new Dictionary<(Command Part, StepPath? Path), Expanding>())[(part, path)] = found;
 
         public void CopyFrom(Parts other)
         {
