@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Fixed:
+- **Two identical run steps in one batch each get their own ghosts.** A batch with the same run twice (equal start,
+  end and kit) gave the second step the first step's ghosts and report, so the preview and the placed ghosts counted
+  the first run twice instead of laying the second against it. Each step is now expanded and reported on its own, in step order.
+- **A run that leaves the end of a long straight turns it into a corner.** Starting or ending a run side-on at the
+  open end cell of a multi-cell cable, pipe or chute straight (or a modded one) now lays a corner there, as for a
+  single end piece since 0.14.1. Before, cable and pipe got a tee with an open stub there, and a chute run failed
+  `no-piece`. A face that joins a neighbour is still kept, and leaving mid-way along the straight is still a tee.
+
 ## 0.22.14
 
 Fixed:

@@ -24,7 +24,8 @@ internal sealed class RunExpander(RunPlanner planner, RunReportBook? book = null
         var planned = planner.Plan(input.Command.Request, input.Board, input.World);
         if (!planned.TryGet(out var plan))
             return Result<Command, Reason>.Error(planned.ErrorOf());
-        book?.Keep(input.Command, plan);
-        return Result<Command, Reason>.Ok(plan.ToCommand(input.Command.Request));
+        var placed = plan.ToCommand(input.Command.Request);
+        book?.Keep(placed, plan);
+        return Result<Command, Reason>.Ok(placed);
     }
 }

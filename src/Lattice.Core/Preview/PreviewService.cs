@@ -96,6 +96,7 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         if (!tried.TryGet(out var trial))
             return Settle(entry, Refused(tried.ErrorOf()));
 
+        entry.Expanded = primitive;
         entry.Trial = trial;
         entry.Ghosts = ValidationTrial.GhostsOf(trial.Changes);
         if (parts.Validation is { Faulted: false } validation)
@@ -131,7 +132,7 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         entry.Effects = effects;
         entry.Bill = Bill(ghosts);
         var runs = new List<RunReport>(1);
-        Reports(entry.Command, ghosts, runs);
+        Reports(entry.Command, entry.Expanded!, ghosts, runs);
         entry.Runs = ValueList.From(runs);
         entry.Run = runs.Count > 0 ? Option.Some(runs[0]) : Option<RunReport>.None;
         entry.Done = true;
@@ -139,16 +140,17 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
     }
 
     // The report of each run or route step the expanders laid, in step order with nested batches flattened; each billed for its own pieces.
-    private void Reports(Command command, ValueList<Ghost> ghosts, List<RunReport> reports)
+    private void Reports(Command command, Command expanded, ValueList<Ghost> ghosts, List<RunReport> reports)
     {
         if (command is Command.Batch batch)
         {
-            foreach (var step in batch.Steps)
-                Reports(step, ghosts, reports);
+            if (expanded is Command.Batch laid && laid.Steps.Count == batch.Steps.Count)
+                for (var i = 0; i < batch.Steps.Count; i++)
+                    Reports(batch.Steps[i], laid.Steps[i], ghosts, reports);
             return;
         }
 
-        if (command is Command.PlanRun or Command.PlanRoute && parts.Runs.Find(command).TryGet(out var plan))
+        if (command is Command.PlanRun or Command.PlanRoute && parts.Runs.Find(expanded).TryGet(out var plan))
             reports.Add(plan.Report(pieces => Bill(Builds(pieces, ghosts))));
     }
 
@@ -230,6 +232,8 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         public PreviewAnswer.Pending Pending { get; } = pending;
 
         public PreviewAnswer? Answer { get; set; }
+
+        public Command? Expanded { get; set; }
 
         public GhostBoard.Trial? Trial { get; set; }
 

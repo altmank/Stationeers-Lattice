@@ -387,10 +387,11 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
         {
             foreach (var cell in occupant.Cells)
                 _done.Add(cell);
-            if (Keeps(occupant, joins))
+            var bare = BareEnds(occupant, joins);
+            if (bare.Count == 0 && Keeps(occupant, joins))
                 return;
 
-            var split = SplitPlanner.Split(kit, occupant, joins, grid, kit.HasSteering ? FlowOf : null);
+            var split = SplitPlanner.Split(kit, occupant, joins, grid, kit.HasSteering ? FlowOf : null, bare);
             if (!split.TryGet(out var pieces))
             {
                 if (split.TryGetError(out var why))
@@ -407,6 +408,46 @@ internal sealed class RunPlanner(ICatalogue catalogue, IGrid grid, IPlacementChe
                 Build(piece.Placement, checkIt: standing.IsNone);
                 _singles.Add(piece.Placement);
             }
+        }
+
+        /// <summary>
+        /// The open outer face of each cell the run leaves a multi-cell piece from (a way the piece lacks), where the piece is a line's end there:
+        /// the face leads out of the piece and no neighbour's end points in, the run lays no cell there and leaves the
+        /// cell no way through it. The run turns such an end, as it does a single piece's (<see cref="Turned"/>).
+        /// </summary>
+        private Dictionary<Cell, Directions> BareEnds(Occupant occupant, Dictionary<Cell, Directions> joins)
+        {
+            var bare = new Dictionary<Cell, Directions>();
+            foreach (var cell in joins.Keys)
+            {
+                var had = PieceCells.At(occupant, cell, grid);
+                var into = around.EndsInto(cell, kit);
+                var run = path.WaysAt(cell);
+                if (had.Covers(run))
+                    continue;
+                var open = Directions.None;
+                for (var direction = Direction.XPlus; direction <= Direction.ZMinus; direction++)
+                {
+                    if (!had.Contains(direction) || into.Contains(direction) || run.Contains(direction))
+                        continue;
+                    var beyond = grid.Neighbour(cell, direction, kit.Grid);
+                    if (!Fills(occupant, beyond) && !OnPath(beyond))
+                        open = open.With(direction);
+                }
+
+                if (!open.IsEmpty)
+                    bare[cell] = open;
+            }
+
+            return bare;
+        }
+
+        private static bool Fills(Occupant occupant, Cell cell)
+        {
+            foreach (var filled in occupant.Cells)
+                if (filled == cell)
+                    return true;
+            return false;
         }
 
         private bool Keeps(Occupant occupant, Dictionary<Cell, Directions> joins)

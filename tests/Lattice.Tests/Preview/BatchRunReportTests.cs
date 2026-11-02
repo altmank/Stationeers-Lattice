@@ -96,6 +96,24 @@ public sealed class BatchRunReportTests
         Assert.Equal(alone.FirstFailure, batched.FirstFailure);
     }
 
+    [Fact]
+    public void Two_equal_run_steps_report_the_second_laid_against_the_first()
+    {
+        var batchedBench = new PreviewBench().Start();
+        var run = new Command.PlanRun(batchedBench.Runs.Run(batchedBench.Runs.Cable, At(0, 0, 0), At(6, 0, 0)));
+        var batched = batchedBench.Ok(Batch(run, run));
+
+        var aloneBench = new PreviewBench().Start();
+        TestBoard.Applied(Submit(aloneBench, run));
+        var second = Report(aloneBench.Ok(run));
+
+        Assert.Equal(2, batched.Runs.Count);
+        Assert.Equal(second.Cells, batched.Runs[1].Cells);
+        Assert.Equal(second.Pieces, batched.Runs[1].Pieces);
+        Assert.Equal(second.FirstFailure, batched.Runs[1].FirstFailure);
+        Assert.NotEqual(batched.Runs[0].Pieces, batched.Runs[1].Pieces);
+    }
+
     private static Outcome Submit(PreviewBench bench, Command command)
     {
         var id = new CommandId(Guid.NewGuid());
