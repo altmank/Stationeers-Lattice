@@ -46,6 +46,7 @@ internal static class RenderRun
 {
     private const string Station = "lattice-big";
     private const int PerfGhosts = 20000;
+    private const int SmallGhosts = 5000;
     private const int Lift = 600;
 
     public static IEnumerator Run(string mode, string outDir, Action<string> line)
@@ -372,8 +373,10 @@ internal static class RenderRun
         return count;
     }
 
-    // 20,000 ghosts in the base's shape lifted 60 m: frame times with Lattice drawing them and with a claim of
-    // everything that draws nothing (Lattice's submission off, all else equal), from two views; vsync off for the run.
+    // The base's shape lifted 60 m, in the planned look: 5,000 ghosts, then 20,000, then the 20,000 with a dashed edge
+    // still, the same edge moving, and the moving edge over an under-line. Each scene from two views, frame times with
+    // Lattice drawing it and with a claim of everything that draws nothing (Lattice's submission off, all else equal);
+    // vsync off for the run.
     private static IEnumerator Perf(LatticeWorld world, RenderHost host, LiveCamera rig, Region region, string shots, Action<string> line)
     {
         var drafts = new List<GhostDraft>(PerfGhosts);
@@ -392,10 +395,9 @@ internal static class RenderRun
             hi = Vector3.Max(hi, p);
         }
 
-        var watch = Stopwatch.StartNew();
-        var outcome = Scenes.Submit(world, Scenes.PlanOf("Perf lifted", drafts));
-        line($"render-perf: plan of {drafts.Count} ghosts in the base's shape lifted {Lift / 10} m: {outcome} in {watch.Elapsed.TotalMilliseconds:F0} ms; bounds {lo} .. {hi}");
-        yield return Settle(world, line, "after the perf plan", 600f);
+        var small = drafts.GetRange(0, Math.Min(SmallGhosts, drafts.Count));
+        var rest = drafts.GetRange(small.Count, drafts.Count - small.Count);
+        yield return PerfPlan(world, "Perf lifted", small, $"bounds of all {drafts.Count}: {lo} .. {hi}", line);
 
         var vsync = QualitySettings.vSyncCount;
         var rate = Application.targetFrameRate;
@@ -408,26 +410,75 @@ internal static class RenderRun
             new View("perf-overview", centre + new Vector3(-0.45f, 0.55f, -0.45f) * size, centre, "the whole lifted base in view"),
             new View("perf-inside", centre + new Vector3(-6f, 3f, -6f), centre + new Vector3(10f, 0f, 10f), "inside the lifted base: overdraw"),
         };
-        var claimId = ClaimId.Create(LatticeIdentity.Mod, "live-perf-off").Match(static c => c, static r => throw new InvalidOperationException(r.ToString()));
-        foreach (var view in views)
+        yield return PerfScene($"{small.Count} ghosts", views, host, rig, shots, line);
+        yield return PerfPlan(world, "Perf lifted rest", rest, $"{drafts.Count} in all", line);
+        yield return PerfScene($"{drafts.Count} ghosts", views, host, rig, shots, line);
+
+        var planned = new Paint.Token(LibraryPalette.Planned);
+        var dashed = new EdgeLook.Line(LineStyle.Dashed, Must(Pixels.Create(2f)), planned);
+        var moving = dashed with { Speed = Must(Speed.Create(0.5f)) };
+        var under = moving with { Under = Option.Some(new UnderLine(Must(Pixels.Create(5f)), new Paint.Fixed(new Rgba(20, 20, 20, 200)))) };
+        var edges = new (string Name, EdgeLook Edge)[] { ("dashed still", dashed), ("dashed moving", moving), ("under-line", under) };
+        foreach (var (name, edge) in edges)
         {
-            rig.Show(view);
-            yield return Frames(60);
-            var counts = host.Renderer.Counts;
-            line($"render-perf: {view.Name}: calls {counts.Calls}, instances {counts.Instances}, groups {counts.Groups}, visible batches {counts.Visible} of {counts.Batches}");
-            yield return rig.Capture(Path.Combine(shots, view.Name + ".png"));
-            yield return Recorded(line, view.Name + " with Lattice drawing", 300);
-            var claim = host.Drawing.Claim(new RendererClaimDescriptor(claimId, new StyleMatch.Everything(), ClaimParts.Everything, static _ => { }));
-            yield return Frames(60);
-            yield return Recorded(line, view.Name + " with Lattice's drawing claimed away", 300);
-            if (claim.TryGet(out var held))
-                held.Dispose();
+            if (world.StyleModule is not { } styles)
+            {
+                line("FAIL render-perf: no styles module");
+                break;
+            }
+
+            var id = Must(StyleLayerId.Create(LatticeIdentity.Mod, "live-perf-edge"));
+            var added = styles.Add(new StyleLayerDescriptor(id, StyleBand.Highlight, 30, ValueList.From(new[]
+            {
+                new StyleRule(new StyleMatch.Everything(), new Style { Edge = Option.Some(edge) }),
+            })));
+            if (!added.TryGet(out var layer))
+            {
+                line($"FAIL render-perf: the {name} layer was refused: {added}");
+                continue;
+            }
+
+            yield return Settle(world, line, $"after the {name} edge", 600f);
+            yield return PerfScene($"{drafts.Count} ghosts {name}", views, host, rig, shots, line);
+            layer.Dispose();
         }
 
         QualitySettings.vSyncCount = vsync;
         Application.targetFrameRate = rate;
+        yield return Settle(world, line, "after the edge layers", 600f);
         yield return RenderCost(host, line);
     }
+
+    private static IEnumerator PerfPlan(LatticeWorld world, string name, List<GhostDraft> drafts, string note, Action<string> line)
+    {
+        var watch = Stopwatch.StartNew();
+        var outcome = Scenes.Submit(world, Scenes.PlanOf(name, drafts));
+        line($"render-perf: plan '{name}' of {drafts.Count} ghosts in the base's shape lifted {Lift / 10} m: {outcome} in {watch.Elapsed.TotalMilliseconds:F0} ms; {note}");
+        yield return Settle(world, line, $"after the plan '{name}'", 600f);
+    }
+
+    private static IEnumerator PerfScene(string scene, View[] views, RenderHost host, LiveCamera rig, string shots, Action<string> line)
+    {
+        var claimId = Must(ClaimId.Create(LatticeIdentity.Mod, "live-perf-off"));
+        foreach (var view in views)
+        {
+            var what = $"{scene} {view.Name}";
+            rig.Show(view);
+            yield return Frames(60);
+            var counts = host.Renderer.Counts;
+            line($"render-perf: {what}: calls {counts.Calls}, instances {counts.Instances}, groups {counts.Groups}, visible batches {counts.Visible} of {counts.Batches}");
+            yield return rig.Capture(Path.Combine(shots, what.Replace(' ', '-').Replace(",", "") + ".png"));
+            yield return Recorded(line, what + " with Lattice drawing", 300);
+            var claim = host.Drawing.Claim(new RendererClaimDescriptor(claimId, new StyleMatch.Everything(), ClaimParts.Everything, static _ => { }));
+            yield return Frames(60);
+            yield return Recorded(line, what + " with Lattice's drawing claimed away", 300);
+            if (claim.TryGet(out var held))
+                held.Dispose();
+        }
+    }
+
+    private static T Must<T>(Result<T, Reason> result) where T : notnull =>
+        result.Match(static v => v, static r => throw new InvalidOperationException(r.ToString()));
 
     public static IEnumerator Frames(int count)
     {
@@ -442,7 +493,7 @@ internal static class RenderRun
         var sorted = new List<double>(ms);
         sorted.Sort();
         double At(double p) => sorted[Math.Min(sorted.Count - 1, Math.Max(0, (int)Math.Ceiling(p * sorted.Count) - 1))];
-        return $"{ms.Count} median {At(0.5):F3} ms p90 {At(0.9):F3} ms max {sorted[sorted.Count - 1]:F3} ms";
+        return $"{ms.Count} median {At(0.5):F3} ms p90 {At(0.9):F3} ms p95 {At(0.95):F3} ms max {sorted[sorted.Count - 1]:F3} ms";
     }
 
     private static string Arg(string name, string fallback)
