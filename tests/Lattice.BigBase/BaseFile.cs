@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using Lattice.Api;
+using Lattice.TestKit;
+using Lattice.TestKit.Catalogue;
 using Lattice.Core.Grid;
 using Lattice.Core.Ports;
 
-namespace Lattice.TestKit.BigBase;
+namespace Lattice.BigBase;
 
 /// <summary>One structure of a base file: its prefab, where it stands (cell and turn) and its build state index.</summary>
 internal sealed record BasePiece(string Prefab, Cell At, Turn Turn, int State);

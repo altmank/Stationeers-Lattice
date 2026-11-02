@@ -6,7 +6,7 @@ using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Grid;
 using Lattice.TestKit;
-using Lattice.TestKit.BigBase;
+using Lattice.BigBase;
 using Lattice.TestKit.Catalogue;
 using Lattice.TestKit.Fixtures;
 using Lattice.Tests.Catalogue;
@@ -110,6 +110,59 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
         }
 
         Assert.True(problems.Count == 0, string.Join("\n", problems.Take(20)));
+    }
+
+    // The pipe networks (one per stack of corridors), the one power grid and each room's chutes are each laid as one
+    // connected piece, read back from the pieces alone; no run cell is dropped for want of a kit piece; and every gas,
+    // power and chute end of a device reaches a run of its kind.
+    [BigBaseFact]
+    public void Each_network_is_one_connected_piece_and_device_ends_are_joined()
+    {
+        var (catalogue, mix, list) = Load();
+        var made = new BaseGenerator(catalogue, mix, 128).Generate();
+        Assert.True(made.TryGet(out var generated), "the generator refused the catalogue or mix");
+        var report = NetworkCheck.Of(catalogue, list.Pieces);
+
+        foreach (var (family, count) in generated.Networks)
+            output.WriteLine($"{family}: {report.Components.GetValueOrDefault(family)} connected pieces of {count} networks");
+        output.WriteLine($"device ends: {report.UnjoinedEnds} of {report.DeviceEnds} reach no run");
+        foreach (var example in report.Unjoined.Take(10))
+            output.WriteLine("unjoined: " + example);
+        Assert.Equal(0, generated.DroppedRuns);
+        Assert.Equal(generated.Networks.OrderBy(n => n.Key), report.Components.OrderBy(n => n.Key));
+        Assert.Equal(0, report.UnjoinedEnds);
+    }
+
+    [BigBaseFact]
+    public void The_base_stands_on_several_storeys_with_a_real_bases_spread_of_heights()
+    {
+        var (_, _, list) = Load();
+
+        var heights = list.Pieces.Select(p => p.At.Y).Distinct().Count();
+
+        output.WriteLine($"{heights} distinct heights");
+        Assert.True(heights >= 54, $"only {heights} distinct heights");
+    }
+
+    // A mix or catalogue short of a family leaves it out; it never takes the generator down.
+    [BigBaseFact]
+    public void A_mix_missing_a_family_still_makes_a_base_without_that_family()
+    {
+        var (catalogue, full, _) = Load();
+        foreach (var family in full.Groups.Keys)
+        {
+            var mix = new BaseMix(
+                ValueMap.From(full.Groups.Where(g => g.Key != family).ToDictionary(g => g.Key, g => g.Value / 10)),
+                ValueMap.From(full.Pieces.Where(g => g.Key != family).ToDictionary(g => g.Key, g => g.Value)),
+                ValueMap.From(full.Kits.Where(g => g.Key != family).ToDictionary(g => g.Key, g => g.Value)),
+                full.OnPipe);
+
+            var made = new BaseGenerator(catalogue, mix, 7).Generate();
+
+            Assert.True(made.TryGet(out var generated), $"no base without {family}: " + made.Match(static _ => "", static why => why));
+            Assert.Equal(0, generated.Counts.GetValueOrDefault(family));
+            Assert.Equal(0, generated.DroppedRuns);
+        }
     }
 
     [BigBaseFact]

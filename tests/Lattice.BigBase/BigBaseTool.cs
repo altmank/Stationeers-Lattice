@@ -5,9 +5,10 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Lattice.Api;
+using Lattice.TestKit;
 using Lattice.TestKit.Catalogue;
 
-namespace Lattice.TestKit.BigBase;
+namespace Lattice.BigBase;
 
 /// <summary>
 /// Writes a generated big base file (<see cref="BaseFile"/>) from a catalogue data file, a mix file and a seed, headed
@@ -35,7 +36,7 @@ internal static class BigBaseTool
 
         var comments = new List<string>
         {
-            $"{Station}: a generated big base for Lattice's tests, seed {seed}, {generated.Pieces.Count} structures in {generated.Rooms} rooms",
+            $"{Station}: a generated big base for Lattice's tests, seed {seed}, {generated.Pieces.Count} structures in {generated.Rooms} rooms on {generated.Storeys} storeys",
             $"catalogue {Path.GetFileName(cataloguePath)} SHA1 {Sha1(cataloguePath)}; mix {Path.GetFileName(mixPath)} SHA1 {Sha1(mixPath)}",
             "station " + Station,
         };
@@ -61,7 +62,20 @@ internal static class BigBaseTool
         }
 
         report.Append(FormattableString.Invariant($"total    {generated.Pieces.Count,6}\n"));
+        report.Append(FormattableString.Invariant(
+            $"storeys {generated.Storeys}, distinct heights {DistinctHeights(generated)}, run cells dropped {generated.DroppedRuns}\n"));
+        foreach (var network in generated.Networks)
+            report.Append(FormattableString.Invariant($"networks {network.Key,-8} {network.Value}\n"));
         return report.ToString();
+    }
+
+    /// <summary>How many different heights (y of a piece's position) the base's pieces stand at.</summary>
+    public static int DistinctHeights(GeneratedBase generated)
+    {
+        var heights = new HashSet<int>();
+        foreach (var piece in generated.Pieces)
+            heights.Add(piece.At.Y);
+        return heights.Count;
     }
 
     private static string Sha1(string path)

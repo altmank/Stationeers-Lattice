@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using Lattice.Api;
+using Lattice.TestKit;
+using Lattice.TestKit.Catalogue;
 
-namespace Lattice.TestKit.BigBase;
+namespace Lattice.BigBase;
 
 /// <summary>A prefab or kit name drawn by weight.</summary>
 internal readonly record struct Weighted(string Name, int Weight);

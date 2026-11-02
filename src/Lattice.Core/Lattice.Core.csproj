@@ -9,6 +9,7 @@
     <InternalsVisibleTo Include="Lattice.Render" />
     <InternalsVisibleTo Include="Lattice.Game.Live" />
     <InternalsVisibleTo Include="Lattice.TestKit" />
+    <InternalsVisibleTo Include="Lattice.BigBase" />
     <InternalsVisibleTo Include="Lattice.Testing" />
     <InternalsVisibleTo Include="Lattice.Tests" />
   </ItemGroup>

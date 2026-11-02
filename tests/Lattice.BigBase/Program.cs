@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
-using Lattice.TestKit.BigBase;
+using Lattice.BigBase;
 
 if (args.Length != 4 || !int.TryParse(args[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var seed))
 {

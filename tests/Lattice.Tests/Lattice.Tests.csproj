@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Lattice.Core\Lattice.Core.csproj" />
     <ProjectReference Include="..\..\src\Lattice.Render\Lattice.Render.csproj" />
     <ProjectReference Include="..\Lattice.TestKit\Lattice.TestKit.csproj" />
+    <ProjectReference Include="..\Lattice.BigBase\Lattice.BigBase.csproj" />
     <ProjectReference Include="..\..\src\Lattice.Testing\Lattice.Testing.csproj" />
     <!-- Built first so the surface tests can read its metadata; never loaded. -->
     <ProjectReference Include="..\..\src\Lattice.Game\Lattice.Game.csproj" ReferenceOutputAssembly="false" />

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Writes the generated big-base test world's structure list (TestKit's BigBaseTool). Never shipped:
+    Generates the big-base test world's structure list (generator, mix and file format) and writes it from a command
+    line; Lattice.Tests checks the generator and the file. Never shipped, and kept out of TestKit, which Lattice.Testing
+    carries into consumers' hands.
     Run: dotnet run -c Release with the project tests/Lattice.BigBase, then the arguments catalogue.lcat mix.txt seed out.tsv
   -->
   <PropertyGroup>
@@ -10,6 +12,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\..\src\Lattice.Core\Lattice.Core.csproj" />
     <ProjectReference Include="..\Lattice.TestKit\Lattice.TestKit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lattice.Tests" />
   </ItemGroup>
 </Project>
