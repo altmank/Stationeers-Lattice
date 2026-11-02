@@ -109,7 +109,9 @@ The mod lands in `artifacts/<Configuration>/Lattice`, and the test host for your
 `artifacts/<Configuration>/Lattice.Testing`.
 `./build.ps1 -Deploy` copies the package into the local mods folder after a green run; `./build.ps1 -DeployOnly`
 copies an already-built package and nothing else, and refuses if it was not built from HEAD. `-Target <folder>`
-copies somewhere else.
+copies somewhere else. A deploy holds a game lock around the copy: `-LockScript <script>` (or `STATIONEERS_GAME_LOCK`)
+names a script taking `acquire -Owner <o>` and `release -Owner <o>`; `-LockHeld` when you already hold it, `-NoLock`
+for none. With none of these it refuses.
 
 ## Licence
 

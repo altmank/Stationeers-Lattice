@@ -20,7 +20,18 @@
     The folder the package is copied into (default Documents/My Games/Stationeers/mods/Lattice). Its contents are
     replaced.
 .PARAMETER Force
-    Deploy even while Stationeers runs (only for a mod the running game has never loaded).
+    Deploy even while Stationeers runs (only for a mod the running game has never loaded). It skips no lock check.
+.PARAMETER LockScript
+    The script that guards the game folder while a deploy copies (default: the STATIONEERS_GAME_LOCK environment
+    variable). The deploy calls `& <script> acquire -Owner <owner>` before it replaces the target and
+    `& <script> release -Owner <owner>` afterwards, even when the copy fails; each must exit 0 on success. acquire may
+    wait while someone else holds the lock; if it fails, the deploy stops without touching the target. A deploy with no
+    lock script, or one naming a file that does not exist, refuses unless -NoLock or -LockHeld is given.
+.PARAMETER NoLock
+    Deploy without any lock (for a machine where nothing else uses the game folder).
+.PARAMETER LockHeld
+    The caller already holds the game lock for its whole run: the deploy neither takes nor releases it (the lock is
+    not re-entrant). No -LockScript is needed.
 #>
 param(
     [ValidateSet('Debug', 'Release')]
@@ -29,7 +40,10 @@ param(
     [switch] $Deploy,
     [switch] $DeployOnly,
     [string] $Target = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\Stationeers\mods\Lattice'),
-    [switch] $Force
+    [switch] $Force,
+    [string] $LockScript = $env:STATIONEERS_GAME_LOCK,
+    [switch] $NoLock,
+    [switch] $LockHeld
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,6 +66,14 @@ function Invoke-Step([string] $name, [scriptblock] $command) {
 }
 
 $package = Join-Path $PSScriptRoot "artifacts\$Configuration\Lattice"
+$takeLock = -not ($NoLock -or $LockHeld)
+
+# Decided before anything is built or copied, so a deploy with no lock fails fast and leaves the target alone.
+if (($Deploy -or $DeployOnly) -and $takeLock -and -not ($LockScript -and (Test-Path $LockScript -PathType Leaf))) {
+    $why = if ($LockScript) { "no lock script at $LockScript" } else { 'no game lock' }
+    Write-Host "== deploy refused: $why`: pass -LockScript or set STATIONEERS_GAME_LOCK, or -NoLock" -ForegroundColor Red
+    exit 1
+}
 
 function Invoke-Deploy {
     # A running game holds the old dlls and keeps running them; someone may be playing.
@@ -63,9 +85,22 @@ function Invoke-Deploy {
         Write-Host "== deploy failed: no package at $package" -ForegroundColor Red
         exit 1
     }
-    if (Test-Path $Target) { Remove-Item $Target -Recurse -Force }
-    New-Item -ItemType Directory -Path $Target -Force | Out-Null
-    Copy-Item (Join-Path $package '*') $Target -Recurse
+    $owner = "lattice-deploy $(Split-Path $PSScriptRoot -Leaf) pid $PID"
+    if ($takeLock) {
+        & $LockScript acquire -Owner $owner | ForEach-Object { Write-Host "   $_" }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "== deploy failed: could not take the game lock (exit $LASTEXITCODE)" -ForegroundColor Red
+            exit 1
+        }
+    }
+    try {
+        if (Test-Path $Target) { Remove-Item $Target -Recurse -Force }
+        New-Item -ItemType Directory -Path $Target -Force | Out-Null
+        Copy-Item (Join-Path $package '*') $Target -Recurse
+    }
+    finally {
+        if ($takeLock) { & $LockScript release -Owner $owner | ForEach-Object { Write-Host "   $_" } }
+    }
     Write-Host "== deployed to $Target" -ForegroundColor Green
 }
 
