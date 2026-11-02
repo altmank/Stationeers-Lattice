@@ -14,13 +14,11 @@ namespace Lattice.Core.Routes;
 internal sealed class RouteExpansion : IExpansionWork
 {
     private readonly Option<RouteJob> _job;
-    private readonly Command.PlanRoute? _command;
     private readonly RunReportBook? _book;
     private Option<Result<Command, Reason>> _found;
 
-    public RouteExpansion(Result<RouteJob, Reason> started, Command.PlanRoute? command = null, RunReportBook? book = null)
+    public RouteExpansion(Result<RouteJob, Reason> started, RunReportBook? book = null)
     {
-        _command = command;
         _book = book;
         if (started.TryGet(out var job))
             _job = Option.Some(job);
@@ -41,9 +39,9 @@ internal sealed class RouteExpansion : IExpansionWork
             return StepOutcome.More;
         _found = job.Outcome.Map(found => found.Map(plan =>
         {
-            if (_command is not null)
-                _book?.Keep(_command, plan.Run);
-            return plan.ToCommand();
+            var placed = plan.ToCommand();
+            _book?.Keep(placed, plan.Run);
+            return placed;
         }));
         return StepOutcome.Done;
     }
@@ -66,5 +64,5 @@ internal sealed class RouteExpander(RoutePlanner planner, RunReportBook? book = 
 
     /// <summary>Sets up the work for one command; searches nothing yet. The route's run plan is kept in the book (when there is one) for the preview of the same command.</summary>
     public IExpansionWork Start(ExpansionInput<Command.PlanRoute> input) =>
-        new RouteExpansion(planner.Start(input.Command.Request, input.Board, input.World), input.Command, book);
+        new RouteExpansion(planner.Start(input.Command.Request, input.Board, input.World), book);
 }

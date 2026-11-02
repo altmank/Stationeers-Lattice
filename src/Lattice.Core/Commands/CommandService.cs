@@ -103,12 +103,12 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         if (previewed.Searching is not null)
             return new Answer<Expanding>.Pending(at);
 
-        switch (Expand(command, default, actor, previewed.Parts, 0, null))
+        switch (Expand(command, default, actor, previewed.Parts, 0, null, null))
         {
             case Expanded.Ready done:
                 return Settle(previewed, Expanding.Ok(done.Command));
             case Expanded.Waits waits:
-                var scheduled = Schedule(waits, found => FoundForPreview(previewed, waits.Part, found));
+                var scheduled = Schedule(waits, found => FoundForPreview(previewed, waits.Part, waits.Path, found));
                 if (!scheduled.TryGet(out var search))
                     return Settle(previewed, Expanding.Error(One(scheduled.ErrorOf())));
                 previewed.Searching = search.Job;
@@ -126,10 +126,10 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return new Answer<Expanding>.Ready(expansion, previewed.At);
     }
 
-    private void FoundForPreview(Previewed previewed, Command part, Expanding found)
+    private void FoundForPreview(Previewed previewed, Command part, StepPath? path, Expanding found)
     {
         previewed.Searching = null;
-        previewed.Parts.Add(part, found);
+        previewed.Parts.Add(part, path, found);
         if (previewed.At == _previewsAt && previewed.At == board.Revision)
             board.Events.Queue(new AnswersReadyEvent(previewed.At));
     }
@@ -199,12 +199,12 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// <summary>Applies the command if its expansion is complete, else starts the work for its next part and parks it.</summary>
     private Option<Outcome> Attempt(Submitted submitted)
     {
-        switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0, null))
+        switch (Expand(submitted.Command, submitted.Id, submitted.Actor, submitted.Parts, 0, null, null))
         {
             case Expanded.Ready ready:
                 return Keep(submitted, Run(submitted.Id, ready.Command, submitted.Actor));
             case Expanded.Waits waits:
-                var scheduled = Schedule(waits, found => Resume(submitted, waits.Part, found));
+                var scheduled = Schedule(waits, found => Resume(submitted, waits.Part, waits.Path, found));
                 if (!scheduled.IsOk)
                     return Keep(submitted, Refused(scheduled.ErrorOf()));
                 _waitingIds.Add(submitted.Id);
@@ -231,9 +231,9 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         return Option.Some(outcome);
     }
 
-    private void Resume(Submitted submitted, Command part, Expanding found)
+    private void Resume(Submitted submitted, Command part, StepPath? path, Expanding found)
     {
-        submitted.Parts.Add(part, found);
+        submitted.Parts.Add(part, path, found);
         if (_applying)
         {
             _queue.Enqueue(submitted);
@@ -259,10 +259,10 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     /// for the board to refuse. A sliced part not yet found stops the expansion with the work that finds it. An expander
     /// begins (and its work steps) with <paramref name="staging"/> on the board: a batch's earlier steps.
     /// </summary>
-    private Expanded Expand(Command command, CommandId id, Actor actor, Parts parts, int depth, Staging? staging)
+    private Expanded Expand(Command command, CommandId id, Actor actor, Parts parts, int depth, Staging? staging, StepPath? path)
     {
         if (command is Command.Batch batch)
-            return ExpandSteps(batch, id, actor, parts, depth, staging);
+            return ExpandSteps(batch, id, actor, parts, depth, staging, path);
         if (CommandExpanders.IsPrimitive(command.GetType()) || !expanders.For(command).TryGet(out var expander))
             return new Expanded.Ready(command);
         if (depth >= MaxExpansionDepth)
@@ -271,7 +271,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
                 LatticeIdentity.Board,
                 ValueMap.Of("expansion-depth", depth.ToString()).With("command", command.GetType().Name).With("module", expander.Module.Value)));
 
-        if (!parts.TryGet(command, out var found))
+        if (!parts.TryGet(command, path, out var found))
         {
             var begun = staging is null
                 ? expander.Begin(command, id, actor, board.ViewFor(actor), world)
@@ -280,29 +280,29 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
             {
                 case Begun.Now now:
                     found = Lift(now.Expansion);
-                    parts.Add(command, found);
+                    parts.Add(command, path, found);
                     break;
                 case Begun.Later later:
-                    return new Expanded.Waits(command, later.Work, staging);
+                    return new Expanded.Waits(command, path, later.Work, staging);
                 default:
                     return new Expanded.Refused(Unknown(command));
             }
         }
 
         return found.Match(
-            next => Expand(next, id, actor, parts, depth + 1, staging),
+            next => Expand(next, id, actor, parts, depth + 1, staging, path),
             static why => new Expanded.Refused(why));
     }
 
     // Each step expands with the steps before it staged (as expanded), over whatever an enclosing batch staged.
-    private Expanded ExpandSteps(Command.Batch batch, CommandId id, Actor actor, Parts parts, int depth, Staging? outer)
+    private Expanded ExpandSteps(Command.Batch batch, CommandId id, Actor actor, Parts parts, int depth, Staging? outer, StepPath? path)
     {
         Command[]? steps = null;
         for (var i = 0; i < batch.Steps.Count; i++)
         {
             var staging = i > 0 && Expands(batch.Steps[i]) ? new Staging(this, board, actor, outer, Earlier(batch, steps, i)) : outer;
             Command step;
-            switch (Expand(batch.Steps[i], id, actor, parts, depth, staging))
+            switch (Expand(batch.Steps[i], id, actor, parts, depth, staging, new StepPath(path, i)))
             {
                 case Expanded.Ready ready:
                     step = ready.Command;
@@ -410,28 +410,31 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
             }
         }
 
-        public sealed record Waits(Command Part, IExpansionWork Work, Staging? Staging) : Expanded;
+        public sealed record Waits(Command Part, StepPath? Path, IExpansionWork Work, Staging? Staging) : Expanded;
     }
 
-    /// <summary>The expansions found so far for the module-owned parts of one command, by part.</summary>
+    /// <summary>The place of a step in nested batches: its index in the batch, under the path of the batch (null at the top).</summary>
+    private sealed record StepPath(StepPath? Parent, int Index);
+
+    /// <summary>The expansions found so far for the module-owned parts of one command, by part and the path of steps that leads to it, so equal steps of a batch keep their own.</summary>
     private sealed class Parts
     {
-        private Dictionary<Command, Expanding>? _found;
+        private Dictionary<(Command Part, StepPath? Path), Expanding>? _found;
 
-        public bool TryGet(Command part, out Expanding found)
+        public bool TryGet(Command part, StepPath? path, out Expanding found)
         {
             found = default;
-            return _found is not null && _found.TryGetValue(part, out found);
+            return _found is not null && _found.TryGetValue((part, path), out found);
         }
 
-        public void Add(Command part, Expanding found) => (_found ??= new Dictionary<Command, Expanding>())[part] = found;
+        public void Add(Command part, StepPath? path, Expanding found) => (_found ??= new Dictionary<(Command Part, StepPath? Path), Expanding>())[(part, path)] = found;
 
         public void CopyFrom(Parts other)
         {
             if (other._found is null)
                 return;
             foreach (var pair in other._found)
-                Add(pair.Key, pair.Value);
+                Add(pair.Key.Part, pair.Key.Path, pair.Value);
         }
     }
 
