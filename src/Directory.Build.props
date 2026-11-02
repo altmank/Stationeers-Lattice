@@ -12,6 +12,15 @@
   </PropertyGroup>
 
   <!--
+    Byte-identical shipped dlls from any checkout folder: source and PDB paths, and the PDB's SourceLink roots, are
+    written as /_/ instead of the folder. Test projects keep real paths: they find fixtures through CallerFilePath.
+  -->
+  <PropertyGroup>
+    <PathMap>$(RepoRoot)=/_/</PathMap>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+  </PropertyGroup>
+
+  <!--
     SemVer for the mod. AssemblyVersion carries the major only, so every consumer of one major binds without a
     resolver. Keep ApiVersion.ContractMajor and ContractMinor equal to these.
   -->
