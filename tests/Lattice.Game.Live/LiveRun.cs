@@ -234,7 +234,7 @@ internal sealed class LiveRunner : MonoBehaviour
         if (_mode.StartsWith("bigbase", StringComparison.Ordinal))
         {
             _step = _mode;
-            yield return _mode == "bigbase-build" ? BigBaseRun.Build(Line) : BigBaseRun.Load(_outDir, 10f, Line);
+            yield return _mode == "bigbase-build" ? BigBaseRun.Build(_outDir, Line) : BigBaseRun.Load(_outDir, 10f, Line);
             Finish();
             yield break;
         }

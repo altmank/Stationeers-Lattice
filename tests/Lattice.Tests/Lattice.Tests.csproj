@@ -16,6 +16,7 @@
     <Using Include="Xunit" />
     <Compile Include="..\Lattice.Consumer.Tests\ConsumerFlows.cs" Link="EntryPoint\ConsumerFlows.cs" />
     <Compile Include="..\Lattice.Consumer.Tests\StyleFlows.cs" Link="Styles\StyleFlows.cs" />
+    <Compile Include="..\Lattice.Game.Live\BigBaseFacts.cs" Link="BigBase\BigBaseFacts.cs" />
   </ItemGroup>
 
   <ItemGroup>

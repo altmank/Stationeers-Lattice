@@ -87,71 +87,245 @@ internal sealed class BaseStructure(string prefab, Vector3 position, Quaternion 
 /// A large real base on the test instance. <c>bigbase-build</c>, a new world: Lattice places a plan of
 /// <see cref="Held"/> ghosts at the placements of the first base structures the game holds (held back, not built),
 /// then every other structure of the base file is spawned at its registered position, rotation and build state, the
-/// modded rest skipped and counted; saved as <c>lattice-big</c>. <c>bigbase-load</c>, that save loaded: the load's
+/// rest the game refuses counted and listed; saved under the base file's station name (plus <c>-held</c> when
+/// <c>-lattice-held</c> is above 0). A client with no <c>-lattice-save</c> first makes a new Lunar Creative world from the main menu,
+/// stands the body at the file's <c># stand</c> spot and checks the ground under the base; its facts go to <c>world.txt</c>.
+/// <c>bigbase-load</c>, that save loaded: the load's
 /// matching pass, the held-back structures spawned (live completion), a head save, a 5,000-ghost new plan checked,
 /// steady frames, an autosave, the autosave loaded (plans equal), then the older head save loaded while the world runs
 /// (plans as at the head save; the new plan hidden, not offered, since the autosave holds its lines). The base file
 /// (<c>-lattice-bigbase &lt;tsv&gt;</c>) is the generated big base (LatticeFixtures\bigbase\lattice-gen-big.tsv, whose
-/// <c># station</c> line names the save, <c>lattice-gen-big</c>) or the structures of a Vulcan2_4 save copy, saved as
-/// <c>lattice-big</c>; both outside the repo. A server builds in the new world it starts with; a client, started from
-/// the main menu, first loads the world <c>-lattice-save &lt;file&gt;</c> names and builds in it.
+/// <c># station</c> line names the save, <c>lattice-gen-big</c>) or
+/// the structures of a Vulcan2_4 save copy; both outside the repo. A server builds in the new world it starts with; a
+/// client, started from the main menu, loads the world <c>-lattice-save &lt;file&gt;</c> names, or makes a new one.
 /// </summary>
 internal static class BigBaseRun
 {
-    public const string Station = "lattice-big";
-    private const string StationLine = "# station ";
-    private const int Held = 5000;
+    private const int DefaultHeld = 5000;
+    private const int NewWing = 5000;
+    private const int RefusedListed = 200;
     private const int SpawnPerFrame = 500;
     private const int ProgressEvery = 1000;
     private static readonly Maker LiveMaker = Maker.Create(LatticeIdentity.Mod, "live")
         .Match(static m => m, static r => throw new InvalidOperationException(r.ToString()));
 
-    public static IEnumerator Build(Action<string> line)
+    public static IEnumerator Build(string outDir, Action<string> line)
     {
-        var (structures, station) = ReadBase(line);
+        var (structures, header) = ReadBase(line);
+        if (structures.Count == 0)
+            yield break;
+        var held = HeldCount();
+        var station = header.SaveName(held);
+        if (station is null)
+        {
+            line("FAIL bigbase: the base file has no station line");
+            yield break;
+        }
+
         if (GameManager.GameState != GameState.Running)
-            yield return OpenWorld(line);
+            yield return Arg("-lattice-save") != "" ? OpenWorld(line) : NewWorld(line);
         if (!Lattice(line, out var world))
             yield break;
-        var (held, rest, unknown) = Split(structures);
-        line($"bigbase: {structures.Count} structures in the base file, {unknown} of prefabs the game lacks (modded), {held.Count} held back, {rest.Count} to spawn; saved as {station}");
+
+        if (header.Stand is not { } stand)
+        {
+            line("FAIL bigbase: the base file has no stand line");
+            yield break;
+        }
+
+        if (Assets.Scripts.Inventory.InventoryManager.Parent == null)
+            line("bigbase: no body (server)");
+        else
+        {
+            Assets.Scripts.Inventory.InventoryManager.ParentHuman?.ForceSetPosition(new Vector3(stand.X, stand.Y, stand.Z));
+            yield return new WaitForSecondsRealtime(10f);
+            line($"bigbase: body stands at {Assets.Scripts.Inventory.InventoryManager.Parent.ThingTransformPosition} (stand spot {WorldFile.Metres(stand.X, stand.Y, stand.Z)})");
+        }
+
+        var ground = GroundVerdict.Judge(GroundHeights(structures), LowestPiece(structures));
+        line("bigbase: " + ground.Describe());
+        if (!ground.Ok)
+        {
+            line($"FAIL bigbase: the base would cut into the terrain: the ground reaches y {ground.Max}, the lowest piece stands at y {ground.Lowest} (move the generator's origin)");
+            yield break;
+        }
+
+        var (heldBack, rest, unknown) = Split(structures, held);
+        line($"bigbase: {structures.Count} structures in the base file, {unknown} of prefabs the game lacks (modded), {heldBack.Count} held back, {rest.Count} to spawn; saved as {station}");
 
         var watch = Stopwatch.StartNew();
-        var outcome = Submit(world, PlanOf("Held back", held));
-        line($"bigbase: plan of {held.Count} held-back ghosts: {outcome} in {watch.Elapsed.TotalMilliseconds:F0} ms");
+        if (held > 0)
+        {
+            var outcome = Submit(world, PlanOf("Held back", heldBack));
+            line($"bigbase: plan of {heldBack.Count} held-back ghosts: {outcome} in {watch.Elapsed.TotalMilliseconds:F0} ms");
+        }
 
         watch.Restart();
         var spawned = 0;
-        var failed = 0;
+        var refused = 0;
+        var lacking = new HashSet<string>();
         for (var i = 0; i < rest.Count; i++)
         {
             var s = rest[i];
             if (Scene.Spawn(s.Prefab, s.Position, s.Rotation, s.State) != null)
                 spawned++;
             else
-                failed++;
+            {
+                refused++;
+                if (refused <= RefusedListed)
+                    line($"bigbase: refused {s.Prefab} at {WorldFile.Metres(s.Position.x, s.Position.y, s.Position.z)} turn {s.Rotation.x:0.###} {s.Rotation.y:0.###} {s.Rotation.z:0.###} {s.Rotation.w:0.###} state {s.State}");
+                if (Prefab.Find<Structure>(s.Prefab) == null && lacking.Add(s.Prefab))
+                    line($"bigbase: the game lacks prefab {s.Prefab}");
+            }
+
             if ((i + 1) % ProgressEvery == 0)
-                line($"bigbase: spawning: {i + 1} of {rest.Count} ({failed} failed) in {watch.Elapsed.TotalSeconds:F1} s");
+                line($"bigbase: spawning: {i + 1} of {rest.Count} ({refused} refused) in {watch.Elapsed.TotalSeconds:F1} s");
             if (i % SpawnPerFrame == SpawnPerFrame - 1)
                 yield return null;
         }
 
-        line($"bigbase: spawned {spawned}, failed {failed}, in {watch.Elapsed.TotalSeconds:F1} s");
+        line($"bigbase: spawned {spawned}, refused {refused} (prefabs the game lacks {unknown}), of {rest.Count} to spawn, in {watch.Elapsed.TotalSeconds:F1} s");
         yield return Settle(world, line, "after the spawn", 240f);
         SaveResult? saved = null;
         yield return SaveHelper.NewSave(station, CancellationToken.None).ToCoroutine(r => saved = r);
         line($"bigbase: save {station}: {(saved is { } result ? $"success {result.Success} '{result.Message}'" : "no result")}");
         line($"bigbase: board {Board(world)}");
+        WriteWorld(outDir, header, station, held, spawned, refused, unknown, saved?.Success ?? false, ground, stand, world);
     }
 
-    // A client starts at the main menu: the world to build in is loaded from it, once the menu is up (the game's load
-    // hides the menu first, Assets.Scripts.Serialization/LoadHelper.cs LoadGameTask, so an earlier load throws inside
-    // the game), and the build waits for the world to run with Lattice started.
-    private static IEnumerator OpenWorld(Action<string> line)
+    private static string _worldId = "unknown";
+    private static string _difficultyId = "unknown";
+    private static string _startId = "unknown";
+
+    private static string Arg(string name)
     {
         var args = Environment.GetCommandLineArgs();
-        var at = Array.IndexOf(args, "-lattice-save");
-        var save = at >= 0 && at + 1 < args.Length ? args[at + 1] : "";
+        var at = Array.IndexOf(args, name);
+        return at >= 0 && at + 1 < args.Length ? args[at + 1] : "";
+    }
+
+    private static int HeldCount() =>
+        int.TryParse(Arg("-lattice-held"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n >= 0 ? n : DefaultHeld;
+
+    private static float LowestPiece(List<BaseStructure> all)
+    {
+        var lowest = float.MaxValue;
+        foreach (var s in all)
+            lowest = Math.Min(lowest, s.Position.y);
+        return lowest;
+    }
+
+    // The ground's height under the base's four bounding corners and its centre; none where the ray hits nothing.
+    private static List<float?> GroundHeights(List<BaseStructure> all)
+    {
+        var (minX, minZ, maxX, maxZ) = (float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
+        foreach (var s in all)
+        {
+            minX = Math.Min(minX, s.Position.x);
+            maxX = Math.Max(maxX, s.Position.x);
+            minZ = Math.Min(minZ, s.Position.z);
+            maxZ = Math.Max(maxZ, s.Position.z);
+        }
+
+        var heights = new List<float?>(5);
+        foreach (var (x, z) in new[] { (minX, minZ), (minX, maxZ), (maxX, minZ), (maxX, maxZ), ((minX + maxX) / 2f, (minZ + maxZ) / 2f) })
+            heights.Add(Physics.Raycast(new Vector3(x, 1000f, z), Vector3.down, out var hit, 2000f) ? hit.point.y : null);
+        return heights;
+    }
+
+    private static void WriteWorld(string outDir, BaseHeader header, string station, int held, int spawned, int refused, int unknown,
+        bool saveSuccess, GroundVerdict ground, StandSpot stand, LatticeWorld world)
+    {
+        var path = Arg("-lattice-bigbase");
+        string sha1;
+        using (var sha = System.Security.Cryptography.SHA1.Create())
+            sha1 = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "");
+        string N(float? v) => v is { } y ? y.ToString("0.##", CultureInfo.InvariantCulture) : "none";
+        var facts = new List<KeyValuePair<string, string>>
+        {
+            new("station", station),
+            new("tsv", Path.GetFileName(path)),
+            new("tsv-sha1", sha1),
+            new("seed", header.Seed),
+            new("catalogue-sha1", header.CatalogueSha1),
+            new("mix-sha1", header.MixSha1),
+            new("world", _worldId),
+            new("difficulty", _difficultyId),
+            new("start", _startId),
+            new("held", held.ToString(CultureInfo.InvariantCulture)),
+            new("spawned", spawned.ToString(CultureInfo.InvariantCulture)),
+            new("refused", refused.ToString(CultureInfo.InvariantCulture)),
+            new("unknown", unknown.ToString(CultureInfo.InvariantCulture)),
+            new("structures", Scene.AllStructures().Count.ToString(CultureInfo.InvariantCulture)),
+            new("plans", world.Ghosts.Index.Plans.Count.ToString(CultureInfo.InvariantCulture)),
+            new("ghosts", world.Ghosts.Index.Ghosts.Count.ToString(CultureInfo.InvariantCulture)),
+            new("stand", WorldFile.Metres(stand.X, stand.Y, stand.Z)),
+            new("ground-min", N(ground.Min)),
+            new("ground-max", N(ground.Max)),
+            new("lowest-piece", N(ground.Lowest)),
+            new("save-success", saveSuccess ? "True" : "False"),
+            new("lattice-version", typeof(LatticeWorld).Assembly.GetName().Version.ToString()),
+        };
+        File.WriteAllText(Path.Combine(outDir, "world.txt"), WorldFile.Text(facts));
+    }
+
+    // The main menu, up and visible with the save system set: a load or a new game started before that throws inside the
+    // game (Assets.Scripts.Serialization/LoadHelper.cs LoadGameTask hides the menu first).
+    private static IEnumerator MainMenu(Action<string> line)
+    {
+        var watch = Stopwatch.StartNew();
+        var menuBy = Time.realtimeSinceStartup + 300f;
+        while ((Assets.Scripts.UI.MainMenu.Instance == null || !Assets.Scripts.UI.MainMenu.Instance.IsVisible || XmlSaveLoad.Instance == null)
+               && Time.realtimeSinceStartup < menuBy)
+            yield return null;
+        yield return new WaitForSecondsRealtime(2f);
+        line($"bigbase: main menu {(Assets.Scripts.UI.MainMenu.Instance != null ? "up" : "NOT up")} after {watch.Elapsed.TotalSeconds:F1} s");
+    }
+
+    // A new Lunar Creative world with the default start, as the game's own newgame command makes one
+    // (Util.Commands.NewGameCommand, Assets.Scripts.Objects/World.cs StartNewWorld); Creative, so a body standing through
+    // the whole run keeps its air and food.
+    private static IEnumerator NewWorld(Action<string> line)
+    {
+        yield return MainMenu(line);
+        var world = WorldSetting.Find("Lunar");
+        var difficulty = DifficultySetting.Find("Creative");
+        StartConditionData? start = null;
+        if (world != null)
+            foreach (var condition in world.Data.StartConditionDatas)
+                if (condition.IsDefault)
+                    start = condition;
+        if (world == null || difficulty == null || start == null)
+        {
+            line($"FAIL bigbase: the game has no world Lunar ({world != null}), difficulty Creative ({difficulty != null}) or default start ({start != null})");
+            yield break;
+        }
+
+        var watch = Stopwatch.StartNew();
+        var starts = LatticeTiming.Starts;
+        WorldSetting.SetCurrent(world, start);
+        DifficultySetting.SetCurrent(difficulty);
+        Assets.Scripts.UI.ImGuiLoadingScreen.WorldName = world.Id;
+        Assets.Scripts.Objects.World.StartNewWorld(world.Id).Forget();
+        var deadline = Time.realtimeSinceStartup + 600f;
+        while ((GameManager.GameState != GameState.Running || Assets.Scripts.Inventory.InventoryManager.Parent == null || LatticeTiming.Starts == starts)
+               && Time.realtimeSinceStartup < deadline)
+            yield return null;
+        if (GameManager.GameState != GameState.Running || Assets.Scripts.Inventory.InventoryManager.Parent == null || LatticeTiming.Starts == starts)
+        {
+            line($"FAIL bigbase: the new world did not start (state {GameManager.GameState}, body {Assets.Scripts.Inventory.InventoryManager.Parent != null})");
+            yield break;
+        }
+
+        (_worldId, _difficultyId, _startId) = (world.Id, difficulty.Id, start.Id);
+        line($"bigbase: new world {world.Id} {difficulty.Id} {start.Id}: running after {watch.Elapsed.TotalSeconds:F1} s");
+    }
+
+    // A client starts at the main menu: the world to build in is loaded from it, once the menu is up, and the build waits
+    // for the world to run with Lattice started.
+    private static IEnumerator OpenWorld(Action<string> line)
+    {
+        var save = Arg("-lattice-save");
         if (!File.Exists(save))
         {
             line($"FAIL bigbase: no world is running and no world to load: '{save}' (-lattice-save <file>)");
@@ -159,12 +333,8 @@ internal static class BigBaseRun
         }
 
         var watch = Stopwatch.StartNew();
-        var menuBy = Time.realtimeSinceStartup + 300f;
-        while ((Assets.Scripts.UI.MainMenu.Instance == null || !Assets.Scripts.UI.MainMenu.Instance.IsVisible || XmlSaveLoad.Instance == null)
-               && Time.realtimeSinceStartup < menuBy)
-            yield return null;
-        yield return new WaitForSecondsRealtime(2f);
-        line($"bigbase: main menu {(Assets.Scripts.UI.MainMenu.Instance != null ? "up" : "NOT up")} after {watch.Elapsed.TotalSeconds:F1} s; loading {save}");
+        yield return MainMenu(line);
+        line($"bigbase: loading {save}");
 
         var starts = LatticeTiming.Starts;
         LoadHelper.LoadGame(save, Path.GetFileNameWithoutExtension(save));
@@ -188,13 +358,23 @@ internal static class BigBaseRun
 
     public static IEnumerator Load(string outDir, float sinceRunning, Action<string> line)
     {
+        if (GameManager.GameState != GameState.Running && Arg("-lattice-save") != "")
+            yield return OpenWorld(line);
         line($"bigbase: world running at {Time.realtimeSinceStartup - sinceRunning:F1} s after process start; Lattice start {LatticeTiming.LastStartMs:F0} ms (starts so far {LatticeTiming.Starts})");
         if (!Lattice(line, out var world))
             yield break;
         line($"bigbase: load match {world.Match.Map(static m => m.ToString()).Reduce("none")}");
         line($"bigbase: board {Board(world)}; structures in the world {Scene.AllStructures().Count}");
-        var (structures, station) = ReadBase(line);
-        var (held, _, _) = Split(structures);
+        var (structures, header) = ReadBase(line);
+        var heldCount = HeldCount();
+        var station = header.SaveName(heldCount);
+        if (station is null)
+        {
+            line(structures.Count == 0 ? "FAIL bigbase: no base to load against" : "FAIL bigbase: the base file has no station line");
+            yield break;
+        }
+
+        var (held, _, _) = Split(structures, heldCount);
 
         LatticeTiming.Recording = true;
         var watch = Stopwatch.StartNew();
@@ -213,7 +393,7 @@ internal static class BigBaseRun
         var atHead = Dump(world);
         File.WriteAllText(Path.Combine(outDir, "bigbase-plans-head.txt"), atHead);
 
-        var fresh = FreshCells(held, Held);
+        var fresh = FreshCells(held, NewWing);
         watch.Restart();
         var outcome = Submit(world, PlanOf("New wing", fresh));
         line($"bigbase: new plan of {fresh.Count} ghosts beside the base: {outcome} in {watch.Elapsed.TotalMilliseconds:F0} ms");
@@ -406,16 +586,19 @@ internal static class BigBaseRun
         return cells;
     }
 
-    private static (List<BaseStructure> Held, List<BaseStructure> Others, int Unknown) Split(List<BaseStructure> all)
+    // The first known structures with a build state are held back; every other row is to spawn, the rows of prefabs the
+    // game lacks among them (the spawn refuses those, and the count tells them apart).
+    private static (List<BaseStructure> Held, List<BaseStructure> Others, int Unknown) Split(List<BaseStructure> all, int heldCount)
     {
-        var held = new List<BaseStructure>(Held);
+        var held = new List<BaseStructure>(heldCount);
         var rest = new List<BaseStructure>(all.Count);
         var unknown = 0;
         foreach (var s in all)
         {
-            if (Prefab.Find<Structure>(s.Prefab) == null)
+            var known = Prefab.Find<Structure>(s.Prefab) != null;
+            if (!known)
                 unknown++;
-            else if (held.Count < Held && s.State >= 0)
+            if (known && held.Count < heldCount && s.State >= 0)
                 held.Add(s);
             else
                 rest.Add(s);
@@ -424,24 +607,20 @@ internal static class BigBaseRun
         return (held, rest, unknown);
     }
 
-    // The base file's structures and the save the build makes of them: its "# station <name>" line, else lattice-big.
-    private static (List<BaseStructure> Structures, string Station) ReadBase(Action<string> line)
+    // The base file's structures and its header; no structures (after a FAIL line) when the file is missing.
+    private static (List<BaseStructure> Structures, BaseHeader Header) ReadBase(Action<string> line)
     {
-        var args = Environment.GetCommandLineArgs();
-        var at = Array.IndexOf(args, "-lattice-bigbase");
-        var path = at >= 0 && at + 1 < args.Length ? args[at + 1] : "";
+        var path = Arg("-lattice-bigbase");
         var list = new List<BaseStructure>(40000);
-        var station = Station;
         if (!File.Exists(path))
         {
             line($"FAIL bigbase: no base file '{path}' (-lattice-bigbase <tsv>)");
-            return (list, station);
+            return (list, BaseHeader.Read(Array.Empty<string>()));
         }
 
-        foreach (var text in File.ReadLines(path))
+        var lines = File.ReadAllLines(path);
+        foreach (var text in lines)
         {
-            if (text.StartsWith(StationLine, StringComparison.Ordinal))
-                station = text.Substring(StationLine.Length).Trim();
             if (text.StartsWith("#", StringComparison.Ordinal))
                 continue;
             var f = text.Split('\t');
@@ -449,7 +628,7 @@ internal static class BigBaseRun
             list.Add(new BaseStructure(f[0], new Vector3(F(1), F(2), F(3)), new Quaternion(F(4), F(5), F(6), F(7)), int.Parse(f[8], CultureInfo.InvariantCulture)));
         }
 
-        return (list, station);
+        return (list, BaseHeader.Read(lines));
     }
 
     private static string Board(LatticeWorld world) =>
