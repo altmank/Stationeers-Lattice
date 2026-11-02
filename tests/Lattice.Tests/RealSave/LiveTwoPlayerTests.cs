@@ -75,16 +75,15 @@ public sealed class LiveTwoPlayerTests
 }
 
 /// <summary>
-/// A fact over both two-player logs: a missing log skips or fails it as any <see cref="FixtureFactAttribute"/>; a log
-/// without the catalogue view line skips it.
+/// A fact over both two-player logs: a missing log, or one without the catalogue view line, skips or fails it as any
+/// <see cref="FixtureFactAttribute"/>.
 /// </summary>
-public sealed class CatalogueViewFactAttribute : FixtureFactAttribute
+public sealed class CatalogueViewFactAttribute(params string[] logs) : FixtureFactAttribute(MissingSave(logs) ?? MissingLine(logs))
 {
     public const string Line = "LIVE catalogue view pieces=";
 
-    public CatalogueViewFactAttribute(params string[] logs) : base(MissingSave(logs))
-    {
-        if (Skip is null && Missing is null && logs.FirstOrDefault(static log => !File.ReadAllText(Fixtures.Save(log).Reduce("")).Contains(Line, StringComparison.Ordinal)) is { } stale)
-            Skip = $"{stale} in tests/fixtures/generated has no catalogue view line: run the two-player live run, then make-fixtures.ps1.";
-    }
+    private static string? MissingLine(string[] logs) =>
+        logs.Where(static log => !File.ReadAllText(Fixtures.Save(log).Reduce("")).Contains(Line, StringComparison.Ordinal))
+            .Select(static log => $"{log} in tests/fixtures/generated has no catalogue view line: run the two-player live run, then make-fixtures.ps1.")
+            .FirstOrDefault();
 }

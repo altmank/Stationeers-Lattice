@@ -39,13 +39,11 @@ public sealed class ManifestTests
         Assert.True(unlisted.Count == 0, $"Not in the {module} manifest:\n" + string.Join("\n", unlisted));
     }
 
-    [Theory]
+    [GameFilesTheory]
     [MemberData(nameof(Modules))]
     public void Every_manifest_member_exists_in_the_game(string module)
     {
-        var managed = ManagedDir();
-        if (managed == null)
-            return;
+        var managed = Managed();
         var game = new GameMetadata(GameAssemblies.Select(a => Path.Combine(managed, a + ".dll")));
         var missing = Module(module).Manifest.Uses.Where(m => !game.Has(m)).Select(Key).ToList();
         Assert.True(missing.Count == 0, "Not in the game:\n" + string.Join("\n", missing));
@@ -61,12 +59,10 @@ public sealed class ManifestTests
         _ => throw new ArgumentOutOfRangeException(nameof(module), module, null),
     };
 
-    [Fact]
+    [GameFilesFact]
     public void A_method_with_other_parameters_is_missing()
     {
-        var managed = ManagedDir();
-        if (managed == null)
-            return;
+        var managed = Managed();
         var game = new GameMetadata(GameAssemblies.Select(a => Path.Combine(managed, a + ".dll")));
         var wrong = WorldManifest.SetCustomColor with { Parameters = Lattice.Api.ValueList.From(new[] { "System.Int32" }) };
         Assert.True(game.Has(WorldManifest.SetCustomColor));
@@ -98,7 +94,20 @@ public sealed class ManifestTests
         var managed = root == null ? null : Path.Combine(root, "rocketstation_Data", "Managed");
         return managed != null && File.Exists(Path.Combine(managed, "Assembly-CSharp.dll")) ? managed : null;
     }
+
+    internal static string? MissingGame() =>
+        ManagedDir() is null
+            ? "No rocketstation_Data/Managed/Assembly-CSharp.dll under STATIONEERS_DIR: set STATIONEERS_DIR to the game folder."
+            : null;
+
+    private static string Managed() => ManagedDir() ?? throw new InvalidOperationException(MissingGame());
 }
+
+/// <summary>A fact over the game's assemblies on disk: skips or fails as a <see cref="FixtureFactAttribute"/> without them.</summary>
+public sealed class GameFilesFactAttribute() : FixtureFactAttribute(ManifestTests.MissingGame());
+
+/// <summary>A theory over the game's assemblies on disk: skips or fails as a <see cref="FixtureFactAttribute"/> without them.</summary>
+public sealed class GameFilesTheoryAttribute() : FixtureTheoryAttribute(ManifestTests.MissingGame());
 
 /// <summary>A game member found in IL: its kind, declaring type and manifest key.</summary>
 internal sealed record UsedMember(string Kind, string Type, string Key);
