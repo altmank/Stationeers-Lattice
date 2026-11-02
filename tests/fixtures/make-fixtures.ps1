@@ -71,6 +71,17 @@ if (Test-Path $savingDir) {
     }
 }
 
+# The generated big base and its mix (tests/Lattice.BigBase writes them), when this machine has them:
+# LatticeFixtures\bigbase\lattice-gen-big.tsv and lattice-gen-big-mix.txt.
+$bigbaseDir = Join-Path (Split-Path $SaveDir -Parent) 'bigbase'
+foreach ($name in 'lattice-gen-big.tsv', 'lattice-gen-big-mix.txt') {
+    $source = Join-Path $bigbaseDir $name
+    if (Test-Path $source) {
+        Copy-Item -LiteralPath $source -Destination (Join-Path $generated $name) -Force
+        Write-Host "bigbase   $name"
+    }
+}
+
 $catalogueTarget = Join-Path $generated 'catalogue.lcat'
 $catalogueSource = if ($Catalogue) { $Catalogue } else { Join-Path $PSScriptRoot '..\Lattice.TestKit\Catalogue\hand-catalogue.lcat' }
 Copy-Item -LiteralPath $catalogueSource -Destination $catalogueTarget -Force

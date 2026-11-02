@@ -90,24 +90,31 @@ internal sealed class BaseStructure(string prefab, Vector3 position, Quaternion 
 /// modded rest skipped and counted; saved as <c>lattice-big</c>. <c>bigbase-load</c>, that save loaded: the load's
 /// matching pass, the held-back structures spawned (live completion), a head save, a 5,000-ghost new plan checked,
 /// steady frames, an autosave, the autosave loaded (plans equal), then the older head save loaded while the world runs
-/// (plans as at the head save; the new plan hidden, not offered, since the autosave holds its lines). The base file is
-/// the structures of a Vulcan2_4 save copy, extracted outside the repo.
+/// (plans as at the head save; the new plan hidden, not offered, since the autosave holds its lines). The base file
+/// (<c>-lattice-bigbase &lt;tsv&gt;</c>) is the generated big base (LatticeFixtures\bigbase\lattice-gen-big.tsv, whose
+/// <c># station</c> line names the save, <c>lattice-gen-big</c>) or the structures of a Vulcan2_4 save copy, saved as
+/// <c>lattice-big</c>; both outside the repo. A server builds in the new world it starts with; a client, started from
+/// the main menu, first loads the world <c>-lattice-save &lt;file&gt;</c> names and builds in it.
 /// </summary>
 internal static class BigBaseRun
 {
     public const string Station = "lattice-big";
+    private const string StationLine = "# station ";
     private const int Held = 5000;
     private const int SpawnPerFrame = 500;
+    private const int ProgressEvery = 1000;
     private static readonly Maker LiveMaker = Maker.Create(LatticeIdentity.Mod, "live")
         .Match(static m => m, static r => throw new InvalidOperationException(r.ToString()));
 
     public static IEnumerator Build(Action<string> line)
     {
+        var (structures, station) = ReadBase(line);
+        if (GameManager.GameState != GameState.Running)
+            yield return OpenWorld(line);
         if (!Lattice(line, out var world))
             yield break;
-        var structures = ReadBase(line);
         var (held, rest, unknown) = Split(structures);
-        line($"bigbase: {structures.Count} structures in the base file, {unknown} of prefabs the game lacks (modded), {held.Count} held back, {rest.Count} to spawn");
+        line($"bigbase: {structures.Count} structures in the base file, {unknown} of prefabs the game lacks (modded), {held.Count} held back, {rest.Count} to spawn; saved as {station}");
 
         var watch = Stopwatch.StartNew();
         var outcome = Submit(world, PlanOf("Held back", held));
@@ -123,6 +130,8 @@ internal static class BigBaseRun
                 spawned++;
             else
                 failed++;
+            if ((i + 1) % ProgressEvery == 0)
+                line($"bigbase: spawning: {i + 1} of {rest.Count} ({failed} failed) in {watch.Elapsed.TotalSeconds:F1} s");
             if (i % SpawnPerFrame == SpawnPerFrame - 1)
                 yield return null;
         }
@@ -130,9 +139,51 @@ internal static class BigBaseRun
         line($"bigbase: spawned {spawned}, failed {failed}, in {watch.Elapsed.TotalSeconds:F1} s");
         yield return Settle(world, line, "after the spawn", 240f);
         SaveResult? saved = null;
-        yield return SaveHelper.NewSave(Station, CancellationToken.None).ToCoroutine(r => saved = r);
-        line($"bigbase: save {Station}: {(saved is { } result ? $"success {result.Success} '{result.Message}'" : "no result")}");
+        yield return SaveHelper.NewSave(station, CancellationToken.None).ToCoroutine(r => saved = r);
+        line($"bigbase: save {station}: {(saved is { } result ? $"success {result.Success} '{result.Message}'" : "no result")}");
         line($"bigbase: board {Board(world)}");
+    }
+
+    // A client starts at the main menu: the world to build in is loaded from it, once the menu is up (the game's load
+    // hides the menu first, Assets.Scripts.Serialization/LoadHelper.cs LoadGameTask, so an earlier load throws inside
+    // the game), and the build waits for the world to run with Lattice started.
+    private static IEnumerator OpenWorld(Action<string> line)
+    {
+        var args = Environment.GetCommandLineArgs();
+        var at = Array.IndexOf(args, "-lattice-save");
+        var save = at >= 0 && at + 1 < args.Length ? args[at + 1] : "";
+        if (!File.Exists(save))
+        {
+            line($"FAIL bigbase: no world is running and no world to load: '{save}' (-lattice-save <file>)");
+            yield break;
+        }
+
+        var watch = Stopwatch.StartNew();
+        var menuBy = Time.realtimeSinceStartup + 300f;
+        while ((Assets.Scripts.UI.MainMenu.Instance == null || !Assets.Scripts.UI.MainMenu.Instance.IsVisible || XmlSaveLoad.Instance == null)
+               && Time.realtimeSinceStartup < menuBy)
+            yield return null;
+        yield return new WaitForSecondsRealtime(2f);
+        line($"bigbase: main menu {(Assets.Scripts.UI.MainMenu.Instance != null ? "up" : "NOT up")} after {watch.Elapsed.TotalSeconds:F1} s; loading {save}");
+
+        var starts = LatticeTiming.Starts;
+        LoadHelper.LoadGame(save, Path.GetFileNameWithoutExtension(save));
+        var deadline = Time.realtimeSinceStartup + 600f;
+        var refusedBy = Time.realtimeSinceStartup + 30f;
+        while ((LatticeTiming.Starts == starts || GameManager.GameState != GameState.Running) && Time.realtimeSinceStartup < deadline)
+        {
+            // A refused load clears the world save the game was handed and leaves the state at None.
+            if (Time.realtimeSinceStartup > refusedBy && XmlSaveLoad.Instance != null && XmlSaveLoad.Instance.CurrentWorldSave == null && GameManager.GameState == GameState.None)
+            {
+                line($"FAIL bigbase: the game refused to load {save} (the client log has the game's error)");
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        yield return new WaitForSecondsRealtime(3f);
+        line($"bigbase: world running after {watch.Elapsed.TotalSeconds:F1} s (Lattice starts {LatticeTiming.Starts}, state {GameManager.GameState})");
     }
 
     public static IEnumerator Load(string outDir, float sinceRunning, Action<string> line)
@@ -142,7 +193,8 @@ internal static class BigBaseRun
             yield break;
         line($"bigbase: load match {world.Match.Map(static m => m.ToString()).Reduce("none")}");
         line($"bigbase: board {Board(world)}; structures in the world {Scene.AllStructures().Count}");
-        var (held, _, _) = Split(ReadBase(line));
+        var (structures, station) = ReadBase(line);
+        var (held, _, _) = Split(structures);
 
         LatticeTiming.Recording = true;
         var watch = Stopwatch.StartNew();
@@ -157,7 +209,7 @@ internal static class BigBaseRun
         yield return Settle(world, line, "completion of the held-back plan", 300f);
         line($"bigbase: board {Board(world)}");
 
-        yield return Save(SaveHelper.Save(Station, CancellationToken.None), "head save (older)", line);
+        yield return Save(SaveHelper.Save(station, CancellationToken.None), "head save (older)", line);
         var atHead = Dump(world);
         File.WriteAllText(Path.Combine(outDir, "bigbase-plans-head.txt"), atHead);
 
@@ -168,17 +220,17 @@ internal static class BigBaseRun
         yield return Settle(world, line, "validation of the new plan", 600f);
         yield return Frames(world, line, "steady", 600);
 
-        yield return Save(SaveHelper.AutoSave(Station, CancellationToken.None), "autosave (newer)", line);
+        yield return Save(SaveHelper.AutoSave(station, CancellationToken.None), "autosave (newer)", line);
         var before = Dump(world);
         File.WriteAllText(Path.Combine(outDir, "bigbase-plans-before.txt"), before);
-        var auto = Newest(Path.Combine(StationSaveUtils.GetSavePathSavesSubDir().FullName, Station, "autosave"));
+        var auto = Newest(Path.Combine(StationSaveUtils.GetSavePathSavesSubDir().FullName, station, "autosave"));
 
         // GameManager.LeaveGame starts with CameraController.Instance, which a headless server lacks
         // (Assets.Scripts/GameManager.cs:1006-1009): a dedicated server has no quit to the menu.
         line("NOT RUN bigbase: quit to the menu, which a dedicated server lacks; the two-player client covers it");
 
         var starts = LatticeTiming.Starts;
-        yield return LoadAndWait(auto, starts, line, "the autosave while the world runs");
+        yield return LoadAndWait(auto, station, starts, line, "the autosave while the world runs");
         if (!Lattice(line, out world))
             yield break;
         var after = Dump(world);
@@ -186,9 +238,9 @@ internal static class BigBaseRun
         line($"{(after == before ? "PASS" : "FAIL")} plans after the autosave reload equal the plans before ({Lines(before)} plan lines)");
         line($"bigbase: Lattice start on reload {LatticeTiming.LastStartMs:F0} ms; load match {world.Match.Map(static m => m.ToString()).Reduce("none")}");
 
-        var head = Path.Combine(StationSaveUtils.GetSavePathSavesSubDir().FullName, Station, Station + ".save");
+        var head = Path.Combine(StationSaveUtils.GetSavePathSavesSubDir().FullName, station, station + ".save");
         starts = LatticeTiming.Starts;
-        yield return LoadAndWait(head, starts, line, "the older head save while the world runs");
+        yield return LoadAndWait(head, station, starts, line, "the older head save while the world runs");
         if (!Lattice(line, out world))
             yield break;
         var older = Dump(world);
@@ -216,11 +268,11 @@ internal static class BigBaseRun
         return false;
     }
 
-    private static IEnumerator LoadAndWait(string path, int starts, Action<string> line, string what)
+    private static IEnumerator LoadAndWait(string path, string station, int starts, Action<string> line, string what)
     {
         line($"bigbase: loading {what}: {path}");
         var watch = Stopwatch.StartNew();
-        LoadHelper.LoadGame(path, Station);
+        LoadHelper.LoadGame(path, station);
         var deadline = Time.realtimeSinceStartup + 300f;
         while ((LatticeTiming.Starts == starts || GameManager.GameState != GameState.Running) && Time.realtimeSinceStartup < deadline)
             yield return null;
@@ -372,20 +424,24 @@ internal static class BigBaseRun
         return (held, rest, unknown);
     }
 
-    private static List<BaseStructure> ReadBase(Action<string> line)
+    // The base file's structures and the save the build makes of them: its "# station <name>" line, else lattice-big.
+    private static (List<BaseStructure> Structures, string Station) ReadBase(Action<string> line)
     {
         var args = Environment.GetCommandLineArgs();
         var at = Array.IndexOf(args, "-lattice-bigbase");
         var path = at >= 0 && at + 1 < args.Length ? args[at + 1] : "";
         var list = new List<BaseStructure>(40000);
+        var station = Station;
         if (!File.Exists(path))
         {
             line($"FAIL bigbase: no base file '{path}' (-lattice-bigbase <tsv>)");
-            return list;
+            return (list, station);
         }
 
         foreach (var text in File.ReadLines(path))
         {
+            if (text.StartsWith(StationLine, StringComparison.Ordinal))
+                station = text.Substring(StationLine.Length).Trim();
             if (text.StartsWith("#", StringComparison.Ordinal))
                 continue;
             var f = text.Split('\t');
@@ -393,7 +449,7 @@ internal static class BigBaseRun
             list.Add(new BaseStructure(f[0], new Vector3(F(1), F(2), F(3)), new Quaternion(F(4), F(5), F(6), F(7)), int.Parse(f[8], CultureInfo.InvariantCulture)));
         }
 
-        return list;
+        return (list, station);
     }
 
     private static string Board(LatticeWorld world) =>

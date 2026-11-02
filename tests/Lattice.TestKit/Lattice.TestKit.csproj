@@ -20,5 +20,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Lattice.Tests" />
     <InternalsVisibleTo Include="Lattice.Testing" />
+    <InternalsVisibleTo Include="Lattice.BigBase" />
   </ItemGroup>
 </Project>

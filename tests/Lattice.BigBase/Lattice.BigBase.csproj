@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Writes the generated big-base test world's structure list (TestKit's BigBaseTool). Never shipped:
+    Run: dotnet run -c Release with the project tests/Lattice.BigBase, then the arguments catalogue.lcat mix.txt seed out.tsv
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" />
+    <ProjectReference Include="..\Lattice.TestKit\Lattice.TestKit.csproj" />
+  </ItemGroup>
+</Project>
