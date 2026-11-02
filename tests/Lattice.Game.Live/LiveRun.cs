@@ -64,6 +64,7 @@ public static class LiveRun
 internal sealed class LiveRunner : MonoBehaviour
 {
     private readonly List<(long Id, string What)> _heard = new();
+    private readonly Stack<IEnumerator> _stack = new();
     private string _outDir = ".";
     private string _mode = "new";
     private StreamWriter? _log;
@@ -85,35 +86,53 @@ internal sealed class LiveRunner : MonoBehaviour
     }
 
     // Steps the run with its nested coroutines flattened, so a step that throws ends the run with a FAIL line at once
-    // instead of leaving it to the time limit.
+    // instead of leaving it to the time limit. A throw or the time limit disposes every coroutine still open, innermost
+    // first, so their finally blocks restore what they changed.
     private IEnumerator Guarded(IEnumerator run)
     {
-        var stack = new Stack<IEnumerator>();
-        stack.Push(run);
-        while (stack.Count > 0)
+        _stack.Push(run);
+        while (_stack.Count > 0)
         {
             bool more;
             try
             {
-                more = stack.Peek().MoveNext();
+                more = _stack.Peek().MoveNext();
             }
             catch (Exception e)
             {
                 Line($"FAIL live run threw at step '{_step}': {e}");
+                Unwind();
                 Finish();
                 yield break;
             }
 
             if (!more)
             {
-                stack.Pop();
+                _stack.Pop();
                 continue;
             }
 
-            if (stack.Peek().Current is IEnumerator nested)
-                stack.Push(nested);
+            if (_stack.Peek().Current is IEnumerator nested)
+                _stack.Push(nested);
             else
-                yield return stack.Peek().Current;
+                yield return _stack.Peek().Current;
+        }
+    }
+
+    private void Unwind()
+    {
+        while (_stack.Count > 0)
+        {
+            if (_stack.Pop() is not IDisposable open)
+                continue;
+            try
+            {
+                open.Dispose();
+            }
+            catch (Exception e)
+            {
+                Line($"FAIL live run: cleanup at step '{_step}' threw: {e.Message}");
+            }
         }
     }
 
@@ -134,6 +153,7 @@ internal sealed class LiveRunner : MonoBehaviour
             return;
         Line($"FAIL live run timed out after {_limit} s at step '{_step}'");
         StopAllCoroutines();
+        Unwind();
         Finish();
     }
 
