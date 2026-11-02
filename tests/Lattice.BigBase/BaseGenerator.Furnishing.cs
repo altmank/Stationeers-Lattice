@@ -37,6 +37,7 @@ internal sealed partial class BaseGenerator
             var want = Share(floorTarget - placed, left);
             var (pipe, cable) = (room.Corridor.Pipe, room.Corridor.Cable);
             var (pipeFrom, cableFrom) = (pipe?.Cells ?? 0, cable?.Cells ?? 0);
+            _step = StepOf(room);
             placed += Devices(room, chute is not null ? devices.Chutes : devices.Machines, want, budget, chute);
             if (pipe is not null)
                 Spare(room, pipe, pipeFrom + budget.Pipe);
@@ -47,7 +48,8 @@ internal sealed partial class BaseGenerator
         }
     }
 
-    private int Devices(Room room, List<NamedPiece> palette, int want, Budget budget, Net? chute)
+    private int Devices(Room room, List<NamedPiece> palette, int want, Budget budget, Net? chute,
+        Func<NamedPiece, (Cell At, List<Turn> Turns)>? mount = null, string? tally = null)
     {
         if (palette.Count == 0)
             return 0;
@@ -58,11 +60,10 @@ internal sealed partial class BaseGenerator
         for (var attempt = 0; attempt < 80 && placed < want; attempt++)
         {
             var piece = palette[_random.Next(palette.Count)];
-            var uprights = Uprights(piece.Facts);
-            if (uprights.Count == 0)
+            var (at, turns) = mount is null ? (DeviceSpot(room), Uprights(piece.Facts)) : mount(piece);
+            if (turns.Count == 0)
                 continue;
-            var turn = uprights[_random.Next(uprights.Count)];
-            var at = DeviceSpot(room);
+            var turn = turns[_random.Next(turns.Count)];
             var placement = new Placement(piece.Facts.Key, at, turn);
             if (!piece.Facts.Snap.Holds(at) || !_shapes.Of(placement).TryGet(out var shape) || !Fits(room, shape, piece.Facts, chute))
                 continue;
@@ -93,6 +94,8 @@ internal sealed partial class BaseGenerator
             {
                 _journal = null;
                 Emit(piece, placement);
+                if (tally is not null)
+                    _counts[tally] = (_counts.TryGetValue(tally, out var had) ? had : 0) + 1;
                 placed++;
                 continue;
             }
@@ -195,6 +198,7 @@ internal sealed partial class BaseGenerator
                     continue;
                 taken.Add(cell);
                 _journal = null;
+                _step = StepAt(cell);
                 Emit(piece, placement);
                 done++;
             }

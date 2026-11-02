@@ -27,6 +27,9 @@ internal sealed record BaseList(ValueList<string> Comments, ValueList<BasePiece>
             return Option<string>.None;
         }
     }
+
+    /// <summary>The cell a <c># stand &lt;x&gt; &lt;y&gt; &lt;z&gt;</c> line gives (metres); none without one.</summary>
+    public Option<Cell> Stand => BaseFile.StandIn(Comments);
 }
 
 /// <summary>
@@ -39,9 +42,30 @@ internal sealed record BaseList(ValueList<string> Comments, ValueList<BasePiece>
 internal static class BaseFile
 {
     public const string StationLine = "# station ";
+    public const string StandLine = "# stand ";
     public const string ColumnsLine = "# prefab\tx\ty\tz\tqx\tqy\tqz\tqw\tstate";
 
     private static readonly CubeGrid Grid = new();
+
+    /// <summary>The comment (without its <c>#</c>) that gives the cell a body stands in, in metres.</summary>
+    public static string StandComment(Cell cell) => "stand " + Metres(cell.X) + " " + Metres(cell.Y) + " " + Metres(cell.Z);
+
+    public static Option<Cell> StandIn(IEnumerable<string> comments)
+    {
+        foreach (var comment in comments)
+        {
+            if (!comment.StartsWith(StandLine, StringComparison.Ordinal))
+                continue;
+            var f = comment.Substring(StandLine.Length).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var v = new double[3];
+            if (f.Length == 3 && double.TryParse(f[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v[0]) &&
+                double.TryParse(f[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v[1]) &&
+                double.TryParse(f[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v[2]))
+                return Option.Some(new Cell(Key(v[0]), Key(v[1]), Key(v[2])));
+        }
+
+        return Option<Cell>.None;
+    }
 
     public static void Write(TextWriter writer, IReadOnlyList<string> comments, IReadOnlyList<BasePiece> pieces)
     {

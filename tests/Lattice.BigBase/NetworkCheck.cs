@@ -52,7 +52,7 @@ internal static class NetworkCheck
         var unjoined = new List<string>();
         for (var i = 0; i < placed.Count; i++)
         {
-            var isRun = Array.IndexOf(RunFamilies, placed[i].Piece.Family) >= 0;
+            var isRun = IsRun(placed[i]);
             for (var e = 0; e < placed[i].Ends.Count; e++)
             {
                 var end = placed[i].Ends[e];
@@ -68,8 +68,8 @@ internal static class NetworkCheck
                     {
                         if (!Shares(kinds, otherKinds))
                             continue;
-                        found |= Array.IndexOf(RunFamilies, placed[other].Piece.Family) >= 0;
-                        if (isRun && placed[other].Piece.Family == placed[i].Piece.Family)
+                        found |= IsRun(placed[other]);
+                        if (isRun && IsRun(placed[other]) && placed[other].Piece.Family == placed[i].Piece.Family)
                             joined.Union(i, other);
                     }
 
@@ -81,7 +81,7 @@ internal static class NetworkCheck
         var components = new Dictionary<string, int>(StringComparer.Ordinal);
         var roots = new HashSet<int>();
         for (var i = 0; i < placed.Count; i++)
-            if (Array.IndexOf(RunFamilies, placed[i].Piece.Family) >= 0 && roots.Add(joined.Find(i)))
+            if (IsRun(placed[i]) && roots.Add(joined.Find(i)))
             {
                 var family = placed[i].Piece.Family.Value;
                 components[family] = (components.TryGetValue(family, out var count) ? count : 0) + 1;
@@ -89,6 +89,9 @@ internal static class NetworkCheck
 
         return new NetworkReport(ValueMap.From(components), ends, unjoined.Count, ValueList.From(unjoined));
     }
+
+    // A network's own piece; a vent is a pipe-family piece that ends the network, so its end is checked as a device's.
+    private static bool IsRun(PlacedShape shape) => Array.IndexOf(RunFamilies, shape.Piece.Family) >= 0 && !shape.Piece.Vents;
 
     // The kinds the generator lays networks for; an end of any other kind (data, say) is left unconnected.
     private static bool Laid(ValueSet<NetworkType> kinds)

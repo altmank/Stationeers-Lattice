@@ -47,11 +47,14 @@ internal sealed partial class BaseGenerator
             var spineFrom = lastZc.TryGetValue(storey, out var last) ? last + 2 : zc;
             lastZc[storey] = zc;
             _corridors.Add(corridor);
+            _firstOfStorey.TryAdd(storey, corridor);
+            _step = Step(corridor, 0);
             for (var x = x0; x < x1; x++)
                 for (var dz = 0; dz < 2; dz++)
                     Frame(frames, new Cell(Centre(x), Centre(y0), Centre(zc + dz)));
 
             // The spine's west column is open where the shafts pass up through the floor above the lowest storey.
+            _step = Step(_firstOfStorey[storey], 0);
             for (var z = spineFrom; z < zc + 2; z++)
                 for (var dx = 1; dx <= 2; dx++)
                     if (!(storey > 0 && dx == 2 && z >= zc))
@@ -70,6 +73,7 @@ internal sealed partial class BaseGenerator
                     var room = new Room(rx, rz, w, d, h, y0, doorway, facing, partition, corridor, _chutesPossible && _random.Next(4) == 0);
                     _rooms.Add(room);
                     corridor.Rooms.Add(room);
+                    _step = StepOf(room);
                     Room(room, frames, walls, windows, windowShare);
                 }
         }

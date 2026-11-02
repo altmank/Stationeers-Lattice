@@ -5,6 +5,7 @@ using System.Linq;
 using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Grid;
+using Lattice.Core.Ports;
 using Lattice.TestKit;
 using Lattice.BigBase;
 using Lattice.TestKit.Catalogue;
@@ -42,16 +43,107 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
     {
         var (catalogue, mix, list) = Load();
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var families = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var piece in list.Pieces)
         {
-            var family = catalogue.Piece(PrefabHash.Piece(piece.Prefab)).TryGet(out var facts) ? facts.Family.Value : "unknown";
+            var known = catalogue.Piece(PrefabHash.Piece(piece.Prefab)).TryGet(out var facts);
+            var family = known ? facts!.Family.Value : "unknown";
             counts[family] = counts.GetValueOrDefault(family) + 1;
+            families[family] = counts[family];
+            if (known && MountedKinds.IsVent(facts!))
+                counts[MountedKinds.Vent] = counts.GetValueOrDefault(MountedKinds.Vent) + 1;
+            if (known && MountedKinds.IsControl(facts!))
+                counts[MountedKinds.Control] = counts.GetValueOrDefault(MountedKinds.Control) + 1;
         }
 
         foreach (var (family, target) in mix.Groups)
             output.WriteLine($"{family}: {counts.GetValueOrDefault(family)} of a target {target}");
         Assert.All(mix.Groups, g => Assert.InRange(counts.GetValueOrDefault(g.Key), g.Value * 0.9, g.Value * 1.1));
-        Assert.Equal(0, counts.Keys.Count(k => !mix.Groups.TryGetValue(k, out _)));
+        Assert.Equal(0, families.Keys.Count(k => !mix.Groups.TryGetValue(k, out _)));
+    }
+
+    // The windows the perf suites plan from (Take(5000), Skip(5000).Take(5000), Skip(15000).Take(500)) read pieces in build
+    // order, so every stretch of 5,000 rows holds the groups a plan is about. Devices are 2% of the base, so they get 1%.
+    [BigBaseFact]
+    public void Every_five_thousand_row_window_mixes_the_groups()
+    {
+        var (catalogue, _, list) = Load();
+        const int window = 5000;
+        var groups = new[] { "frame", "wall", "pipe", "cable", "device", MountedKinds.Vent, MountedKinds.Control };
+        var floors = new Dictionary<string, int>
+        {
+            ["frame"] = window * 3 / 100, ["wall"] = window * 3 / 100, ["pipe"] = window * 3 / 100,
+            ["cable"] = window * 3 / 100, ["device"] = window / 100, [MountedKinds.Vent] = 1, [MountedKinds.Control] = 1,
+        };
+        var inside = groups.ToDictionary(g => g, _ => 0);
+        var least = groups.ToDictionary(g => g, _ => int.MaxValue);
+        var rows = list.Pieces.Select(p => Facts(catalogue, p.Prefab)).ToList();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            foreach (var g in GroupsOf(rows[i]))
+                inside[g]++;
+            if (i >= window)
+                foreach (var g in GroupsOf(rows[i - window]))
+                    inside[g]--;
+            if (i >= window - 1)
+                foreach (var g in groups)
+                    least[g] = Math.Min(least[g], inside[g]);
+        }
+
+        foreach (var g in groups)
+            output.WriteLine($"{g}: at least {least[g]} in any {window} rows (needs {floors[g]})");
+        Assert.All(groups, g => Assert.True(least[g] >= floors[g], $"{g}: only {least[g]} in a {window}-row window, needs {floors[g]}"));
+
+        static IEnumerable<string> GroupsOf(PieceFacts facts)
+        {
+            if (facts.Family == PieceFamilies.Frame) yield return "frame";
+            if (facts.Family == PieceFamilies.Wall) yield return "wall";
+            if (facts.Family == PieceFamilies.Pipe) yield return "pipe";
+            if (facts.Family == PieceFamilies.Cable) yield return "cable";
+            if (facts.Family == PieceFamilies.Device) yield return "device";
+            if (MountedKinds.IsVent(facts)) yield return MountedKinds.Vent;
+            if (MountedKinds.IsControl(facts)) yield return MountedKinds.Control;
+        }
+    }
+
+    [BigBaseFact]
+    public void Vents_and_controls_are_placed_and_joined()
+    {
+        var (catalogue, mix, list) = Load();
+        var report = NetworkCheck.Of(catalogue, list.Pieces);
+        var vents = list.Pieces.Where(p => MountedKinds.IsVent(Facts(catalogue, p.Prefab))).ToList();
+        var controls = list.Pieces.Where(p => MountedKinds.IsControl(Facts(catalogue, p.Prefab))).ToList();
+
+        output.WriteLine($"{vents.Count} vents, {controls.Count} controls; {report.UnjoinedEnds} of {report.DeviceEnds} device ends reach no run");
+        Assert.InRange(vents.Count, mix.Groups[MountedKinds.Vent] * 0.9, mix.Groups[MountedKinds.Vent] * 1.1);
+        Assert.InRange(controls.Count, mix.Groups[MountedKinds.Control] * 0.9, mix.Groups[MountedKinds.Control] * 1.1);
+        Assert.Equal(0, report.UnjoinedEnds);
+        var mounted = vents.Concat(controls).Select(p => p.Prefab).ToHashSet();
+        Assert.DoesNotContain(report.Unjoined, u => mounted.Any(m => u.StartsWith(m + " ", StringComparison.Ordinal)));
+    }
+
+    [BigBaseFact]
+    public void The_stand_spot_is_a_free_floor_cell()
+    {
+        var (catalogue, _, list) = Load();
+        Assert.True(list.Stand.TryGet(out var stand), "the base file has no stand line");
+        var (column, row) = (Math.DivRem(stand.X, 20, out _), Math.DivRem(stand.Z, 20, out _));
+        var floorTop = stand.Y - 10;
+
+        var frameBelow = list.Pieces.Any(p => p.At == new Cell(20 * column + 10, floorTop - 10, 20 * row + 10) &&
+            Facts(catalogue, p.Prefab).Family == PieceFamilies.Frame);
+        var standing = list.Pieces.Where(p =>
+            p.At.Y >= floorTop && p.At.Y < floorTop + 40 &&
+            p.At.X >= 20 * column && p.At.X <= 20 * column + 20 && p.At.Z >= 20 * row && p.At.Z <= 20 * row + 20 &&
+            Facts(catalogue, p.Prefab).Family is var f &&
+            f != PieceFamilies.Frame && f != PieceFamilies.Wall && f != PieceFamilies.Window).ToList();
+
+        output.WriteLine($"stand {stand}, floor top {floorTop}");
+        Assert.True(frameBelow, "no floor frame under the stand spot");
+        Assert.Empty(standing);
+        Assert.InRange(stand.X, list.Pieces.Min(p => p.At.X), list.Pieces.Max(p => p.At.X));
+        Assert.InRange(stand.Y, list.Pieces.Min(p => p.At.Y), list.Pieces.Max(p => p.At.Y));
+        Assert.InRange(stand.Z, list.Pieces.Min(p => p.At.Z), list.Pieces.Max(p => p.At.Z));
     }
 
     [BigBaseFact]
@@ -215,6 +307,8 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
         Assert.Equal<Weighted>([new Weighted("R", 30)], mix.OnPipe);
         Assert.True(BaseMix.Read(new StringReader("group frame many\n"), "bad").IsError);
     }
+
+    private static PieceFacts Facts(FakeCatalogue catalogue, string prefab) => TestKitIds.Must(catalogue.Piece(PrefabHash.Piece(prefab)));
 
     private static (FakeCatalogue Catalogue, BaseMix Mix, BaseList List) Load() =>
         (GameCatalogue.Load(),
