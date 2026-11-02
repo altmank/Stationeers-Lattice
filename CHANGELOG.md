@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.22.15
 
 Fixed:
 - **Two identical run steps in one batch each get their own ghosts.** A batch with the same run twice (equal start,
