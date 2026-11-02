@@ -1,13 +1,4 @@
-using Lattice.TestKit.Fixtures;
-
 namespace Lattice.Tests;
 
-/// <summary>A fact that needs a generated save; skipped, saying how to make it, when the save is not there.</summary>
-public sealed class SaveFactAttribute : FactAttribute
-{
-    public SaveFactAttribute(string save)
-    {
-        if (Fixtures.Save(save).IsNone)
-            Skip = $"{save} is not in tests/fixtures/generated: run tests/fixtures/make-fixtures.ps1.";
-    }
-}
+/// <summary>A fact that needs generated saves or logs: see <see cref="FixtureFactAttribute"/> for when it skips or fails.</summary>
+public sealed class SaveFactAttribute(params string[] saves) : FixtureFactAttribute(MissingSave(saves));

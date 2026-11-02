@@ -17,13 +17,13 @@ namespace Lattice.Tests.Catalogue;
 /// </summary>
 public sealed class AllowedTurnsSaveTests(ITestOutputHelper output)
 {
-    [GameCatalogueFact]
+    private const string Save = "Vulcan2_4.save";
+
+    [GameCatalogueFact(save: Save)]
     public void Every_structure_in_a_real_base_stands_in_an_allowed_turn_or_has_no_direction()
     {
-        if (!Fixtures.Save("Vulcan2_4.save").TryGet(out var path))
-            return;
         var catalogue = GameCatalogue.Load();
-        var save = TestKitIds.MustRead(SaveLoader.Load(path, catalogue));
+        var save = TestKitIds.MustRead(SaveLoader.Load(Fixtures.Save(Save).Reduce(""), catalogue));
         var free = new TurnFreePieces(catalogue, new CubeGrid(), new Lattice.Core.Board.Shapes(catalogue, new CubeGrid()));
         var limited = 0;
         var outside = new List<string>();

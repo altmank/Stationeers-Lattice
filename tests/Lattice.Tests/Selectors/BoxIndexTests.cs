@@ -157,7 +157,7 @@ public sealed class BoxIndexTests(ITestOutputHelper output)
         }
     }
 
-    [SaveFixtureFact(RealSave)]
+    [SaveFact(RealSave)]
     public void Boxes_on_the_real_base_pick_what_a_scan_of_the_whole_world_picks()
     {
         var catalogue = Fixtures.Catalogue();
@@ -169,7 +169,7 @@ public sealed class BoxIndexTests(ITestOutputHelper output)
             Assert.Equal(Scanned(all, a, b), Selected(over.Selection, a, b));
     }
 
-    [SaveFixtureFact(RealSave)]
+    [SaveFact(RealSave)]
     [Trait("Category", "Perf")]
     public void A_ten_metre_box_on_the_real_base_answers_in_under_a_millisecond_and_reused_allocates_nothing()
     {
@@ -243,14 +243,3 @@ public sealed class BoxIndexTests(ITestOutputHelper output)
         Assert.Equal(0, steady);
     }
 }
-
-/// <summary>A test over a save fixture: skipped until make-fixtures.ps1 has copied it into tests/fixtures/generated.</summary>
-public sealed class SaveFixtureFactAttribute : FactAttribute
-{
-    public SaveFixtureFactAttribute(string save)
-    {
-        if (Fixtures.Save(save).IsNone)
-            Skip = $"{save} is not in tests/fixtures/generated: run tests/fixtures/make-fixtures.ps1.";
-    }
-}
-

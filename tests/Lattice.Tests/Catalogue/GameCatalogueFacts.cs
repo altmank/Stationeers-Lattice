@@ -13,20 +13,25 @@ namespace Lattice.Tests.Catalogue;
 
 /// <summary>
 /// A fact about the catalogue the game itself wrote (tests/fixtures/generated/catalogue.lcat from a run with
-/// <c>-lattice-write-catalogue</c>, copied by make-fixtures.ps1 -Catalogue). Skipped until there is one: Live checks
-/// makes it on the test instance.
+/// <c>-lattice-write-catalogue</c>, copied by make-fixtures.ps1 -Catalogue), and over a generated save if it names one.
+/// Live checks makes the catalogue on the test instance; a missing one skips or fails it as any
+/// <see cref="FixtureFactAttribute"/>. A missing modelling kit skips it.
 /// </summary>
-public sealed class GameCatalogueFactAttribute : FactAttribute
+public sealed class GameCatalogueFactAttribute : FixtureFactAttribute
 {
-    public GameCatalogueFactAttribute(bool needsModellingKit = false)
+    public GameCatalogueFactAttribute(bool needsModellingKit = false, string? save = null)
+        : base(MissingCatalogue() ?? (save is null ? null : MissingSave([save])))
     {
-        if (GameCatalogue.Path().IsNone)
-            Skip = "No catalogue written by the game in tests/fixtures/generated: run the game with " + ExportSwitch.Name +
-                   " <file>, then tests/fixtures/make-fixtures.ps1 -Catalogue <file>.";
-        else if (needsModellingKit && GameCatalogue.ModellingKitStructures().IsNone)
+        if (Skip is null && Missing is null && needsModellingKit && GameCatalogue.ModellingKitStructures().IsNone)
             Skip = "No LatticeFixtures/catalogue/structures.json above the repo: run the modelling kit's tools/catalogue/build.py " +
                    "with --out <LatticeFixtures>/catalogue.";
     }
+
+    private static string? MissingCatalogue() =>
+        GameCatalogue.Path().IsNone
+            ? "No catalogue written by the game in tests/fixtures/generated: run the game with " + ExportSwitch.Name +
+              " <file>, then tests/fixtures/make-fixtures.ps1 -Catalogue <file>."
+            : null;
 }
 
 internal static class GameCatalogue
