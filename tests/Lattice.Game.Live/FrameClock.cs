@@ -11,18 +11,26 @@ using Object = UnityEngine.Object;
 
 namespace Lattice.Game.Live;
 
+/// <summary>A frame's times: the main thread's, the GPU's span, and the GPU's time in the camera's transparent pass.</summary>
+/// <param name="CpuMs">Main thread, from the frame's start (first step of Initialization) to end of frame.</param>
+/// <param name="SpanMs">GPU, from the frame's first command to its last, idle gaps included.</param>
+/// <param name="LatticeMs">GPU, from the transparent pass's start to its end on the measured camera: every Lattice draw
+/// (all its materials sit in queues 3000-3020) and any other transparent in view. NaN when the pass did not run.</param>
+/// <param name="SubmitMs">Render thread, from the transparent pass's start to its end: when it is near
+/// <paramref name="LatticeMs"/>, the GPU waited on the render thread inside the pass.</param>
+internal readonly record struct FrameTimes(double CpuMs, double SpanMs, double LatticeMs, double SubmitMs);
+
 /// <summary>
-/// Each frame's GPU time and main-thread time, in a Direct3D 11 player. The shipped player has Frame Timing Stats off
+/// Each frame's GPU and main-thread time, in a Direct3D 11 player. The shipped player has Frame Timing Stats off
 /// (PlayerSettings.enableFrameTimingStats in globalgamemanagers), so <see cref="FrameTimingManager"/> reports nothing.
-/// Instead, each frame gets a D3D11 TIMESTAMP_DISJOINT query with a TIMESTAMP at the frame's start (the first step of
-/// the player loop's Initialization) and one at its end (end of frame, after every camera and the GUI). Both are
-/// issued on Unity's render thread through <see cref="GL.IssuePluginEvent(IntPtr, int)"/>, in the order the frame's
-/// own commands reach the device, so the span between them is the GPU's time from the frame's first command to its
-/// last. Unity's own gpuFrameTime on D3D11 measures the same span. Results are read without blocking a few frames
-/// later. The render-thread callback calls no Unity API and allocates nothing per frame. Every D3D object is
-/// released on the render thread when the clock is disposed.
-/// The main-thread time runs from the same frame start to end of frame, so it leaves out the wait for the last
-/// present.
+/// Instead, each frame gets a D3D11 TIMESTAMP_DISJOINT query and four TIMESTAMPs: the frame's start (first step of the
+/// player loop's Initialization), its end (end of frame, after every camera and the GUI), and the measured camera's
+/// transparent pass (command buffers at BeforeForwardAlpha and AfterForwardAlpha). Lattice draws through
+/// Graphics.DrawMeshInstanced in transparent queues, so its draws all fall inside that pass; it has no command buffer of
+/// its own to bracket. Every stamp is issued on Unity's render thread through plugin events, in the order the frame's
+/// commands reach the device. Results are read without blocking a few frames later. The render-thread callback calls
+/// no Unity API and allocates nothing per frame. Every D3D object is released on the render thread when the clock is
+/// disposed, whether it ran cleanly or failed.
 /// </summary>
 internal sealed class FrameClock : IDisposable
 {
@@ -30,6 +38,10 @@ internal sealed class FrameClock : IDisposable
     private const int KindStart = 1;
     private const int KindEnd = 2;
     private const int KindRelease = 3;
+    private const int KindPassStart = 4;
+    private const int KindPassEnd = 5;
+    private const int KindBits = 3;
+    private const int KindMask = (1 << KindBits) - 1;
     private const int FrameMask = 0x0FFFFFFF;
     private const int Sets = 16;
     private const int Ring = 2048;
@@ -43,9 +55,13 @@ internal sealed class FrameClock : IDisposable
     private const int SetBegun = 1;
     private const int SetEnded = 2;
 
+    private const int PassStarted = 1;
+    private const int PassEnded = 2;
+
     private const int QueryTimestamp = 2;
     private const int QueryTimestampDisjoint = 3;
     private const uint GetDataDoNotFlush = 1;
+    private const int ReleaseSlot = 2;
 
     private static readonly Guid DeviceIid = new("db6f6ddb-ac77-4e88-8253-819df9bbf140");
     private static readonly RenderEvent Callback = OnRenderEvent;
@@ -55,9 +71,16 @@ internal sealed class FrameClock : IDisposable
     private readonly IntPtr[] _disjoint = new IntPtr[Sets];
     private readonly IntPtr[] _begin = new IntPtr[Sets];
     private readonly IntPtr[] _end = new IntPtr[Sets];
+    private readonly IntPtr[] _passBegin = new IntPtr[Sets];
+    private readonly IntPtr[] _passEnd = new IntPtr[Sets];
     private readonly int[] _setState = new int[Sets];
     private readonly int[] _setFrame = new int[Sets];
+    private readonly int[] _setPass = new int[Sets];
+    private readonly long[] _setPassStart = new long[Sets];
+    private readonly double[] _setSubmitMs = new double[Sets];
     private readonly double[] _gpuMs = new double[Ring];
+    private readonly double[] _passMs = new double[Ring];
+    private readonly double[] _submitMs = new double[Ring];
     private readonly int[] _gpuFrame = new int[Ring];
     private readonly double[] _cpuMs = new double[Ring];
     private readonly int[] _cpuFrame = new int[Ring];
@@ -65,10 +88,12 @@ internal sealed class FrameClock : IDisposable
     private readonly Texture2D _probe;
     private readonly IntPtr _resource;
     private readonly GameObject _holder;
+    private readonly Camera _camera;
+    private readonly CommandBuffer _passStartBuffer = new() { name = "Lattice.Live.FrameClock pass start" };
+    private readonly CommandBuffer _passEndBuffer = new() { name = "Lattice.Live.FrameClock pass end" };
 
     private IntPtr _device;
     private IntPtr _context;
-    private Release? _release;
     private QueryCall? _beginCall;
     private QueryCall? _endCall;
     private GetData? _getData;
@@ -77,11 +102,13 @@ internal sealed class FrameClock : IDisposable
     private int _dropped;
     private int _disjointFrames;
     private int _frame;
+    private int _renderFrame = -1;
     private int _startedFrame = -1;
     private long _frameStart;
+    private bool _attached;
     private bool _disposed;
 
-    private FrameClock()
+    private FrameClock(Camera camera)
     {
         for (var i = 0; i < Ring; i++)
         {
@@ -91,11 +118,14 @@ internal sealed class FrameClock : IDisposable
 
         for (var i = 0; i < Sets; i++)
             _setFrame[i] = -1;
+        _camera = camera;
         _probe = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         _probe.Apply(false, true);
         _resource = _probe.GetNativeTexturePtr();
         _holder = new GameObject("Lattice.Live.FrameClock");
         Object.DontDestroyOnLoad(_holder);
+        _passStartBuffer.IssuePluginEvent(CallbackPointer, KindPassStart);
+        _passEndBuffer.IssuePluginEvent(CallbackPointer, KindPassEnd);
     }
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -134,8 +164,11 @@ internal sealed class FrameClock : IDisposable
     /// <summary>Frames the GPU reported as disjoint (clock changed mid-frame): no time for them.</summary>
     public int DisjointFrames => Volatile.Read(ref _disjointFrames);
 
-    /// <summary>Opens the clock: the D3D11 device and queries are made on the render thread, then the frame hooks start.</summary>
-    public static IEnumerator Open(Action<Result<FrameClock, string>> done)
+    /// <summary>
+    /// Opens the clock on the camera whose transparent pass it times: the D3D11 device and queries are made on the
+    /// render thread, then the frame hooks start.
+    /// </summary>
+    public static IEnumerator Open(Camera camera, Action<Result<FrameClock, string>> done)
     {
         if (_current != null)
         {
@@ -149,7 +182,7 @@ internal sealed class FrameClock : IDisposable
             yield break;
         }
 
-        var clock = new FrameClock();
+        var clock = new FrameClock(camera);
         if (clock._resource == IntPtr.Zero)
         {
             clock.Dispose();
@@ -172,17 +205,20 @@ internal sealed class FrameClock : IDisposable
 
         Object.Destroy(clock._probe);
         clock.Hook();
+        camera.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, clock._passStartBuffer);
+        camera.AddCommandBuffer(CameraEvent.AfterForwardAlpha, clock._passEndBuffer);
+        clock._attached = true;
         clock._holder.AddComponent<EndOfFrame>().Clock = clock;
         done(Result<FrameClock, string>.Ok(clock));
     }
 
-    /// <summary>A frame's main-thread and GPU times, once both have come back.</summary>
-    public bool TryRead(int frame, out double cpuMs, out double gpuMs)
+    /// <summary>A frame's times, once the GPU's have come back.</summary>
+    public Option<FrameTimes> Read(int frame)
     {
         var slot = frame % Ring;
-        cpuMs = _cpuMs[slot];
-        gpuMs = Volatile.Read(ref _gpuFrame[slot]) == frame ? _gpuMs[slot] : double.NaN;
-        return _cpuFrame[slot] == frame && !double.IsNaN(gpuMs);
+        if (_cpuFrame[slot] != frame || Volatile.Read(ref _gpuFrame[slot]) != frame)
+            return Option<FrameTimes>.None;
+        return Option.Some(new FrameTimes(_cpuMs[slot], _gpuMs[slot], _passMs[slot], _submitMs[slot]));
     }
 
     /// <summary>Whether the GPU time for the frame has come back (or never will: dropped or disjoint).</summary>
@@ -194,11 +230,19 @@ internal sealed class FrameClock : IDisposable
             return;
         _disposed = true;
         Unhook();
+        if (_attached && _camera != null)
+        {
+            _camera.RemoveCommandBuffer(CameraEvent.BeforeForwardAlpha, _passStartBuffer);
+            _camera.RemoveCommandBuffer(CameraEvent.AfterForwardAlpha, _passEndBuffer);
+        }
+
+        _passStartBuffer.Release();
+        _passEndBuffer.Release();
         if (_holder != null)
             Object.Destroy(_holder);
         if (_probe != null)
             Object.Destroy(_probe);
-        if (_current == this && _state == StateReady)
+        if (_current == this && _state is StateReady or StateFailed)
         {
             // The release runs on the render thread after every event already queued; the memory goes once it has run.
             GL.IssuePluginEvent(CallbackPointer, KindRelease);
@@ -255,7 +299,7 @@ internal sealed class FrameClock : IDisposable
         clock._frame = (clock._frame + 1) & FrameMask;
         clock._frameStart = Stopwatch.GetTimestamp();
         clock._startedFrame = clock._frame;
-        GL.IssuePluginEvent(CallbackPointer, (clock._frame << 2) | KindStart);
+        GL.IssuePluginEvent(CallbackPointer, (clock._frame << KindBits) | KindStart);
     }
 
     private void FrameEnd()
@@ -266,7 +310,7 @@ internal sealed class FrameClock : IDisposable
         _cpuMs[slot] = (Stopwatch.GetTimestamp() - _frameStart) * 1000.0 / Stopwatch.Frequency;
         _cpuFrame[slot] = _frame;
         _startedFrame = -1;
-        GL.IssuePluginEvent(CallbackPointer, (_frame << 2) | KindEnd);
+        GL.IssuePluginEvent(CallbackPointer, (_frame << KindBits) | KindEnd);
     }
 
     // Render thread: no Unity API, no allocation after the init event.
@@ -277,8 +321,8 @@ internal sealed class FrameClock : IDisposable
             return;
         try
         {
-            var kind = eventId & 3;
-            var frame = (eventId >> 2) & FrameMask;
+            var kind = eventId & KindMask;
+            var frame = (eventId >> KindBits) & FrameMask;
             switch (kind)
             {
                 case KindInit:
@@ -289,6 +333,12 @@ internal sealed class FrameClock : IDisposable
                     break;
                 case KindEnd when clock._state == StateReady:
                     clock.End(frame);
+                    break;
+                case KindPassStart when clock._state == StateReady:
+                    clock.PassStart();
+                    break;
+                case KindPassEnd when clock._state == StateReady:
+                    clock.PassEnd();
                     break;
                 case KindRelease:
                     clock.ReleaseAll();
@@ -312,7 +362,6 @@ internal sealed class FrameClock : IDisposable
         }
 
         _device = device;
-        _release = Fn<Release>(device, 2);
         var iid = DeviceIid;
         if (Fn<QueryInterface>(device, 0)(device, ref iid, out var asDevice) != 0 || asDevice == IntPtr.Zero)
         {
@@ -320,7 +369,7 @@ internal sealed class FrameClock : IDisposable
             return;
         }
 
-        _release(asDevice);
+        ReleaseOne(ref asDevice);
         var level = Fn<GetFeatureLevel>(device, 37)(device);
         if (level < 0x9100 || level > 0xc200)
         {
@@ -341,7 +390,11 @@ internal sealed class FrameClock : IDisposable
         var stamp = new QueryDesc(QueryTimestamp);
         for (var i = 0; i < Sets; i++)
         {
-            if (create(device, ref disjoint, out _disjoint[i]) != 0 || create(device, ref stamp, out _begin[i]) != 0 || create(device, ref stamp, out _end[i]) != 0)
+            if (create(device, ref disjoint, out _disjoint[i]) != 0
+                || create(device, ref stamp, out _begin[i]) != 0
+                || create(device, ref stamp, out _end[i]) != 0
+                || create(device, ref stamp, out _passBegin[i]) != 0
+                || create(device, ref stamp, out _passEnd[i]) != 0)
             {
                 Fail($"CreateQuery failed for set {i}");
                 return;
@@ -356,6 +409,7 @@ internal sealed class FrameClock : IDisposable
 
     private void Begin(int frame)
     {
+        _renderFrame = frame;
         var set = frame % Sets;
         if (_setState[set] == SetBegun)
         {
@@ -377,7 +431,29 @@ internal sealed class FrameClock : IDisposable
         _beginCall!(_context, _disjoint[set]);
         _endCall!(_context, _begin[set]);
         _setFrame[set] = frame;
+        _setPass[set] = 0;
         _setState[set] = SetBegun;
+    }
+
+    // The camera's transparent pass, once a frame: a second render of the camera in the same frame is not stamped.
+    private void PassStart()
+    {
+        var set = _renderFrame % Sets;
+        if (_renderFrame < 0 || _setState[set] != SetBegun || _setFrame[set] != _renderFrame || _setPass[set] != 0)
+            return;
+        _endCall!(_context, _passBegin[set]);
+        _setPassStart[set] = Stopwatch.GetTimestamp();
+        _setPass[set] = PassStarted;
+    }
+
+    private void PassEnd()
+    {
+        var set = _renderFrame % Sets;
+        if (_renderFrame < 0 || _setState[set] != SetBegun || _setFrame[set] != _renderFrame || _setPass[set] != PassStarted)
+            return;
+        _endCall!(_context, _passEnd[set]);
+        _setSubmitMs[set] = (Stopwatch.GetTimestamp() - _setPassStart[set]) * 1000.0 / Stopwatch.Frequency;
+        _setPass[set] = PassEnded;
     }
 
     private void End(int frame)
@@ -401,12 +477,16 @@ internal sealed class FrameClock : IDisposable
             return;
         var frequency = Marshal.ReadInt64(_data, 0);
         var disjoint = Marshal.ReadInt32(_data, 8);
-        if (_getData(_context, _begin[set], _data, 8, GetDataDoNotFlush) != 0)
+        if (!Stamp(_begin[set], out var t0) || !Stamp(_end[set], out var t1))
             return;
-        var t0 = Marshal.ReadInt64(_data, 0);
-        if (_getData(_context, _end[set], _data, 8, GetDataDoNotFlush) != 0)
-            return;
-        var t1 = Marshal.ReadInt64(_data, 0);
+        var pass = double.NaN;
+        if (_setPass[set] == PassEnded)
+        {
+            if (!Stamp(_passBegin[set], out var p0) || !Stamp(_passEnd[set], out var p1))
+                return;
+            pass = frequency > 0 ? (p1 - p0) * 1000.0 / frequency : double.NaN;
+        }
+
         var frame = _setFrame[set];
         _setState[set] = SetFree;
         _setFrame[set] = -1;
@@ -420,32 +500,42 @@ internal sealed class FrameClock : IDisposable
 
         var slot = frame % Ring;
         _gpuMs[slot] = (t1 - t0) * 1000.0 / frequency;
+        _passMs[slot] = pass;
+        _submitMs[slot] = _setPass[set] == PassEnded ? _setSubmitMs[set] : double.NaN;
         Volatile.Write(ref _gpuFrame[slot], frame);
+    }
+
+    private bool Stamp(IntPtr query, out long ticks)
+    {
+        ticks = 0;
+        if (_getData!(_context, query, _data, 8, GetDataDoNotFlush) != 0)
+            return false;
+        ticks = Marshal.ReadInt64(_data, 0);
+        return true;
     }
 
     private void ReleaseAll()
     {
-        if (_release != null)
+        for (var i = 0; i < Sets; i++)
         {
-            for (var i = 0; i < Sets; i++)
-            {
-                ReleaseOne(ref _disjoint[i]);
-                ReleaseOne(ref _begin[i]);
-                ReleaseOne(ref _end[i]);
-            }
-
-            ReleaseOne(ref _context);
-            ReleaseOne(ref _device);
+            ReleaseOne(ref _disjoint[i]);
+            ReleaseOne(ref _begin[i]);
+            ReleaseOne(ref _end[i]);
+            ReleaseOne(ref _passBegin[i]);
+            ReleaseOne(ref _passEnd[i]);
         }
 
+        ReleaseOne(ref _context);
+        ReleaseOne(ref _device);
         _state = StateReleased;
     }
 
-    private void ReleaseOne(ref IntPtr unknown)
+    // Each COM object through its own IUnknown::Release.
+    private static void ReleaseOne(ref IntPtr unknown)
     {
         if (unknown == IntPtr.Zero)
             return;
-        _release!(unknown);
+        Fn<Release>(unknown, ReleaseSlot)(unknown);
         unknown = IntPtr.Zero;
     }
 

@@ -7,8 +7,9 @@ using Object = UnityEngine.Object;
 namespace Lattice.Game.Live;
 
 /// <summary>
-/// One side of a with/without pair, block by block: every frame's whole time (unscaled delta), main-thread time and
-/// GPU time, each block's medians, frames with no GPU time, and the player's draw-call counter at the last block.
+/// One side of a with/without pair, block by block: every frame's whole time (unscaled delta), main-thread time, GPU
+/// span, the GPU's time in the camera's transparent pass (Lattice's draws) and the render thread's time submitting that
+/// pass; each block's medians; frames with no GPU time; and the player's draw-call counter at the last block.
 /// </summary>
 internal sealed class Side(string name)
 {
@@ -20,26 +21,40 @@ internal sealed class Side(string name)
 
     public List<double> Gpu { get; } = new(512);
 
+    public List<double> Lattice { get; } = new(512);
+
+    public List<double> Submit { get; } = new(512);
+
     public List<double> FrameBlocks { get; } = new(16);
 
     public List<double> CpuBlocks { get; } = new(16);
 
     public List<double> GpuBlocks { get; } = new(16);
 
+    public List<double> LatticeBlocks { get; } = new(16);
+
     public int Missing { get; private set; }
 
     public long DrawCalls { get; private set; }
 
-    public void Add(List<double> frames, List<double> cpu, List<double> gpu, int missing, long drawCalls)
+    public void Add(List<double> frames, List<FrameTimes> times, int missing, long drawCalls)
     {
         Frame.AddRange(frames);
-        Cpu.AddRange(cpu);
-        Gpu.AddRange(gpu);
         FrameBlocks.Add(RenderRun.Median(frames));
-        if (cpu.Count > 0)
+        if (times.Count > 0)
+        {
+            var cpu = times.ConvertAll(static t => t.CpuMs);
+            var gpu = times.ConvertAll(static t => t.SpanMs);
+            var lattice = times.ConvertAll(static t => t.LatticeMs);
+            Cpu.AddRange(cpu);
+            Gpu.AddRange(gpu);
+            Lattice.AddRange(lattice);
+            Submit.AddRange(times.ConvertAll(static t => t.SubmitMs));
             CpuBlocks.Add(RenderRun.Median(cpu));
-        if (gpu.Count > 0)
             GpuBlocks.Add(RenderRun.Median(gpu));
+            LatticeBlocks.Add(RenderRun.Median(lattice));
+        }
+
         Missing += missing;
         DrawCalls = drawCalls;
     }

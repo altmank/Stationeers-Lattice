@@ -37,9 +37,9 @@ namespace Lattice.Game.Live;
 /// material count holds).</item>
 /// <item><c>render-look</c>: the same scenes, then a camera tour of them on the desktop until <c>stop-render.txt</c>
 /// appears in the output folder.</item>
-/// <item><c>render-perf</c>: 20,000 ghosts in the base's own shape, lifted above it; frame, main-thread and GPU time
-/// (<see cref="FrameClock"/>) with and without Lattice's drawing (a claim of everything that draws nothing), each pair
-/// interleaved; first a control pair that proves the GPU column follows GPU load.</item>
+/// <item><c>render-perf</c>: 20,000 ghosts in the base's own shape, lifted above it, at a 30 fps cap; frame, main-thread, GPU
+/// span and Lattice GPU time (<see cref="FrameClock"/>) with and without Lattice's drawing (a claim of everything that
+/// draws nothing), each pair interleaved; first a control pair that proves both GPU columns follow GPU load.</item>
 /// </list>
 /// Screenshots go to <c>-lattice-shots &lt;folder&gt;</c>.
 /// </summary>
@@ -54,7 +54,7 @@ internal static class RenderRun
     private const int PairBlocks = 12;
     private const int BlockFrames = 50;
     private const int SwitchFrames = 15;
-    private const int ControlFrameRate = 30;
+    private const int CappedFrameRate = 30;
 
     public static IEnumerator Run(string mode, string outDir, Action<string> line)
     {
@@ -332,7 +332,8 @@ internal static class RenderRun
     }
 
     // One block of frames into a side: the player's whole frame (unscaled delta), and, with a clock, the main thread's
-    // part and the GPU's time of the same frames, read once they have come back from the GPU.
+    // part, the GPU's span and the GPU's time in the transparent pass of the same frames, read once they have come back
+    // from the GPU. A frame with no span or no transparent pass counts as missing.
     private static IEnumerator Block(Option<FrameClock> clock, Side side, int frames, ProfilerRecorder calls)
     {
         var deltas = new List<double>(frames);
@@ -346,8 +347,7 @@ internal static class RenderRun
                 ids.Add(c.Frame);
         }
 
-        var cpu = new List<double>(frames);
-        var gpu = new List<double>(frames);
+        var times = new List<FrameTimes>(frames);
         var missing = 0;
         if (hasClock)
         {
@@ -355,19 +355,14 @@ internal static class RenderRun
                 yield return null;
             foreach (var id in ids)
             {
-                if (c.TryRead(id, out var cpuMs, out var gpuMs) && gpuMs > 0)
-                {
-                    cpu.Add(cpuMs);
-                    gpu.Add(gpuMs);
-                }
+                if (c.Read(id).TryGet(out var t) && t.SpanMs > 0 && !double.IsNaN(t.LatticeMs))
+                    times.Add(t);
                 else
-                {
                     missing++;
-                }
             }
         }
 
-        side.Add(deltas, cpu, gpu, missing, calls.Valid ? calls.LastValue : 0);
+        side.Add(deltas, times, missing, calls.Valid ? calls.LastValue : 0);
     }
 
     // A with/without pair, interleaved in blocks A B B A A B B A ...: a drift that is linear over four blocks hits both
@@ -390,33 +385,40 @@ internal static class RenderRun
     {
         var name = side.Name.Length == 0 ? what : $"{what} {side.Name}";
         var frames = side.Frame.Count;
-        var gpu = !clock.IsSome ? "not measured (no frame clock)"
+        string Gpu(List<double> ms) => !clock.IsSome ? "not measured (no frame clock)"
             : side.Missing > 0 ? $"missing on {side.Missing} of {frames} frames"
-            : Stats(side.Gpu);
-        line($"render: {name}: frames {Stats(side.Frame)}; CPU (main thread) {(clock.IsSome ? Stats(side.Cpu) : "not measured")}; GPU frame {gpu}; " +
-             $"median of {side.FrameBlocks.Count} block medians: frame {Median(side.FrameBlocks):F3} ms, CPU {Median(side.CpuBlocks):F3} ms, GPU {Median(side.GpuBlocks):F3} ms; " +
-             $"block medians frame {Span(side.FrameBlocks)} ms, GPU {Span(side.GpuBlocks)} ms; draw calls (player counter) {side.DrawCalls}");
+            : Stats(ms);
+        line($"render: {name}: frames {Stats(side.Frame)}; CPU (main thread) {(clock.IsSome ? Stats(side.Cpu) : "not measured")}; GPU span {Gpu(side.Gpu)}; Lattice GPU {Gpu(side.Lattice)}; " +
+             $"median of {side.FrameBlocks.Count} block medians: frame {Median(side.FrameBlocks):F3} ms, CPU {Median(side.CpuBlocks):F3} ms, GPU span {Median(side.GpuBlocks):F3} ms, Lattice GPU {Median(side.LatticeBlocks):F3} ms; " +
+             $"block medians frame {Span(side.FrameBlocks)} ms, GPU span {Span(side.GpuBlocks)} ms, Lattice GPU {Span(side.LatticeBlocks)} ms; " +
+             $"transparent pass submit (render thread) median {Median(side.Submit):F3} ms; draw calls (player counter) {side.DrawCalls}");
         if (clock.IsSome && side.Missing > 0)
             line($"FAIL render: {name}: no GPU time on {side.Missing} of {frames} recorded frames");
     }
 
     // The cost of the 'on' side over the 'off' side: the median of the neighbouring blocks' differences.
-    private static (double Frame, double Cpu, double Gpu, string GpuSpan) Cost(Side on, Side off)
+    private static Costs Cost(Side on, Side off)
     {
-        var count = Math.Min(on.FrameBlocks.Count, off.FrameBlocks.Count);
-        var frame = new List<double>(count);
-        var cpu = new List<double>(count);
-        var gpu = new List<double>(count);
-        for (var i = 0; i < count; i++)
+        static List<double> Differences(List<double> a, List<double> b)
         {
-            frame.Add(on.FrameBlocks[i] - off.FrameBlocks[i]);
-            if (i < on.CpuBlocks.Count && i < off.CpuBlocks.Count)
-                cpu.Add(on.CpuBlocks[i] - off.CpuBlocks[i]);
-            if (i < on.GpuBlocks.Count && i < off.GpuBlocks.Count)
-                gpu.Add(on.GpuBlocks[i] - off.GpuBlocks[i]);
+            var count = Math.Min(a.Count, b.Count);
+            var d = new List<double>(count);
+            for (var i = 0; i < count; i++)
+                d.Add(a[i] - b[i]);
+            return d;
         }
 
-        return (Median(frame), Median(cpu), Median(gpu), Span(gpu));
+        var gpu = Differences(on.GpuBlocks, off.GpuBlocks);
+        var lattice = Differences(on.LatticeBlocks, off.LatticeBlocks);
+        return new Costs(Median(Differences(on.FrameBlocks, off.FrameBlocks)), Median(Differences(on.CpuBlocks, off.CpuBlocks)),
+            Median(gpu), Median(lattice), Span(gpu), Span(lattice));
+    }
+
+    private readonly record struct Costs(double Frame, double Cpu, double Gpu, double Lattice, string GpuSpread, string LatticeSpread)
+    {
+        public override string ToString() =>
+            $"frame {Frame:+0.000;-0.000} ms, CPU (main thread) {Cpu:+0.000;-0.000} ms, GPU span {Gpu:+0.000;-0.000} ms, Lattice GPU {Lattice:+0.000;-0.000} ms " +
+            $"(pair differences GPU span {GpuSpread} ms, Lattice GPU {LatticeSpread} ms)";
     }
 
     public static double Median(List<double> values)
@@ -469,9 +471,12 @@ internal static class RenderRun
 
     // The base's shape lifted 60 m, in the planned look: 5,000 ghosts, then 20,000, then the 20,000 with a dashed edge
     // still, the same edge moving, and the moving edge over an under-line. Each scene from two views: the whole lifted
-    // base, and from inside it facing ghosts. Each view is an interleaved pair (see Pair): frame, main-thread and GPU
-    // times with Lattice drawing it and with a claim of everything that draws nothing (Lattice's submission off, all
-    // else equal). Before any ghost, a control pair proves the GPU column follows GPU load. Vsync off for the run.
+    // base, and from inside it facing ghosts. Each view is an interleaved pair (see Pair): frame, main-thread, GPU span
+    // and Lattice GPU times with Lattice drawing it and with a claim of everything that draws nothing (Lattice's
+    // submission off, all else equal). Before any ghost, a control pair proves the GPU columns follow GPU load.
+    // Vsync off and the frame rate capped at 30 for the whole run: every frame has slack, so the main thread does not
+    // wait on the GPU inside its own span. Settings, the clock and every claim and layer are restored on every exit,
+    // a throw included.
     private static IEnumerator Perf(LatticeWorld world, RenderHost host, LiveCamera rig, Region region, string shots, Action<string> line)
     {
         var drafts = new List<GhostDraft>(PerfGhosts);
@@ -496,16 +501,31 @@ internal static class RenderRun
         var rest = drafts.GetRange(small.Count, drafts.Count - small.Count);
         var vsync = QualitySettings.vSyncCount;
         var rate = Application.targetFrameRate;
-        QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = -1;
+        var clock = Option<FrameClock>.None;
+        try
+        {
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = CappedFrameRate;
+            var opened = Result<FrameClock, string>.Error("not opened");
+            yield return FrameClock.Open(rig.Camera, r => opened = r);
+            clock = opened.ToOption();
+            line(opened.Match(
+                static _ => $"render-perf: frame clock open: D3D11 timestamp queries on the render thread (frame span; the camera's transparent pass as Lattice GPU); vsync off, {CappedFrameRate} fps cap",
+                static why => $"FAIL render-perf: the frame clock did not open: {why}"));
+            yield return PerfScenes(world, host, rig, drafts, lifted, small, rest, lo, hi, clock, shots, line);
+        }
+        finally
+        {
+            if (clock.TryGet(out var open))
+                open.Dispose();
+            QualitySettings.vSyncCount = vsync;
+            Application.targetFrameRate = rate;
+        }
+    }
 
-        var opened = Result<FrameClock, string>.Error("not opened");
-        yield return FrameClock.Open(r => opened = r);
-        var clock = opened.ToOption();
-        line(opened.Match(
-            static _ => "render-perf: frame clock open: D3D11 timestamp queries on the render thread",
-            static why => $"FAIL render-perf: the frame clock did not open: {why}"));
-
+    private static IEnumerator PerfScenes(LatticeWorld world, RenderHost host, LiveCamera rig, List<GhostDraft> drafts, List<Vector3> lifted,
+        List<GhostDraft> small, List<GhostDraft> rest, Vector3 lo, Vector3 hi, Option<FrameClock> clock, string shots, Action<string> line)
+    {
         var centre = (lo + hi) * 0.5f;
         var size = (hi - lo).magnitude;
         var overview = new View("perf-overview", centre + new Vector3(-0.45f, 0.55f, -0.45f) * size, centre, "the whole lifted base in view");
@@ -544,20 +564,21 @@ internal static class RenderRun
                 continue;
             }
 
-            yield return Settle(world, line, $"after the {name} edge", 600f);
-            yield return PerfScene($"{drafts.Count} ghosts {name}", $"scene {e + 3}/5", views, host, rig, clock, shots, line);
-            layer.Dispose();
+            try
+            {
+                yield return Settle(world, line, $"after the {name} edge", 600f);
+                yield return PerfScene($"{drafts.Count} ghosts {name}", $"scene {e + 3}/5", views, host, rig, clock, shots, line);
+            }
+            finally
+            {
+                layer.Dispose();
+            }
         }
 
-        QualitySettings.vSyncCount = vsync;
-        Application.targetFrameRate = rate;
         yield return Settle(world, line, "after the edge layers", 600f);
         yield return RenderCost(host, clock, line);
         if (clock.TryGet(out var used))
-        {
             line($"render-perf: frame clock: {used.Dropped} frame(s) dropped (queries still in flight), {used.DisjointFrames} disjoint");
-            used.Dispose();
-        }
     }
 
     private static IEnumerator PerfPlan(LatticeWorld world, string name, List<GhostDraft> drafts, string note, Action<string> line)
@@ -623,11 +644,10 @@ internal static class RenderRun
     }
 
     // No ghosts, a fixed view, Lattice's drawing claimed away: the same frames with and without full-screen layers of
-    // the ghost material (one instanced call per 1,023 layers: much GPU work, little CPU work). The layer count rises
-    // until the GPU column moves 4 ms in a short probe. The control passes when the GPU median rises by 2 ms or more and
-    // the main thread's by at most a quarter of that (or 0.5 ms): then the GPU column is the GPU's time.
-    // The frame rate is capped at 30 for the control, so the extra GPU work stays inside the frame's slack: uncapped, a
-    // GPU-bound frame makes the main thread wait on the GPU inside its own span, and its time rises with the GPU's.
+    // the ghost material (one instanced call per 1,023 layers: much GPU work, little CPU work, all in the transparent
+    // pass). The layer count rises until the GPU span moves 4 ms in a short probe. The control passes when the GPU span
+    // and Lattice GPU medians both rise by 2 ms or more and the main thread's by at most a quarter of the span's rise (or
+    // 0.5 ms): then both GPU columns are the GPU's time. Runs under Perf's frame-rate cap.
     private static IEnumerator Control(Option<FrameClock> clock, RenderHost host, LiveCamera rig, View view, Action<string> line)
     {
         if (clock.IsNone)
@@ -644,46 +664,50 @@ internal static class RenderRun
 
         var claim = host.Drawing.Claim(new RendererClaimDescriptor(Must(ClaimId.Create(LatticeIdentity.Mod, "live-perf-control")), new StyleMatch.Everything(), ClaimParts.Everything, static _ => { }));
         var overdraw = new Overdraw(ghost, rig.Camera);
-        var rate = Application.targetFrameRate;
-        Application.targetFrameRate = ControlFrameRate;
-        rig.Show(view);
-        yield return Frames(30);
-        overdraw.Aim();
-        rig.EachFrame = overdraw.Draw;
-        using var calls = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count", 1);
-
-        var baseline = new Side("");
-        yield return Block(clock, baseline, 40, calls);
-        var layers = 0;
-        foreach (var tryLayers in new[] { 128, 256, 512, 1024, 2048 })
-        {
-            layers = tryLayers;
-            overdraw.Layers = layers;
-            yield return Frames(SwitchFrames);
-            var probe = new Side("");
-            yield return Block(clock, probe, 40, calls);
-            overdraw.Layers = 0;
-            line($"render-perf: GPU control probe: {layers} layers GPU median {Median(probe.Gpu):F3} ms, no layers {Median(baseline.Gpu):F3} ms");
-            if (Median(probe.Gpu) - Median(baseline.Gpu) >= 4.0)
-                break;
-        }
-
         var on = new Side("with the overdraw layers");
         var off = new Side("without");
-        yield return Pair(clock, on, off, () => overdraw.Layers = layers, () => overdraw.Layers = 0, "GPU control", line);
-        rig.EachFrame = null;
-        overdraw.Dispose();
-        Application.targetFrameRate = rate;
-        if (claim.TryGet(out var held))
-            held.Dispose();
+        var layers = 0;
+        try
+        {
+            rig.Show(view);
+            yield return Frames(30);
+            overdraw.Aim();
+            rig.EachFrame = overdraw.Draw;
+            using var calls = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count", 1);
+
+            var baseline = new Side("");
+            yield return Block(clock, baseline, 40, calls);
+            foreach (var tryLayers in new[] { 128, 256, 512, 1024, 2048 })
+            {
+                layers = tryLayers;
+                overdraw.Layers = layers;
+                yield return Frames(SwitchFrames);
+                var probe = new Side("");
+                yield return Block(clock, probe, 40, calls);
+                overdraw.Layers = 0;
+                line($"render-perf: GPU control probe: {layers} layers GPU span median {Median(probe.Gpu):F3} ms, Lattice GPU {Median(probe.Lattice):F3} ms; " +
+                     $"no layers {Median(baseline.Gpu):F3} ms, {Median(baseline.Lattice):F3} ms");
+                if (Median(probe.Gpu) - Median(baseline.Gpu) >= 4.0)
+                    break;
+            }
+
+            yield return Pair(clock, on, off, () => overdraw.Layers = layers, () => overdraw.Layers = 0, "GPU control", line);
+        }
+        finally
+        {
+            rig.EachFrame = null;
+            overdraw.Dispose();
+            if (claim.TryGet(out var held))
+                held.Dispose();
+        }
 
         var what = $"GPU control {layers} full-screen layers";
         Describe(what, on, clock, line);
         Describe(what, off, clock, line);
-        var (frame, cpu, gpu, gpuSpan) = Cost(on, off);
-        var pass = gpu >= 2.0 && cpu <= Math.Max(0.5, 0.25 * gpu);
-        line($"{(pass ? "PASS" : "FAIL")} render-perf: GPU control ({layers} full-screen ghost-material layers, no ghosts, {ControlFrameRate} fps cap): GPU {gpu:+0.000;-0.000} ms (pair differences {gpuSpan} ms), " +
-             $"CPU (main thread) {cpu:+0.000;-0.000} ms, frame {frame:+0.000;-0.000} ms: {(pass ? "the GPU column follows GPU load" : "the GPU column does not follow GPU load: its numbers are not GPU time")}");
+        var cost = Cost(on, off);
+        var pass = cost.Gpu >= 2.0 && cost.Lattice >= 2.0 && cost.Cpu <= Math.Max(0.5, 0.25 * cost.Gpu);
+        line($"{(pass ? "PASS" : "FAIL")} render-perf: GPU control ({layers} full-screen ghost-material layers, no ghosts, {CappedFrameRate} fps cap): {cost}: " +
+             (pass ? "both GPU columns follow GPU load" : "the GPU columns do not follow GPU load: their numbers are not GPU time"));
     }
 
     private static IEnumerator PerfScene(string scene, string progress, View[] views, RenderHost host, LiveCamera rig, Option<FrameClock> clock, string shots, Action<string> line)
@@ -708,31 +732,36 @@ internal static class RenderRun
             var refused = "";
             var on = new Side("with Lattice drawing");
             var off = new Side("with Lattice's drawing claimed away");
-            yield return Pair(clock, on, off,
-                () =>
-                {
-                    held?.Dispose();
-                    held = null;
-                },
-                () =>
-                {
-                    if (held != null)
-                        return;
-                    var claim = host.Drawing.Claim(new RendererClaimDescriptor(claimId, new StyleMatch.Everything(), ClaimParts.Everything, static _ => { }));
-                    if (claim.TryGet(out var got))
-                        held = got;
-                    else
-                        refused = claim.ToString();
-                },
-                $"{progress} view {v + 1}/{views.Length} {view.Name}", line);
-            held?.Dispose();
+            try
+            {
+                yield return Pair(clock, on, off,
+                    () =>
+                    {
+                        held?.Dispose();
+                        held = null;
+                    },
+                    () =>
+                    {
+                        if (held != null)
+                            return;
+                        var claim = host.Drawing.Claim(new RendererClaimDescriptor(claimId, new StyleMatch.Everything(), ClaimParts.Everything, static _ => { }));
+                        if (claim.TryGet(out var got))
+                            held = got;
+                        else
+                            refused = claim.ToString();
+                    },
+                    $"{progress} view {v + 1}/{views.Length} {view.Name}", line);
+            }
+            finally
+            {
+                held?.Dispose();
+            }
+
             if (refused.Length > 0)
                 line($"FAIL render-perf: {what}: the claim was refused: {refused}");
             Describe(what, on, clock, line);
             Describe(what, off, clock, line);
-            var (frame, cpu, gpu, gpuSpan) = Cost(on, off);
-            line($"render-perf: {what}: Lattice's drawing costs frame {frame:+0.000;-0.000} ms, CPU (main thread) {cpu:+0.000;-0.000} ms, GPU {gpu:+0.000;-0.000} ms " +
-                 $"(median of {Math.Min(on.FrameBlocks.Count, off.FrameBlocks.Count)} neighbouring block differences; GPU differences {gpuSpan} ms)");
+            line($"render-perf: {what}: Lattice's drawing costs {Cost(on, off)}; median of {Math.Min(on.FrameBlocks.Count, off.FrameBlocks.Count)} neighbouring block differences");
         }
     }
 
