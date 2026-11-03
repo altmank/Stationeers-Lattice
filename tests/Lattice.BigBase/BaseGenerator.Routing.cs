@@ -98,12 +98,20 @@ internal sealed partial class BaseGenerator
         {
             var x = 20 * room.DoorX + lane(room);
             var step = room.Facing > 0 ? Small : -Small;
-            var deep = room.Facing > 0 ? 20 * corridor.Zc - Small : 20 * (corridor.Zc + 2) + Small;
-            for (var k = 0; k < Bus && Inside(room, new Cell(x, y, deep - step)); k++)
-                deep -= step;
+            var deep = BusEnd(room, x, y);
             for (var at = deep; at != z; at += step)
                 Connect(net, new Cell(x, y, at), new Cell(x, y, at + step));
         }
+    }
+
+    // The z of the innermost cell of a room's branch at x, y: up to Bus cells in from the doorway.
+    private static int BusEnd(Room room, int x, int y)
+    {
+        var step = room.Facing > 0 ? Small : -Small;
+        var deep = room.Facing > 0 ? 20 * room.Corridor.Zc - Small : 20 * (room.Corridor.Zc + 2) + Small;
+        for (var k = 0; k < Bus && Inside(room, new Cell(x, y, deep - step)); k++)
+            deep -= step;
+        return deep;
     }
 
     // Spare runs once the room's devices are joined: a branch from beside a wall to the network, as a player lays a
@@ -149,7 +157,7 @@ internal sealed partial class BaseGenerator
             return true;
         }
 
-        if (!Inside(room, start) || _devices.Contains(start))
+        if (!Reaches(room, start) || _devices.Contains(start))
             return false;
         var path = Search(room, net, start, outward, budget) ?? (budget < Detour ? Search(room, net, start, outward, Detour) : null);
         if (path is null)
@@ -197,7 +205,7 @@ internal sealed partial class BaseGenerator
                     if (next == state.Travel.Opposite() || !net.Fits(inBit | Bit(next)))
                         continue;
                     var cell = state.Cell.Plus(Scaled(next, Small));
-                    if (!Inside(room, cell))
+                    if (!Reaches(room, cell))
                         continue;
                     var nextKey = (cell, next);
                     var step = cost + 1 + (next != state.Travel ? TurnCost : 0) + (next is Direction.YPlus or Direction.YMinus ? ClimbCost : 0);
@@ -265,7 +273,10 @@ internal sealed partial class BaseGenerator
             if (Count(mask) == 1)
                 mask |= Bit(DirectionOf(mask).Opposite());
             if (entry.Value.Net.Match(mask).TryGet(out var match))
+            {
+                _step = StepAt(entry.Key);
                 Emit(match.Piece, new Placement(match.Piece.Facts.Key, entry.Key, match.Turn));
+            }
             else
                 _dropped++;
         }

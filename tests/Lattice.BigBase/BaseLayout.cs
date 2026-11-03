@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Lattice.Api;
+using Lattice.Core.Grid;
 using Lattice.TestKit;
 using Lattice.TestKit.Catalogue;
 
@@ -39,7 +40,7 @@ internal sealed record BaseLayout(int OriginX, int OriginY, int OriginZ)
 
 /// <summary>
 /// A generated base: its structures in file order, the counts per catalogue family, the rooms and storeys, the networks
-/// laid per family (each one connected piece), the run cells no kit piece could take.
+/// laid per family (each one connected piece), the run cells no kit piece could take, and the cell a body stands in.
 /// </summary>
 internal sealed record GeneratedBase(
     ValueList<BasePiece> Pieces,
@@ -48,7 +49,8 @@ internal sealed record GeneratedBase(
     int Storeys,
     ValueMap<string, int> Networks,
 
-    int DroppedRuns);
+    int DroppedRuns,
+    Option<Cell> Stand);
 
 /// <summary>A partition wall across a room: the large-cell row it stands before, and the column of its door.</summary>
 internal readonly record struct Partition(int At, int DoorAt);

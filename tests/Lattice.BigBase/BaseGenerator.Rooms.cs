@@ -47,11 +47,14 @@ internal sealed partial class BaseGenerator
             var spineFrom = lastZc.TryGetValue(storey, out var last) ? last + 2 : zc;
             lastZc[storey] = zc;
             _corridors.Add(corridor);
+            _firstOfStorey.TryAdd(storey, corridor);
+            _step = Step(corridor, 0);
             for (var x = x0; x < x1; x++)
                 for (var dz = 0; dz < 2; dz++)
                     Frame(frames, new Cell(Centre(x), Centre(y0), Centre(zc + dz)));
 
             // The spine's west column is open where the shafts pass up through the floor above the lowest storey.
+            _step = Step(_firstOfStorey[storey], 0);
             for (var z = spineFrom; z < zc + 2; z++)
                 for (var dx = 1; dx <= 2; dx++)
                     if (!(storey > 0 && dx == 2 && z >= zc))
@@ -70,6 +73,7 @@ internal sealed partial class BaseGenerator
                     var room = new Room(rx, rz, w, d, h, y0, doorway, facing, partition, corridor, _chutesPossible && _random.Next(4) == 0);
                     _rooms.Add(room);
                     corridor.Rooms.Add(room);
+                    _step = StepOf(room);
                     Room(room, frames, walls, windows, windowShare);
                 }
         }
@@ -161,6 +165,8 @@ internal sealed partial class BaseGenerator
             _largeSpots.Add(spot);
         Emit(piece, new Placement(piece.Facts.Key, at, turn));
         _faces++;
+        if (piece.Facts.Family == PieceFamilies.Wall)
+            _wallFaces.Add(at);
         if (window)
             _windows++;
     }
@@ -190,6 +196,13 @@ internal sealed partial class BaseGenerator
         piece.Facts.AllowedTurns.Contains(turn) &&
         _shapes.Of(new Placement(piece.Facts.Key, at, turn)).TryGet(out var shape) &&
         shape.Spots.Count == 1 && boundary.Holds(shape.Spots[0]);
+
+    // Inside the room, or while a wall-mounted control is placed, on the doorway wall's plane in the first row above the
+    // floor: a run lies along the wall there as cables do on a real wall.
+    private bool Reaches(Room room, Cell cell) =>
+        Inside(room, cell) ||
+        (_wallPlane is { } plane && cell.Z == plane && cell.X > 20 * room.X0 && cell.X < 20 * (room.X0 + room.W) &&
+         cell.Y >= FloorTop(room.Y0) && cell.Y < FloorTop(room.Y0) + 20);
 
     // Inside the room's walls, from the floor to under the ceiling, never on a partition's plane but at its doorway.
     private static bool Inside(Room room, Cell cell)

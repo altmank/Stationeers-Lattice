@@ -5,6 +5,11 @@ using System.Linq;
 using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Grid;
+using Lattice.Core.Ports;
+using Lattice.Core.Catalogue;
+using Lattice.Core.Support;
+using Lattice.Core.Validation;
+using Lattice.TestKit.Scenarios;
 using Lattice.TestKit;
 using Lattice.BigBase;
 using Lattice.TestKit.Catalogue;
@@ -42,16 +47,107 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
     {
         var (catalogue, mix, list) = Load();
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var families = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var piece in list.Pieces)
         {
-            var family = catalogue.Piece(PrefabHash.Piece(piece.Prefab)).TryGet(out var facts) ? facts.Family.Value : "unknown";
+            var known = catalogue.Piece(PrefabHash.Piece(piece.Prefab)).TryGet(out var facts);
+            var family = known ? facts!.Family.Value : "unknown";
             counts[family] = counts.GetValueOrDefault(family) + 1;
+            families[family] = counts[family];
+            if (known && MountedKinds.IsVent(facts!))
+                counts[MountedKinds.Vent] = counts.GetValueOrDefault(MountedKinds.Vent) + 1;
+            if (known && MountedKinds.IsControl(facts!))
+                counts[MountedKinds.Control] = counts.GetValueOrDefault(MountedKinds.Control) + 1;
         }
 
         foreach (var (family, target) in mix.Groups)
             output.WriteLine($"{family}: {counts.GetValueOrDefault(family)} of a target {target}");
         Assert.All(mix.Groups, g => Assert.InRange(counts.GetValueOrDefault(g.Key), g.Value * 0.9, g.Value * 1.1));
-        Assert.Equal(0, counts.Keys.Count(k => !mix.Groups.TryGetValue(k, out _)));
+        Assert.Equal(0, families.Keys.Count(k => !mix.Groups.TryGetValue(k, out _)));
+    }
+
+    // The windows the perf suites plan from (Take(5000), Skip(5000).Take(5000), Skip(15000).Take(500)) read pieces in build
+    // order, so every stretch of 5,000 rows holds the groups a plan is about. Devices are 2% of the base, so they get 1%.
+    [BigBaseFact]
+    public void Every_five_thousand_row_window_mixes_the_groups()
+    {
+        var (catalogue, _, list) = Load();
+        const int window = 5000;
+        var groups = new[] { "frame", "wall", "pipe", "cable", "device", MountedKinds.Vent, MountedKinds.Control };
+        var floors = new Dictionary<string, int>
+        {
+            ["frame"] = window * 3 / 100, ["wall"] = window * 3 / 100, ["pipe"] = window * 3 / 100,
+            ["cable"] = window * 3 / 100, ["device"] = window / 100, [MountedKinds.Vent] = 1, [MountedKinds.Control] = 1,
+        };
+        var inside = groups.ToDictionary(g => g, _ => 0);
+        var least = groups.ToDictionary(g => g, _ => int.MaxValue);
+        var rows = list.Pieces.Select(p => Facts(catalogue, p.Prefab)).ToList();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            foreach (var g in GroupsOf(rows[i]))
+                inside[g]++;
+            if (i >= window)
+                foreach (var g in GroupsOf(rows[i - window]))
+                    inside[g]--;
+            if (i >= window - 1)
+                foreach (var g in groups)
+                    least[g] = Math.Min(least[g], inside[g]);
+        }
+
+        foreach (var g in groups)
+            output.WriteLine($"{g}: at least {least[g]} in any {window} rows (needs {floors[g]})");
+        Assert.All(groups, g => Assert.True(least[g] >= floors[g], $"{g}: only {least[g]} in a {window}-row window, needs {floors[g]}"));
+
+        static IEnumerable<string> GroupsOf(PieceFacts facts)
+        {
+            if (facts.Family == PieceFamilies.Frame) yield return "frame";
+            if (facts.Family == PieceFamilies.Wall) yield return "wall";
+            if (facts.Family == PieceFamilies.Pipe) yield return "pipe";
+            if (facts.Family == PieceFamilies.Cable) yield return "cable";
+            if (facts.Family == PieceFamilies.Device) yield return "device";
+            if (MountedKinds.IsVent(facts)) yield return MountedKinds.Vent;
+            if (MountedKinds.IsControl(facts)) yield return MountedKinds.Control;
+        }
+    }
+
+    [BigBaseFact]
+    public void Vents_and_controls_are_placed_and_joined()
+    {
+        var (catalogue, mix, list) = Load();
+        var report = NetworkCheck.Of(catalogue, list.Pieces);
+        var vents = list.Pieces.Where(p => MountedKinds.IsVent(Facts(catalogue, p.Prefab))).ToList();
+        var controls = list.Pieces.Where(p => MountedKinds.IsControl(Facts(catalogue, p.Prefab))).ToList();
+
+        output.WriteLine($"{vents.Count} vents, {controls.Count} controls; {report.UnjoinedEnds} of {report.DeviceEnds} device ends reach no run");
+        Assert.InRange(vents.Count, mix.Groups[MountedKinds.Vent] * 0.9, mix.Groups[MountedKinds.Vent] * 1.1);
+        Assert.InRange(controls.Count, mix.Groups[MountedKinds.Control] * 0.9, mix.Groups[MountedKinds.Control] * 1.1);
+        Assert.Equal(0, report.UnjoinedEnds);
+        var mounted = vents.Concat(controls).Select(p => p.Prefab).ToHashSet();
+        Assert.DoesNotContain(report.Unjoined, u => mounted.Any(m => u.StartsWith(m + " ", StringComparison.Ordinal)));
+    }
+
+    [BigBaseFact]
+    public void The_stand_spot_is_a_free_floor_cell()
+    {
+        var (catalogue, _, list) = Load();
+        Assert.True(list.Stand.TryGet(out var stand), "the base file has no stand line");
+        var (column, row) = (Math.DivRem(stand.X, 20, out _), Math.DivRem(stand.Z, 20, out _));
+        var floorTop = stand.Y - 10;
+
+        var frameBelow = list.Pieces.Any(p => p.At == new Cell(20 * column + 10, floorTop - 10, 20 * row + 10) &&
+            Facts(catalogue, p.Prefab).Family == PieceFamilies.Frame);
+        var standing = list.Pieces.Where(p =>
+            p.At.Y >= floorTop && p.At.Y < floorTop + 40 &&
+            p.At.X >= 20 * column && p.At.X <= 20 * column + 20 && p.At.Z >= 20 * row && p.At.Z <= 20 * row + 20 &&
+            Facts(catalogue, p.Prefab).Family is var f &&
+            f != PieceFamilies.Frame && f != PieceFamilies.Wall && f != PieceFamilies.Window).ToList();
+
+        output.WriteLine($"stand {stand}, floor top {floorTop}");
+        Assert.True(frameBelow, "no floor frame under the stand spot");
+        Assert.Empty(standing);
+        Assert.InRange(stand.X, list.Pieces.Min(p => p.At.X), list.Pieces.Max(p => p.At.X));
+        Assert.InRange(stand.Y, list.Pieces.Min(p => p.At.Y), list.Pieces.Max(p => p.At.Y));
+        Assert.InRange(stand.Z, list.Pieces.Min(p => p.At.Z), list.Pieces.Max(p => p.At.Z));
     }
 
     [BigBaseFact]
@@ -165,6 +261,63 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
         }
     }
 
+    // A mix without vents or controls leaves both out and still makes the base.
+    [BigBaseFact]
+    public void A_mix_without_vents_and_controls_makes_a_base_with_none_placed()
+    {
+        var (catalogue, full, _) = Load();
+        var mix = new BaseMix(
+            ValueMap.From(full.Groups.Where(g => g.Key is not (MountedKinds.Vent or MountedKinds.Control)).ToDictionary(g => g.Key, g => g.Value / 10)),
+            full.Pieces,
+            full.Kits,
+            full.OnPipe);
+
+        var made = new BaseGenerator(catalogue, mix, 7).Generate();
+
+        Assert.True(made.TryGet(out var generated), "no base without vents and controls: " + made.Match(static _ => "", static why => why));
+        Assert.Equal(0, generated.Counts.GetValueOrDefault(MountedKinds.Vent));
+        Assert.Equal(0, generated.Counts.GetValueOrDefault(MountedKinds.Control));
+        Assert.DoesNotContain(generated.Pieces, p => MountedKinds.IsVent(Facts(catalogue, p.Prefab)) || MountedKinds.IsControl(Facts(catalogue, p.Prefab)));
+        Assert.True(generated.Pieces.Count > 3000, $"only {generated.Pieces.Count} pieces");
+    }
+
+    // The game refuses a face-mounted piece that lies on no supporting face (CanMountOnWall); Lattice's own wall-mount
+    // rule is run over every small face-mounted piece in the file, against the other pieces standing.
+    [BigBaseFact]
+    public void Every_face_mounted_piece_passes_the_wall_mount_support_rule()
+    {
+        var (catalogue, _, list) = Load();
+        var scenario = Scenario.With(catalogue);
+        foreach (var piece in list.Pieces)
+            scenario.Built(piece.Prefab, piece.At, piece.Turn.Index);
+        var built = scenario.Build();
+        var grid = new CubeGrid();
+        var geometry = new SupportGeometry(grid, new FamilySupportFacts(catalogue), catalogue);
+        var rule = new WallMountRule(geometry);
+        var facts = new SpotFacts(new DirectFacts(built.World, GameChecks.None), built.World.All, new Shapes(catalogue, grid));
+        var world = new SupportWorld(new AssumedIndex(), AssumedIndex.Every, false, facts, catalogue, new ReadLog());
+
+        var checkedPieces = 0;
+        var problems = new List<string>();
+        foreach (var piece in list.Pieces)
+        {
+            var pieceFacts = Facts(catalogue, piece.Prefab);
+            if (pieceFacts.Grid != GridSize.Small || pieceFacts.Turning.Placement != PlacedBy.FaceMount)
+                continue;
+            checkedPieces++;
+            var at = new Placement(pieceFacts.Key, piece.At, piece.Turn);
+            var judged = rule.Judge(new SupportCase(new GhostId(1), at, pieceFacts, world));
+            if (judged is not Judgement.Supported)
+                problems.Add($"{piece.Prefab} at {piece.At} turn {piece.Turn.Index}: {(judged is Judgement.Unsupported u ? u.Why.Facts.GetValueOrDefault("game") ?? "" : judged.GetType().Name)}");
+        }
+
+        output.WriteLine($"{checkedPieces} face-mounted small pieces, {problems.Count} not supported");
+        foreach (var problem in problems.Take(30))
+            output.WriteLine(problem);
+        Assert.True(checkedPieces > 0, "no face-mounted small piece in the file");
+        Assert.True(problems.Count == 0, $"{problems.Count} of {checkedPieces} face-mounted pieces fail:\n" + string.Join("\n", problems.Take(20)));
+    }
+
     [BigBaseFact]
     public void The_file_names_the_save_the_live_build_makes()
     {
@@ -215,6 +368,72 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
         Assert.Equal<Weighted>([new Weighted("R", 30)], mix.OnPipe);
         Assert.True(BaseMix.Read(new StringReader("group frame many\n"), "bad").IsError);
     }
+
+    // The world as the game's grid reports it: a structure listed in every cell whose spot it takes, so a wall is found
+    // from the large cells on both sides of it. The test kit's world lists a structure at its own position only.
+    private sealed class SpotFacts : IJudgeFacts
+    {
+        private readonly IJudgeFacts _inner;
+        private readonly Dictionary<Cell, List<StructureInfo>> _byCell = [];
+
+        public SpotFacts(IJudgeFacts inner, IEnumerable<StructureInfo> structures, Shapes shapes)
+        {
+            _inner = inner;
+            foreach (var info in structures)
+            {
+                var cells = new HashSet<Cell> { info.Ref.At };
+                if (shapes.Of(new Placement(info.Ref.Piece, info.Ref.At, info.Turn)).TryGet(out var shape))
+                    foreach (var spot in shape.Spots)
+                        cells.Add(spot.Cell);
+                foreach (var cell in cells)
+                {
+                    if (!_byCell.TryGetValue(cell, out var here))
+                        _byCell[cell] = here = [];
+                    here.Add(info);
+                }
+            }
+        }
+
+        public Option<StructureInfo> Structure(ReferenceId id) => _inner.Structure(id);
+
+        public ValueList<StructureInfo> At(Cell cell) =>
+            _byCell.TryGetValue(cell, out var here) ? ValueList.From(here) : ValueList<StructureInfo>.Empty;
+
+        public Option<Option<NetworkRef>> NetworkOf(ReferenceId id) => _inner.NetworkOf(id);
+
+        public Option<Option<RoomRef>> RoomAt(Cell cell) => _inner.RoomAt(cell);
+
+        public Option<GameAnswer> Game(Placement placement) => _inner.Game(placement);
+
+        public Option<Guarded<SupportVerdict>> MainSupport(SupportRules rules, SupportRules.Entry entry, GhostId ghost, SupportInput input) =>
+            _inner.MainSupport(rules, entry, ghost, input);
+
+        public Option<Guarded<RuleVerdict>> MainRule(ValidationRules rules, ValidationRules.Entry entry, RuleInput input) =>
+            _inner.MainRule(rules, entry, input);
+
+        public int EpochOf(GhostId ghost) => _inner.EpochOf(ghost);
+    }
+
+    // The catalogue file holds no support facts (the game's SmallGrid.AllowMounting and BlockGrid), so the rule would leave
+    // every piece to the game. Stand-ins by family: frames allow mounting and block their cell, walls allow mounting,
+    // windows offer nothing, and a small face-mounted piece blocks no cell and offers no mounting.
+    private sealed class FamilySupportFacts(FakeCatalogue catalogue) : ISupportFacts
+    {
+        public Option<SupportFacts> Of(PrefabKey piece)
+        {
+            if (!catalogue.Piece(piece).TryGet(out var facts))
+                return Option<SupportFacts>.None;
+            if (facts.Family == PieceFamilies.Frame)
+                return Option.Some(new SupportFacts(true, true, false, ValueSet<HostRole>.Empty));
+            if (facts.Family == PieceFamilies.Wall)
+                return Option.Some(new SupportFacts(true, false, false, ValueSet<HostRole>.Empty));
+            return facts.Family == PieceFamilies.Window || (facts.Grid == GridSize.Small && facts.Turning.Placement == PlacedBy.FaceMount)
+                ? Option.Some(SupportFacts.Nothing)
+                : Option<SupportFacts>.None;
+        }
+    }
+
+    private static PieceFacts Facts(FakeCatalogue catalogue, string prefab) => TestKitIds.Must(catalogue.Piece(PrefabHash.Piece(prefab)));
 
     private static (FakeCatalogue Catalogue, BaseMix Mix, BaseList List) Load() =>
         (GameCatalogue.Load(),

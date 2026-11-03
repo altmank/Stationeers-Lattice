@@ -42,9 +42,13 @@ internal sealed partial class BaseGenerator
     private readonly Shapes _shapes;
     private readonly Dictionary<string, NamedPiece> _named = new(StringComparer.Ordinal);
     private readonly List<BasePiece> _pieces = new(40000);
+    private readonly List<int> _built = new(40000);
+    private readonly Dictionary<int, Corridor> _firstOfStorey = new();
     private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
     private readonly HashSet<SpotKey> _largeSpots = new();
     private readonly HashSet<Cell> _devices = new();
+    private readonly HashSet<Cell> _wallFaces = new();
+    private int? _wallPlane;
     private readonly Dictionary<Cell, RunCell> _runs = new();
     private readonly Dictionary<RunKind, int> _runCounts = new();
     private readonly List<Net> _nets = new();
@@ -57,6 +61,7 @@ internal sealed partial class BaseGenerator
     private int _windows;
     private int _frames;
     private int _dropped;
+    private int _step;
 
     public BaseGenerator(FakeCatalogue catalogue, BaseMix mix, int seed, BaseLayout? layout = null)
     {
@@ -84,10 +89,68 @@ internal sealed partial class BaseGenerator
         if (floorDevices.Machines.Count == 0 && _mix.Target(PieceFamilies.Device) > 0)
             return Result<GeneratedBase, string>.Error("the catalogue holds no device that stands on a frame floor with a gas, power or chute end");
         Furnish(floorDevices, chuteKits);
+        Mounted();
         OnPipe();
         EmitRuns();
+        var built = InBuildOrder();
         return Result<GeneratedBase, string>.Ok(new GeneratedBase(
-            ValueList.From(_pieces), ValueMap.From(_counts), _rooms.Count, StoreysUsed(), NetworkCounts(), _dropped));
+            ValueList.From(built), ValueMap.From(_counts), _rooms.Count, StoreysUsed(), NetworkCounts(), _dropped, StandSpot(built)));
+    }
+
+    // The pieces in the order a player builds them: storey by storey, corridor by corridor, the corridor's own pieces and
+    // then each room's; within a step, frames, walls, windows, pipes, cables, chutes, devices. Ties keep emission order.
+    private List<BasePiece> InBuildOrder()
+    {
+        var order = new int[_pieces.Count];
+        for (var i = 0; i < order.Length; i++)
+            order[i] = i;
+        Array.Sort(order, (a, b) =>
+        {
+            var by = _built[a].CompareTo(_built[b]);
+            return by != 0 ? by : a.CompareTo(b);
+        });
+        var built = new List<BasePiece>(order.Length);
+        foreach (var index in order)
+            built.Add(_pieces[index]);
+        return built;
+    }
+
+    private static int Step(Corridor corridor, int slot) => (corridor.Storey * 1000 + corridor.Stack) * 1000 + slot;
+
+    private static int StepOf(Room room) => Step(room.Corridor, 1 + room.Corridor.Rooms.IndexOf(room));
+
+    private static int GroupRank(PieceFamily family) =>
+        family == PieceFamilies.Frame ? 0 :
+        family == PieceFamilies.Wall ? 1 :
+        family == PieceFamilies.Window ? 2 :
+        family == PieceFamilies.Pipe ? 3 :
+        family == PieceFamilies.Cable ? 4 :
+        family == PieceFamilies.Chute ? 5 :
+        family == PieceFamilies.Device ? 6 : 7;
+
+    // The step of a run cell: the room whose bounds hold it, else its corridor; the spines and shafts west of the rooms
+    // go with the first corridor of their storey.
+    private int StepAt(Cell cell)
+    {
+        var storey = 0;
+        for (var s = 1; s < _storeyY.Count; s++)
+            if (cell.Y >= 20 * _storeyY[s])
+                storey = s;
+        var first = _firstOfStorey.TryGetValue(storey, out var found) ? found : _corridors[0];
+        if (cell.X < 20 * _layout.OriginX)
+            return Step(first, 0);
+        foreach (var corridor in _corridors)
+        {
+            if (corridor.Storey != storey)
+                continue;
+            foreach (var room in corridor.Rooms)
+                if (cell.X >= 20 * room.X0 && cell.X <= 20 * (room.X0 + room.W) && cell.Z >= 20 * room.Z0 && cell.Z <= 20 * (room.Z0 + room.D))
+                    return StepOf(room);
+            if (cell.Z >= 20 * corridor.Zc && cell.Z <= 20 * (corridor.Zc + 2))
+                return Step(corridor, 0);
+        }
+
+        return Step(first, 0);
     }
 
     private ValueMap<string, int> NetworkCounts()
@@ -262,6 +325,7 @@ internal sealed partial class BaseGenerator
     private void Emit(NamedPiece piece, Placement placement)
     {
         _pieces.Add(new BasePiece(piece.Name, placement.At, placement.Turn, Math.Max(0, piece.Facts.Steps.Count - 1)));
+        _built.Add((_step << 4) | GroupRank(piece.Facts.Family));
         var family = piece.Facts.Family.Value;
         _counts[family] = (_counts.TryGetValue(family, out var count) ? count : 0) + 1;
     }

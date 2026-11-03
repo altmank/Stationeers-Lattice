@@ -40,6 +40,8 @@ internal static class BigBaseTool
             $"catalogue {Path.GetFileName(cataloguePath)} SHA1 {Sha1(cataloguePath)}; mix {Path.GetFileName(mixPath)} SHA1 {Sha1(mixPath)}",
             "station " + Station,
         };
+        if (generated.Stand.TryGet(out var stand))
+            comments.Add(BaseFile.StandComment(stand));
         using var text = new StringWriter(CultureInfo.InvariantCulture);
         BaseFile.Write(text, comments, generated.Pieces);
         return Result<(string, string), string>.Ok((text.ToString(), Report(generated, mix)));
