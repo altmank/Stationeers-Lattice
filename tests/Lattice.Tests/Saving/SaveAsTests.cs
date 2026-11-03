@@ -47,15 +47,8 @@ public sealed class SaveAsTests : IDisposable
         return key;
     }
 
-    /// <summary>What the game's hook does on a save: the target for the save's world, copied or moved, or nothing for the same folder.</summary>
-    private static Result<Unit, Reason> SaveStarting(Session session, string savePath, bool newWorld)
-    {
-        var target = SaveFiles.LatticeFolderFor(SaveFiles.WorldFolderOf(savePath));
-        if (SaveFiles.SameFolder(target, session.Saving.Folder.Root))
-            return Result<Unit, Reason>.Ok(Unit.Value);
-        var named = new WorldFolder(target);
-        return newWorld ? session.Saving.MoveTo(named) : session.Saving.CopyTo(named);
-    }
+    private static Result<Unit, Reason> SaveStarting(Session session, string savePath, bool newWorld) =>
+        session.Saving.FollowSave(savePath, newWorld);
 
     private Session AWithThreeGhosts(out SaveKey saveA)
     {
@@ -181,7 +174,44 @@ public sealed class SaveAsTests : IDisposable
         Assert.True(File.Exists(Path.Combine(Lattice("B"), "stale.txt")));
         Assert.Empty(Directory.GetDirectories(Path.Combine(_data, "lattice"), "*copying*"));
         loaded.Place(30);
+        var next = Save(loaded, SavePath("A", "later"));
+        Assert.Equal(4, GhostsOnLoad("A", next));
         Assert.Equal(3, GhostsOnLoad("A", saveA));
+        Assert.False(Directory.Exists(Lattice("B")) && Directory.GetFiles(Lattice("B"), "*.lplan", SearchOption.AllDirectories).Length > 0);
+    }
+
+    [Fact]
+    public void A_move_that_fails_after_the_stale_folder_was_renamed_aside_puts_it_back()
+    {
+        var fresh = new PlanSaving(new WorldFolder(SaveFiles.NewWorldFolder(Path.Combine(_data, "saves"), Guid.NewGuid())));
+        var opened = fresh.Open(Option<SaveKey>.None);
+        var session = new Session { Saving = fresh, Board = new TestBoard(Option.Some(opened.Seed)) };
+        session.Place(0);
+        Directory.CreateDirectory(Lattice("B"));
+        File.WriteAllText(Path.Combine(Lattice("B"), "stale.txt"), "old");
+        var newFolder = fresh.Folder.Root;
+        Directory.CreateDirectory(newFolder);
+        var locked = Path.Combine(newFolder, "locked.txt");
+        File.WriteAllText(locked, "x");
+
+        using (new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert.True(SaveStarting(session, SavePath("B"), newWorld: true).IsError);
+
+        Assert.Equal(newFolder, session.Saving.Folder.Root);
+        Assert.True(File.Exists(Path.Combine(Lattice("B"), "stale.txt")));
+        Assert.Empty(Directory.GetDirectories(Path.Combine(_data, "lattice"), "_replaced-*"));
+    }
+
+    [Fact]
+    public void A_staging_folder_left_by_a_cut_short_copy_is_removed_when_plans_open()
+    {
+        var half = Lattice("B") + ".copying-" + Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(Path.Combine(half, "plans"));
+        File.WriteAllText(Path.Combine(half, "plans", "1.lplan"), "x");
+
+        Start("A");
+
+        Assert.False(Directory.Exists(half));
     }
 
     [Fact]

@@ -2,8 +2,7 @@
 
 ## 0.22.16
 
-Fixed:
-- Fixed: a loaded world saved under a new name kept its plans under the old name, so they were missing when the new save loaded.
+Fixed: a loaded world saved under a new name kept its plans under the old name, so they were missing when the new save loaded.
 
 ## 0.22.15
 

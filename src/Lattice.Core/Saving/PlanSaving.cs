@@ -254,6 +254,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     {
         Clear();
         _folder.NewSession();
+        DropHalfMadeCopies();
         var problems = new List<FileProblem>();
         _records.AddRange(_folder.Records());
         var record = save.Bind(Find);
@@ -618,6 +619,20 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     }
 
     /// <summary>
+    /// The game starts a save at <paramref name="savePath"/>: when that save's world has another plan folder than the
+    /// one in use, the plans go with it: moved for a new world, copied for a loaded one. The same folder (a save over
+    /// the world, or one of its rolling saves) changes nothing.
+    /// </summary>
+    public Result<Unit, Reason> FollowSave(string savePath, bool newWorld)
+    {
+        var target = SaveFiles.LatticeFolderFor(SaveFiles.WorldFolderOf(savePath));
+        if (SaveFiles.SameFolder(target, _folder.Root))
+            return Result<Unit, Reason>.Ok(Unit.Value);
+        var named = new WorldFolder(target);
+        return newWorld ? MoveTo(named) : CopyTo(named);
+    }
+
+    /// <summary>
     /// A new world's first save names its folder: everything queued is written, then the files move to
     /// <paramref name="to"/>. A folder already there is renamed aside first (<c>_replaced-&lt;name&gt;-&lt;time&gt;</c>), never
     /// merged into or deleted. On failure the plans stay in the current folder.
@@ -646,7 +661,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
             var source = System.IO.Directory.Exists(from);
             if (copy && source)
             {
-                staging = to.Root + ".copying-" + Guid.NewGuid().ToString("N");
+                staging = to.Root + CopyingMark + Guid.NewGuid().ToString("N");
                 CopyTree(from, staging);
             }
 
@@ -691,6 +706,24 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         {
         }
     }
+
+    // A copy that was cut short (the game closed mid-copy) leaves its staging folder beside the world folders.
+    private void DropHalfMadeCopies()
+    {
+        try
+        {
+            var parent = System.IO.Path.GetDirectoryName(_folder.Root);
+            if (parent == null || !System.IO.Directory.Exists(parent))
+                return;
+            foreach (var half in System.IO.Directory.GetDirectories(parent, "*" + CopyingMark + "*"))
+                System.IO.Directory.Delete(half, recursive: true);
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private const string CopyingMark = ".copying-";
 
     private static void CopyTree(string from, string to)
     {
