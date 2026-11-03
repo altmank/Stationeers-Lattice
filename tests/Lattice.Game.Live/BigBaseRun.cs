@@ -122,31 +122,23 @@ internal static class BigBaseRun
             yield break;
         }
 
+        var gate = new StepGate();
         if (GameManager.GameState != GameState.Running)
-            yield return Arg("-lattice-save") != "" ? OpenWorld(line) : NewWorld(line);
+        {
+            yield return Arg("-lattice-save") != "" ? OpenWorld(line, gate) : NewWorld(line, gate);
+            if (gate.Failed)
+                yield break;
+        }
+
         if (!Lattice(line, out var world))
+            yield break;
+        yield return WaitLanded(line, gate);
+        if (gate.Failed)
             yield break;
 
         if (header.Stand is not { } stand)
         {
             line("FAIL bigbase: the base file has no stand line");
-            yield break;
-        }
-
-        if (Assets.Scripts.Inventory.InventoryManager.Parent == null)
-            line("bigbase: no body (server)");
-        else
-        {
-            Assets.Scripts.Inventory.InventoryManager.ParentHuman?.ForceSetPosition(new Vector3(stand.X, stand.Y, stand.Z));
-            yield return new WaitForSecondsRealtime(10f);
-            line($"bigbase: body stands at {Assets.Scripts.Inventory.InventoryManager.Parent.ThingTransformPosition} (stand spot {WorldFile.Metres(stand.X, stand.Y, stand.Z)})");
-        }
-
-        var ground = GroundVerdict.Judge(GroundHeights(structures), LowestPiece(structures));
-        line("bigbase: " + ground.Describe());
-        if (!ground.Ok)
-        {
-            line($"FAIL bigbase: the base would cut into the terrain: the ground reaches y {ground.Max}, the lowest piece stands at y {ground.Lowest} (move the generator's origin)");
             yield break;
         }
 
@@ -185,17 +177,81 @@ internal static class BigBaseRun
         }
 
         line($"bigbase: spawned {spawned}, refused {refused} (prefabs the game lacks {unknown}), of {rest.Count} to spawn, in {watch.Elapsed.TotalSeconds:F1} s");
-        yield return Settle(world, line, "after the spawn", 240f);
+
+        // The floor exists once the spawn is done: the body stands on it now and is held there for the rest of the run.
+        yield return StandBody(stand, line);
+        var ground = GroundVerdict.Judge(GroundSamples(structures, stand), LowestPiece(structures));
+        line("bigbase: " + ground.Describe());
+        if (!ground.Ok)
+        {
+            line(ground.Misses.Count > 0
+                ? $"FAIL bigbase: no ground found under the base near the stand spot at {string.Join(", ", ground.Misses)}"
+                : $"FAIL bigbase: the base would cut into the terrain: the ground reaches y {ground.Max}, the lowest piece stands at y {ground.Lowest} (move the generator's origin)");
+            yield break;
+        }
+
+        yield return Settle(world, line, "after the spawn", 240f, HoldBody);
+        if (_standAt is { } stoodAt && Assets.Scripts.Inventory.InventoryManager.Parent is { } body)
+        {
+            var away = Vector3.Distance(body.ThingTransformPosition, stoodAt);
+            line($"{(BodyHold.Stayed(away) ? "PASS" : "FAIL")} bigbase: the body ends {away:F2} m from the stand spot after the settle (limit {BodyHold.StayedWithin} m)");
+        }
+
+        var landing = ReadLanding();
+        if (!landing.Landed)
+        {
+            line($"FAIL bigbase: the landing is not over at the save: {landing.Pending}");
+            yield break;
+        }
+
         SaveResult? saved = null;
         yield return SaveHelper.NewSave(station, CancellationToken.None).ToCoroutine(r => saved = r);
         line($"bigbase: save {station}: {(saved is { } result ? $"success {result.Success} '{result.Message}'" : "no result")}");
         line($"bigbase: board {Board(world)}");
-        WriteWorld(outDir, header, station, held, spawned, refused, unknown, saved?.Success ?? false, ground, stand, world);
+        WriteWorld(outDir, header, station, held, spawned, refused, unknown, saved?.Success ?? false, ground, stand, world, landing);
     }
 
-    private static string _worldId = "unknown";
-    private static string _difficultyId = "unknown";
-    private static string _startId = "unknown";
+    private static Vector3? _standAt;
+
+    // Test saves are staged after landing: no lander capsule descending or venting and the body out of any capsule
+    // (LanderCapsule.LanderMode AtRest/Descending/Venting, Human.ParentSlot.Parent is LanderCapsule).
+    private static Landing ReadLanding()
+    {
+        int descending = 0, venting = 0;
+        foreach (var capsule in UnityEngine.Object.FindObjectsOfType<LanderCapsule>())
+        {
+            if (capsule.LanderMode == LanderMode.Descending)
+                descending++;
+            else if (capsule.LanderMode == LanderMode.Venting)
+                venting++;
+        }
+
+        var inCapsule = Assets.Scripts.Inventory.InventoryManager.ParentHuman?.ParentSlot?.Parent is LanderCapsule;
+        return new Landing(descending, venting, inCapsule);
+    }
+
+    // Waits out any landing (at most 180 s, a progress line every 60 s) before anything is built.
+    private static IEnumerator WaitLanded(Action<string> line, StepGate gate)
+    {
+        var watch = Stopwatch.StartNew();
+        var progress = new WaitProgress();
+        var landing = ReadLanding();
+        while (!landing.Landed && watch.Elapsed.TotalSeconds < 180)
+        {
+            if (progress.Due(watch.Elapsed.TotalSeconds))
+                line($"bigbase: waiting for the landing: {watch.Elapsed.TotalSeconds:F0} s of 180: {landing.Pending}");
+            yield return null;
+            landing = ReadLanding();
+        }
+
+        if (!landing.Landed)
+        {
+            gate.Fail(line, $"the landing did not finish in {watch.Elapsed.TotalSeconds:F0} s: {landing.Pending}");
+            yield break;
+        }
+
+        line($"bigbase: landed (after {watch.Elapsed.TotalSeconds:F1} s)");
+    }
 
     private static string Arg(string name)
     {
@@ -215,8 +271,10 @@ internal static class BigBaseRun
         return lowest;
     }
 
-    // The ground's height under the base's four bounding corners and its centre; none where the ray hits nothing.
-    private static List<float?> GroundHeights(List<BaseStructure> all)
+    // Terrain colliders exist only near the body, so the ground is sampled only within the loaded radius of the stand spot:
+    // the stand spot, a ring of eight points around it, and those of the base's four bounding corners and centre that lie
+    // within it. Rays go down at the terrain layer only, triggers ignored; a ray that hits nothing is a sample with no height.
+    private static List<GroundSample> GroundSamples(List<BaseStructure> all, StandSpot stand)
     {
         var (minX, minZ, maxX, maxZ) = (float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
         foreach (var s in all)
@@ -227,21 +285,70 @@ internal static class BigBaseRun
             maxZ = Math.Max(maxZ, s.Position.z);
         }
 
-        var heights = new List<float?>(5);
-        foreach (var (x, z) in new[] { (minX, minZ), (minX, maxZ), (maxX, minZ), (maxX, maxZ), ((minX + maxX) / 2f, (minZ + maxZ) / 2f) })
-            heights.Add(Physics.Raycast(new Vector3(x, 1000f, z), Vector3.down, out var hit, 2000f) ? hit.point.y : null);
-        return heights;
+        var candidates = new List<(float X, float Z)>
+        {
+            (stand.X, stand.Z), (minX, minZ), (minX, maxZ), (maxX, minZ), (maxX, maxZ), ((minX + maxX) / 2f, (minZ + maxZ) / 2f),
+        };
+        for (var i = 0; i < 8; i++)
+        {
+            var angle = i * Mathf.PI / 4f;
+            candidates.Add((stand.X + 40f * Mathf.Cos(angle), stand.Z + 40f * Mathf.Sin(angle)));
+        }
+
+        var layer = LayerMask.NameToLayer("Terrain");
+        var mask = layer >= 0 ? 1 << layer : 0;
+        var samples = new List<GroundSample>();
+        foreach (var (x, z) in GroundVerdict.Within(candidates, stand.X, stand.Z))
+            samples.Add(new GroundSample(x, z,
+                mask != 0 && Physics.Raycast(new Vector3(x, stand.Y + 100f, z), Vector3.down, out var hit, 400f, mask, QueryTriggerInteraction.Ignore) ? hit.point.y : null));
+        return samples;
+    }
+
+    // The body stood at the stand spot as the game's teleport does (Human.ForceSetPosition: position, transform, rigidbody and
+    // control position; a transform alone is put back by the body's own motion), then given 10 s for terrain to build around it.
+    private static IEnumerator StandBody(StandSpot stand, Action<string> line)
+    {
+        if (Assets.Scripts.Inventory.InventoryManager.Parent == null)
+        {
+            line("bigbase: no body (server)");
+            yield break;
+        }
+
+        _standAt = new Vector3(stand.X, stand.Y, stand.Z);
+        Restand();
+        var until = Time.realtimeSinceStartup + 10f;
+        while (Time.realtimeSinceStartup < until)
+        {
+            HoldBody();
+            yield return null;
+        }
+
+        line($"bigbase: body stands at {Assets.Scripts.Inventory.InventoryManager.Parent.ThingTransformPosition} (stand spot {WorldFile.Metres(stand.X, stand.Y, stand.Z)})");
+    }
+
+    private static void Restand()
+    {
+        if (_standAt is { } at)
+            Assets.Scripts.Inventory.InventoryManager.ParentHuman?.ForceSetPosition(at);
+    }
+
+    // Called every frame after the stand: the body is put back when it slides or falls from the stand spot.
+    private static void HoldBody()
+    {
+        if (_standAt is { } at && Assets.Scripts.Inventory.InventoryManager.Parent is { } body
+            && BodyHold.NeedsRestand(Vector3.Distance(body.ThingTransformPosition, at)))
+            Restand();
     }
 
     private static void WriteWorld(string outDir, BaseHeader header, string station, int held, int spawned, int refused, int unknown,
-        bool saveSuccess, GroundVerdict ground, StandSpot stand, LatticeWorld world)
+        bool saveSuccess, GroundVerdict ground, StandSpot stand, LatticeWorld world, Landing landing)
     {
         var path = Arg("-lattice-bigbase");
         string sha1;
         using (var sha = System.Security.Cryptography.SHA1.Create())
             sha1 = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "");
         string N(float? v) => v is { } y ? y.ToString("0.##", CultureInfo.InvariantCulture) : "none";
-        var facts = new List<KeyValuePair<string, string>>
+        var facts = new List<KeyValuePair<string, string?>>
         {
             new("station", station),
             new("tsv", Path.GetFileName(path)),
@@ -249,9 +356,9 @@ internal static class BigBaseRun
             new("seed", header.Seed),
             new("catalogue-sha1", header.CatalogueSha1),
             new("mix-sha1", header.MixSha1),
-            new("world", _worldId),
-            new("difficulty", _difficultyId),
-            new("start", _startId),
+            new("world", WorldSetting.Current?.Id),
+            new("difficulty", DifficultySetting.Current?.Id),
+            new("start", WorldSetting.Current?.StartConditionData?.Id),
             new("held", held.ToString(CultureInfo.InvariantCulture)),
             new("spawned", spawned.ToString(CultureInfo.InvariantCulture)),
             new("refused", refused.ToString(CultureInfo.InvariantCulture)),
@@ -259,6 +366,7 @@ internal static class BigBaseRun
             new("structures", Scene.AllStructures().Count.ToString(CultureInfo.InvariantCulture)),
             new("plans", world.Ghosts.Index.Plans.Count.ToString(CultureInfo.InvariantCulture)),
             new("ghosts", world.Ghosts.Index.Ghosts.Count.ToString(CultureInfo.InvariantCulture)),
+            new("landed", landing.Landed ? "yes" : "no"),
             new("stand", WorldFile.Metres(stand.X, stand.Y, stand.Z)),
             new("ground-min", N(ground.Min)),
             new("ground-max", N(ground.Max)),
@@ -270,38 +378,58 @@ internal static class BigBaseRun
     }
 
     // The main menu, up and visible with the save system set: a load or a new game started before that throws inside the
-    // game (Assets.Scripts.Serialization/LoadHelper.cs LoadGameTask hides the menu first).
-    private static IEnumerator MainMenu(Action<string> line)
+    // game (Assets.Scripts.Serialization/LoadHelper.cs LoadGameTask hides the menu first; Assets.Scripts.Objects/World.cs
+    // StartNewWorld reads MainMenu.Instance). Not up after 300 s ends the build.
+    private static IEnumerator MainMenu(Action<string> line, StepGate gate)
     {
         var watch = Stopwatch.StartNew();
+        var progress = new WaitProgress();
         var menuBy = Time.realtimeSinceStartup + 300f;
         while ((Assets.Scripts.UI.MainMenu.Instance == null || !Assets.Scripts.UI.MainMenu.Instance.IsVisible || XmlSaveLoad.Instance == null)
                && Time.realtimeSinceStartup < menuBy)
+        {
+            if (progress.Due(watch.Elapsed.TotalSeconds))
+                line($"bigbase: waiting for the main menu: {watch.Elapsed.TotalSeconds:F0} s of 300");
             yield return null;
+        }
+
+        if (Assets.Scripts.UI.MainMenu.Instance == null || XmlSaveLoad.Instance == null)
+        {
+            gate.Fail(line, $"the main menu did not come up in {watch.Elapsed.TotalSeconds:F0} s");
+            yield break;
+        }
+
         yield return new WaitForSecondsRealtime(2f);
-        line($"bigbase: main menu {(Assets.Scripts.UI.MainMenu.Instance != null ? "up" : "NOT up")} after {watch.Elapsed.TotalSeconds:F1} s");
+        line($"bigbase: main menu up after {watch.Elapsed.TotalSeconds:F1} s");
     }
 
-    // A new Lunar Creative world with the default start, as the game's own newgame command makes one
+    // A new Lunar Creative world with the first default start, as the game's own newgame command makes one
     // (Util.Commands.NewGameCommand, Assets.Scripts.Objects/World.cs StartNewWorld); Creative, so a body standing through
     // the whole run keeps its air and food.
-    private static IEnumerator NewWorld(Action<string> line)
+    private static IEnumerator NewWorld(Action<string> line, StepGate gate)
     {
-        yield return MainMenu(line);
+        yield return MainMenu(line, gate);
+        if (gate.Failed)
+            yield break;
         var world = WorldSetting.Find("Lunar");
         var difficulty = DifficultySetting.Find("Creative");
         StartConditionData? start = null;
         if (world != null)
             foreach (var condition in world.Data.StartConditionDatas)
                 if (condition.IsDefault)
+                {
                     start = condition;
+                    break;
+                }
+
         if (world == null || difficulty == null || start == null)
         {
-            line($"FAIL bigbase: the game has no world Lunar ({world != null}), difficulty Creative ({difficulty != null}) or default start ({start != null})");
+            gate.Fail(line, $"the game has no world Lunar ({world != null}), difficulty Creative ({difficulty != null}) or default start ({start != null})");
             yield break;
         }
 
         var watch = Stopwatch.StartNew();
+        var progress = new WaitProgress();
         var starts = LatticeTiming.Starts;
         WorldSetting.SetCurrent(world, start);
         DifficultySetting.SetCurrent(difficulty);
@@ -310,30 +438,37 @@ internal static class BigBaseRun
         var deadline = Time.realtimeSinceStartup + 600f;
         while ((GameManager.GameState != GameState.Running || Assets.Scripts.Inventory.InventoryManager.Parent == null || LatticeTiming.Starts == starts)
                && Time.realtimeSinceStartup < deadline)
+        {
+            if (progress.Due(watch.Elapsed.TotalSeconds))
+                line($"bigbase: waiting for the new world: {watch.Elapsed.TotalSeconds:F0} s of 600 (state {GameManager.GameState}, body {Assets.Scripts.Inventory.InventoryManager.Parent != null})");
             yield return null;
+        }
+
         if (GameManager.GameState != GameState.Running || Assets.Scripts.Inventory.InventoryManager.Parent == null || LatticeTiming.Starts == starts)
         {
-            line($"FAIL bigbase: the new world did not start (state {GameManager.GameState}, body {Assets.Scripts.Inventory.InventoryManager.Parent != null})");
+            gate.Fail(line, $"the new world did not start (state {GameManager.GameState}, body {Assets.Scripts.Inventory.InventoryManager.Parent != null})");
             yield break;
         }
 
-        (_worldId, _difficultyId, _startId) = (world.Id, difficulty.Id, start.Id);
         line($"bigbase: new world {world.Id} {difficulty.Id} {start.Id}: running after {watch.Elapsed.TotalSeconds:F1} s");
     }
 
     // A client starts at the main menu: the world to build in is loaded from it, once the menu is up, and the build waits
     // for the world to run with Lattice started.
-    private static IEnumerator OpenWorld(Action<string> line)
+    private static IEnumerator OpenWorld(Action<string> line, StepGate gate)
     {
         var save = Arg("-lattice-save");
         if (!File.Exists(save))
         {
-            line($"FAIL bigbase: no world is running and no world to load: '{save}' (-lattice-save <file>)");
+            gate.Fail(line, $"no world is running and no world to load: '{save}' (-lattice-save <file>)");
             yield break;
         }
 
         var watch = Stopwatch.StartNew();
-        yield return MainMenu(line);
+        var progress = new WaitProgress();
+        yield return MainMenu(line, gate);
+        if (gate.Failed)
+            yield break;
         line($"bigbase: loading {save}");
 
         var starts = LatticeTiming.Starts;
@@ -345,10 +480,12 @@ internal static class BigBaseRun
             // A refused load clears the world save the game was handed and leaves the state at None.
             if (Time.realtimeSinceStartup > refusedBy && XmlSaveLoad.Instance != null && XmlSaveLoad.Instance.CurrentWorldSave == null && GameManager.GameState == GameState.None)
             {
-                line($"FAIL bigbase: the game refused to load {save} (the client log has the game's error)");
+                gate.Fail(line, $"the game refused to load {save} (the client log has the game's error)");
                 yield break;
             }
 
+            if (progress.Due(watch.Elapsed.TotalSeconds))
+                line($"bigbase: waiting for the loaded world: {watch.Elapsed.TotalSeconds:F0} s of 600 (state {GameManager.GameState})");
             yield return null;
         }
 
@@ -359,7 +496,13 @@ internal static class BigBaseRun
     public static IEnumerator Load(string outDir, float sinceRunning, Action<string> line)
     {
         if (GameManager.GameState != GameState.Running && Arg("-lattice-save") != "")
-            yield return OpenWorld(line);
+        {
+            var gate = new StepGate();
+            yield return OpenWorld(line, gate);
+            if (gate.Failed)
+                yield break;
+        }
+
         line($"bigbase: world running at {Time.realtimeSinceStartup - sinceRunning:F1} s after process start; Lattice start {LatticeTiming.LastStartMs:F0} ms (starts so far {LatticeTiming.Starts})");
         if (!Lattice(line, out var world))
             yield break;
@@ -469,15 +612,19 @@ internal static class BigBaseRun
     }
 
     // Frames until validation has been idle for 3 frames, recording game and Lattice frame costs.
-    private static IEnumerator Settle(LatticeWorld world, Action<string> line, string what, float limit)
+    private static IEnumerator Settle(LatticeWorld world, Action<string> line, string what, float limit, Action? tick = null)
     {
         LatticeTiming.FrameMs.Clear();
         var game = new List<double>(4096);
         var start = Time.realtimeSinceStartup;
         var idle = 0;
+        var progress = new WaitProgress();
         while (Time.realtimeSinceStartup - start < limit && idle < 3)
         {
             yield return null;
+            tick?.Invoke();
+            if (progress.Due(Time.realtimeSinceStartup - start))
+                line($"bigbase: {what}: still validating after {Time.realtimeSinceStartup - start:F0} s of {limit:F0}");
             game.Add(Time.unscaledDeltaTime * 1000.0);
             idle = world.ValidationModule is { Busy: true } ? 0 : idle + 1;
         }

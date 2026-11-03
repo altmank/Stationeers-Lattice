@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -59,23 +60,47 @@ internal sealed record BaseHeader(string? Station, StandSpot? Stand, string Seed
     }
 }
 
-/// <summary>The ground check under a base: raycast heights at its corners and centre against its lowest piece.</summary>
-internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, int Misses, float Lowest)
+/// <summary>One ground sample: where the ray went down and the height it hit, <c>null</c> where it hit nothing.</summary>
+internal readonly record struct GroundSample(float X, float Z, float? Y)
+{
+    public string Where => $"x {X.ToString("0.##", CultureInfo.InvariantCulture)} z {Z.ToString("0.##", CultureInfo.InvariantCulture)}";
+}
+
+/// <summary>The ground check under a base: raycast heights near the stand spot against the base's lowest piece.</summary>
+internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, IReadOnlyList<string> Misses, float Lowest)
 {
     /// <summary>A hit above the lowest piece's y minus this many metres means the base would cut into the terrain.</summary>
     public const float Clearance = 1f;
 
-    /// <summary>The verdict over the ground heights (<c>null</c> where the ray hit nothing).</summary>
-    public static GroundVerdict Judge(IReadOnlyList<float?> hits, float lowestPiece)
+    /// <summary>Terrain colliders exist only near the body: only points this close (metres, on the ground plane) to the stand spot are sampled.</summary>
+    public const float LoadedRadius = 60f;
+
+    /// <summary>The candidate points that lie within <see cref="LoadedRadius"/> of the stand spot.</summary>
+    public static List<(float X, float Z)> Within(IEnumerable<(float X, float Z)> candidates, float standX, float standZ)
+    {
+        var near = new List<(float X, float Z)>();
+        foreach (var c in candidates)
+        {
+            var (dx, dz) = (c.X - standX, c.Z - standZ);
+            if (dx * dx + dz * dz <= LoadedRadius * LoadedRadius)
+                near.Add(c);
+        }
+
+        return near;
+    }
+
+    /// <summary>The verdict over the samples. A ray that hit nothing fails, naming its point; so does having no sample.</summary>
+    public static GroundVerdict Judge(IReadOnlyList<GroundSample> samples, float lowestPiece)
     {
         float? min = null, max = null;
-        var misses = 0;
-        var ok = true;
-        foreach (var hit in hits)
+        var misses = new List<string>();
+        var ok = samples.Count > 0;
+        foreach (var sample in samples)
         {
-            if (hit is not { } y)
+            if (sample.Y is not { } y)
             {
-                misses++;
+                misses.Add(sample.Where);
+                ok = false;
                 continue;
             }
 
@@ -93,21 +118,78 @@ internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, i
     {
         static string N(float? v) => v is { } y ? y.ToString("0.##", CultureInfo.InvariantCulture) : "none";
         var text = $"ground under the base: min {N(Min)} max {N(Max)}; lowest piece {N(Lowest)}";
-        return Misses > 0 ? text + $" ({Misses} points hit nothing)" : text;
+        return Misses.Count > 0 ? text + $"; no ground found at {string.Join(", ", Misses)}" : text;
     }
+}
+
+/// <summary>A step of the build that can end the whole build: its FAIL line is logged once and the build checks <see cref="Failed"/>.</summary>
+internal sealed class StepGate
+{
+    public bool Failed { get; private set; }
+
+    public void Fail(Action<string> line, string text)
+    {
+        Failed = true;
+        line("FAIL bigbase: " + text);
+    }
+}
+
+/// <summary>Due once for each full interval of a long wait, so the log shows it is alive.</summary>
+internal sealed class WaitProgress(double everySeconds = WaitProgress.DefaultEvery)
+{
+    public const double DefaultEvery = 60;
+    private int _logged;
+
+    public bool Due(double elapsedSeconds)
+    {
+        var intervals = (int)(elapsedSeconds / everySeconds);
+        if (intervals <= _logged)
+            return false;
+        _logged = intervals;
+        return true;
+    }
+}
+
+/// <summary>When the held body is put back at the stand spot, and when it counts as having stayed.</summary>
+internal static class BodyHold
+{
+    public const float RestandBeyond = 0.5f;
+    public const float StayedWithin = 1f;
+
+    public static bool NeedsRestand(float metresFromStand) => metresFromStand > RestandBeyond;
+
+    public static bool Stayed(float metresFromStand) => metresFromStand <= StayedWithin;
 }
 
 /// <summary>The run's <c>world.txt</c>: one <c>key value</c> line per fact.</summary>
 internal static class WorldFile
 {
-    public static string Text(IEnumerable<KeyValuePair<string, string>> facts)
+    /// <summary>The facts as lines; a fact with no value (<c>null</c>) is left out, never written as a placeholder.</summary>
+    public static string Text(IEnumerable<KeyValuePair<string, string?>> facts)
     {
         var text = new StringBuilder();
         foreach (var fact in facts)
-            text.Append(fact.Key).Append(' ').Append(fact.Value.Replace('\r', ' ').Replace('\n', ' ')).Append('\n');
+            if (fact.Value is not null)
+                text.Append(fact.Key).Append(' ').Append(fact.Value.Replace('\r', ' ').Replace('\n', ' ')).Append('\n');
         return text.ToString();
     }
 
     public static string Metres(float x, float y, float z) =>
         string.Join(" ", x.ToString("0.##", CultureInfo.InvariantCulture), y.ToString("0.##", CultureInfo.InvariantCulture), z.ToString("0.##", CultureInfo.InvariantCulture));
+}
+
+/// <summary>Whether the world's landing is over: no lander capsule descending or venting, and the body out of any capsule.</summary>
+internal readonly record struct Landing(int Descending, int Venting, bool BodyInCapsule)
+{
+    public bool Landed => Descending == 0 && Venting == 0 && !BodyInCapsule;
+
+    /// <summary>What is still pending, for the log and the FAIL line; empty when landed.</summary>
+    public string Pending => Landed
+        ? ""
+        : string.Join(", ", new[]
+        {
+            Descending > 0 ? $"{Descending} lander capsule(s) descending" : "",
+            Venting > 0 ? $"{Venting} lander capsule(s) venting" : "",
+            BodyInCapsule ? "the body is still in a capsule" : "",
+        }.Where(static p => p.Length > 0));
 }

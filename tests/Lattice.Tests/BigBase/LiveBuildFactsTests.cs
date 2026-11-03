@@ -51,10 +51,18 @@ public sealed class LiveBuildFactsTests
     public void The_save_name_is_the_station_plus_held_when_anything_is_held_back(int held, string expected) =>
         Assert.Equal(expected, BaseHeader.Read(Header).SaveName(held));
 
+    private static GroundSample[] Heights(params float?[] ys)
+    {
+        var samples = new GroundSample[ys.Length];
+        for (var i = 0; i < ys.Length; i++)
+            samples[i] = new GroundSample(i * 10f, 5f, ys[i]);
+        return samples;
+    }
+
     [Fact]
     public void Ground_below_the_lowest_piece_by_more_than_a_metre_passes()
     {
-        var verdict = GroundVerdict.Judge([10f, 12f, 11f, 9f, 10.5f], 20f);
+        var verdict = GroundVerdict.Judge(Heights(10f, 12f, 11f, 9f, 10.5f), 20f);
         Assert.True(verdict.Ok);
         Assert.Equal(9f, verdict.Min);
         Assert.Equal(12f, verdict.Max);
@@ -64,32 +72,96 @@ public sealed class LiveBuildFactsTests
     [Fact]
     public void Ground_exactly_a_metre_under_the_lowest_piece_passes_and_above_that_fails()
     {
-        Assert.True(GroundVerdict.Judge([19f], 20f).Ok);
-        Assert.False(GroundVerdict.Judge([19.01f], 20f).Ok);
-        Assert.False(GroundVerdict.Judge([5f, 5f, 25f, 5f, 5f], 20f).Ok);
+        Assert.True(GroundVerdict.Judge(Heights(19f), 20f).Ok);
+        Assert.False(GroundVerdict.Judge(Heights(19.01f), 20f).Ok);
+        Assert.False(GroundVerdict.Judge(Heights(5f, 5f, 25f, 5f, 5f), 20f).Ok);
     }
 
     [Fact]
-    public void A_point_that_hits_nothing_is_logged_and_not_failed()
+    public void A_ray_that_hits_nothing_fails_and_names_its_point()
     {
-        var verdict = GroundVerdict.Judge([null, 3f, null, 4f, 3.5f], 20f);
-        Assert.True(verdict.Ok);
-        Assert.Equal(2, verdict.Misses);
-        Assert.Contains("(2 points hit nothing)", verdict.Describe());
-        var none = GroundVerdict.Judge([null, null], 20f);
-        Assert.True(none.Ok);
-        Assert.Equal("ground under the base: min none max none; lowest piece 20 (2 points hit nothing)", none.Describe());
+        var verdict = GroundVerdict.Judge(Heights(null, 3f, 4f), 20f);
+        Assert.False(verdict.Ok);
+        Assert.Equal(["x 0 z 5"], verdict.Misses);
+        Assert.Equal("ground under the base: min 3 max 4; lowest piece 20; no ground found at x 0 z 5", verdict.Describe());
+        Assert.False(GroundVerdict.Judge(Heights(null, null), 20f).Ok);
     }
 
     [Fact]
-    public void The_world_file_is_one_key_value_line_per_fact()
+    public void No_sample_at_all_fails()
+    {
+        Assert.False(GroundVerdict.Judge([], 20f).Ok);
+    }
+
+    [Fact]
+    public void Only_points_within_the_loaded_radius_of_the_stand_spot_are_sampled()
+    {
+        var near = GroundVerdict.Within([(0f, 0f), (59f, 0f), (60f, 0f), (60.1f, 0f), (40f, 40f), (-100f, 0f)], 0f, 0f);
+        Assert.Equal([(0f, 0f), (59f, 0f), (60f, 0f), (40f, 40f)], near);
+        Assert.Equal([(1000f, 1000f)], GroundVerdict.Within([(1000f, 1000f), (0f, 0f)], 1010f, 990f));
+    }
+
+    [Fact]
+    public void A_failed_step_logs_one_FAIL_line_and_ends_the_build()
+    {
+        var gate = new StepGate();
+        var lines = new List<string>();
+        Assert.False(gate.Failed);
+        gate.Fail(lines.Add, "the main menu did not come up in 300 s");
+        Assert.True(gate.Failed);
+        Assert.Equal(["FAIL bigbase: the main menu did not come up in 300 s"], lines);
+    }
+
+    [Fact]
+    public void A_long_wait_logs_once_for_each_full_minute()
+    {
+        var progress = new WaitProgress();
+        var due = new List<int>();
+        for (var s = 0; s <= 650; s++)
+            if (progress.Due(s))
+                due.Add(s);
+        Assert.Equal([60, 120, 180, 240, 300, 360, 420, 480, 540, 600], due);
+        Assert.False(new WaitProgress().Due(59.9));
+        Assert.True(new WaitProgress().Due(200));
+    }
+
+    [Theory]
+    [InlineData(0f, false, true)]
+    [InlineData(0.5f, false, true)]
+    [InlineData(0.6f, true, true)]
+    [InlineData(1f, true, true)]
+    [InlineData(1.01f, true, false)]
+    [InlineData(30f, true, false)]
+    public void The_body_is_put_back_beyond_half_a_metre_and_counts_as_staying_within_a_metre(float away, bool restand, bool stayed)
+    {
+        Assert.Equal(restand, BodyHold.NeedsRestand(away));
+        Assert.Equal(stayed, BodyHold.Stayed(away));
+    }
+
+    [Fact]
+    public void The_world_file_is_one_key_value_line_per_fact_and_leaves_out_facts_with_no_value()
     {
         var text = WorldFile.Text(
         [
-            new KeyValuePair<string, string>("station", "lattice-gen-big-held"),
-            new KeyValuePair<string, string>("stand", WorldFile.Metres(61.5f, 30.1f, 62.5f)),
-            new KeyValuePair<string, string>("note", "two\nlines"),
+            new KeyValuePair<string, string?>("station", "lattice-gen-big-held"),
+            new KeyValuePair<string, string?>("world", null),
+            new KeyValuePair<string, string?>("stand", WorldFile.Metres(61.5f, 30.1f, 62.5f)),
+            new KeyValuePair<string, string?>("note", "two\nlines"),
         ]);
         Assert.Equal("station lattice-gen-big-held\nstand 61.5 30.1 62.5\nnote two lines\n", text);
+        Assert.DoesNotContain("unknown", text);
+    }
+
+    [Theory]
+    [InlineData(0, 0, false, true, "")]
+    [InlineData(1, 0, false, false, "1 lander capsule(s) descending")]
+    [InlineData(0, 2, false, false, "2 lander capsule(s) venting")]
+    [InlineData(0, 0, true, false, "the body is still in a capsule")]
+    [InlineData(1, 1, true, false, "1 lander capsule(s) descending, 1 lander capsule(s) venting, the body is still in a capsule")]
+    public void A_world_is_landed_only_when_nothing_descends_or_vents_and_the_body_is_out(int descending, int venting, bool inCapsule, bool landed, string pending)
+    {
+        var landing = new Landing(descending, venting, inCapsule);
+        Assert.Equal(landed, landing.Landed);
+        Assert.Equal(pending, landing.Pending);
     }
 }
