@@ -619,22 +619,86 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
 
     /// <summary>
     /// A new world's first save names its folder: everything queued is written, then the files move to
-    /// <paramref name="to"/> (refused when that folder already exists, so another world's files are never touched).
+    /// <paramref name="to"/>. A folder already there is renamed aside first (<c>_replaced-&lt;name&gt;-&lt;time&gt;</c>), never
+    /// merged into or deleted. On failure the plans stay in the current folder.
     /// </summary>
-    public Result<Unit, Reason> MoveTo(WorldFolder to)
+    public Result<Unit, Reason> MoveTo(WorldFolder to) => Relocate(to, copy: false);
+
+    /// <summary>
+    /// A loaded world saved under a new name: everything queued is written, then the folder is copied to
+    /// <paramref name="to"/> and the plans go on there; the folder copied from keeps its files. A folder already at
+    /// <paramref name="to"/> is renamed aside first, as in <see cref="MoveTo"/>. On failure the plans stay in the
+    /// current folder.
+    /// </summary>
+    public Result<Unit, Reason> CopyTo(WorldFolder to) => Relocate(to, copy: true);
+
+    private Result<Unit, Reason> Relocate(WorldFolder to, bool copy)
     {
         Flush();
-        if (System.IO.Directory.Exists(to.Root))
+        var from = _folder.Root;
+        var staging = "";
+        var aside = "";
+        try
+        {
+            var parent = System.IO.Path.GetDirectoryName(to.Root);
+            if (parent != null)
+                System.IO.Directory.CreateDirectory(parent);
+            var source = System.IO.Directory.Exists(from);
+            if (copy && source)
+            {
+                staging = to.Root + ".copying-" + Guid.NewGuid().ToString("N");
+                CopyTree(from, staging);
+            }
+
+            if (System.IO.Directory.Exists(to.Root))
+            {
+                aside = System.IO.Path.Combine(parent ?? "", "_replaced-" + System.IO.Path.GetFileName(to.Root) + "-" +
+                    DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture));
+                for (var n = 2; System.IO.Directory.Exists(aside); n++)
+                    aside = System.IO.Path.Combine(parent ?? "", "_replaced-" + System.IO.Path.GetFileName(to.Root) + "-" +
+                        DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + n);
+                System.IO.Directory.Move(to.Root, aside);
+            }
+
+            if (copy && source)
+                System.IO.Directory.Move(staging, to.Root);
+            else if (source)
+                System.IO.Directory.Move(from, to.Root);
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
+        {
+            TryUndo(staging, aside, to.Root);
             return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.InvalidValue, SavingReasons.Saving,
-                ValueMap<string, string>.Empty.With("folder", to.Root).With("problem", "exists")));
-        var parent = System.IO.Path.GetDirectoryName(to.Root);
-        if (parent != null)
-            System.IO.Directory.CreateDirectory(parent);
-        if (System.IO.Directory.Exists(_folder.Root))
-            System.IO.Directory.Move(_folder.Root, to.Root);
+                ValueMap<string, string>.Empty.With("folder", to.Root).With("problem", e.Message)));
+        }
+
         _folder = to;
         _folder.NewSession();
         return Result<Unit, Reason>.Ok(Unit.Value);
+    }
+
+    // Puts a folder renamed aside back and drops the half-made copy, so a failed relocation leaves both sides as found.
+    private static void TryUndo(string staging, string aside, string target)
+    {
+        try
+        {
+            if (staging.Length > 0 && System.IO.Directory.Exists(staging))
+                System.IO.Directory.Delete(staging, recursive: true);
+            if (aside.Length > 0 && System.IO.Directory.Exists(aside) && !System.IO.Directory.Exists(target))
+                System.IO.Directory.Move(aside, target);
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void CopyTree(string from, string to)
+    {
+        System.IO.Directory.CreateDirectory(to);
+        foreach (var file in System.IO.Directory.GetFiles(from))
+            System.IO.File.Copy(file, System.IO.Path.Combine(to, System.IO.Path.GetFileName(file)));
+        foreach (var directory in System.IO.Directory.GetDirectories(from))
+            CopyTree(directory, System.IO.Path.Combine(to, System.IO.Path.GetFileName(directory)));
     }
 
     private Option<SavePoint> Find(SaveKey save)

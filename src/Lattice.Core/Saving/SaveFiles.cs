@@ -49,6 +49,11 @@ internal static class SaveFiles
         return Path.Combine(dataRoot, LatticeFolderName, Path.GetFileName(full));
     }
 
+    /// <summary>Whether two folder paths are the same folder: full paths, ignoring case and a trailing separator.</summary>
+    public static bool SameFolder(string a, string b) =>
+        string.Equals(Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>A folder for a new world's plans until its first save names the world.</summary>
     public static string NewWorldFolder(string savesRoot, Guid id) =>
         Path.Combine(Path.GetDirectoryName(Path.GetFullPath(savesRoot)) ?? savesRoot, LatticeFolderName, "_new-" + id.ToString("N"));

@@ -64,13 +64,16 @@ internal sealed class GameSaving
     {
         CatchUp();
         var path = Path.GetFullPath(Path.Combine(folder, file));
-        if (_newWorld)
+        var target = SaveFiles.LatticeFolderFor(SaveFiles.WorldFolderOf(path));
+        if (!SaveFiles.SameFolder(target, Saving.Folder.Root))
         {
-            var named = new WorldFolder(SaveFiles.LatticeFolderFor(SaveFiles.WorldFolderOf(path)));
-            if (Saving.MoveTo(named).TryGetError(out var why))
-                _log($"Lattice saving: the new world's plans stay in {Saving.Folder.Root}: {why}");
-            _newWorld = false;
+            var named = new WorldFolder(target);
+            var moved = _newWorld ? Saving.MoveTo(named) : Saving.CopyTo(named);
+            if (moved.TryGetError(out var why))
+                _log($"Lattice saving: the plans stay in {Saving.Folder.Root}, not {target}: {why}");
         }
+
+        _newWorld = false;
 
         _capture = Saving.BeforeGameSave();
         _savingTo = path;
