@@ -135,12 +135,12 @@ internal sealed partial class BaseGenerator
     private bool Fits(Room room, PlacedShape shape, PieceFacts facts, Net? chute)
     {
         foreach (var spot in shape.Spots)
-            if (!Inside(room, spot.Cell) || _devices.Contains(spot.Cell) || _runs.ContainsKey(spot.Cell))
+            if (!Reaches(room, spot.Cell) || _devices.Contains(spot.Cell) || _runs.ContainsKey(spot.Cell))
                 return false;
         foreach (var end in shape.Ends)
         {
             var next = end.Cell.Plus(Scaled(end.Facing, Small));
-            if (_devices.Contains(next) || !Inside(room, next))
+            if (_devices.Contains(next) || !Reaches(room, next))
                 return false;
             if (NetFor(room, end, facts, shape, chute) is { } net && _runs.TryGetValue(next, out var run) &&
                 (run.Net != net || !net.Fits(run.Mask | Bit(end.Facing.Opposite()))))

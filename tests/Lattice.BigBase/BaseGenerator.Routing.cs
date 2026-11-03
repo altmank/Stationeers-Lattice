@@ -157,7 +157,7 @@ internal sealed partial class BaseGenerator
             return true;
         }
 
-        if (!Inside(room, start) || _devices.Contains(start))
+        if (!Reaches(room, start) || _devices.Contains(start))
             return false;
         var path = Search(room, net, start, outward, budget) ?? (budget < Detour ? Search(room, net, start, outward, Detour) : null);
         if (path is null)
@@ -205,7 +205,7 @@ internal sealed partial class BaseGenerator
                     if (next == state.Travel.Opposite() || !net.Fits(inBit | Bit(next)))
                         continue;
                     var cell = state.Cell.Plus(Scaled(next, Small));
-                    if (!Inside(room, cell))
+                    if (!Reaches(room, cell))
                         continue;
                     var nextKey = (cell, next);
                     var step = cost + 1 + (next != state.Travel ? TurnCost : 0) + (next is Direction.YPlus or Direction.YMinus ? ClimbCost : 0);

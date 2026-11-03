@@ -165,6 +165,8 @@ internal sealed partial class BaseGenerator
             _largeSpots.Add(spot);
         Emit(piece, new Placement(piece.Facts.Key, at, turn));
         _faces++;
+        if (piece.Facts.Family == PieceFamilies.Wall)
+            _wallFaces.Add(at);
         if (window)
             _windows++;
     }
@@ -194,6 +196,13 @@ internal sealed partial class BaseGenerator
         piece.Facts.AllowedTurns.Contains(turn) &&
         _shapes.Of(new Placement(piece.Facts.Key, at, turn)).TryGet(out var shape) &&
         shape.Spots.Count == 1 && boundary.Holds(shape.Spots[0]);
+
+    // Inside the room, or while a wall-mounted control is placed, on the doorway wall's plane in the first row above the
+    // floor: a run lies along the wall there as cables do on a real wall.
+    private bool Reaches(Room room, Cell cell) =>
+        Inside(room, cell) ||
+        (_wallPlane is { } plane && cell.Z == plane && cell.X > 20 * room.X0 && cell.X < 20 * (room.X0 + room.W) &&
+         cell.Y >= FloorTop(room.Y0) && cell.Y < FloorTop(room.Y0) + 20);
 
     // Inside the room's walls, from the floor to under the ceiling, never on a partition's plane but at its doorway.
     private static bool Inside(Room room, Cell cell)

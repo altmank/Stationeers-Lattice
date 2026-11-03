@@ -47,6 +47,8 @@ internal sealed partial class BaseGenerator
     private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
     private readonly HashSet<SpotKey> _largeSpots = new();
     private readonly HashSet<Cell> _devices = new();
+    private readonly HashSet<Cell> _wallFaces = new();
+    private int? _wallPlane;
     private readonly Dictionary<Cell, RunCell> _runs = new();
     private readonly Dictionary<RunKind, int> _runCounts = new();
     private readonly List<Net> _nets = new();

@@ -6,6 +6,10 @@ using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Grid;
 using Lattice.Core.Ports;
+using Lattice.Core.Catalogue;
+using Lattice.Core.Support;
+using Lattice.Core.Validation;
+using Lattice.TestKit.Scenarios;
 using Lattice.TestKit;
 using Lattice.BigBase;
 using Lattice.TestKit.Catalogue;
@@ -257,6 +261,63 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
         }
     }
 
+    // A mix without vents or controls leaves both out and still makes the base.
+    [BigBaseFact]
+    public void A_mix_without_vents_and_controls_makes_a_base_with_none_placed()
+    {
+        var (catalogue, full, _) = Load();
+        var mix = new BaseMix(
+            ValueMap.From(full.Groups.Where(g => g.Key is not (MountedKinds.Vent or MountedKinds.Control)).ToDictionary(g => g.Key, g => g.Value / 10)),
+            full.Pieces,
+            full.Kits,
+            full.OnPipe);
+
+        var made = new BaseGenerator(catalogue, mix, 7).Generate();
+
+        Assert.True(made.TryGet(out var generated), "no base without vents and controls: " + made.Match(static _ => "", static why => why));
+        Assert.Equal(0, generated.Counts.GetValueOrDefault(MountedKinds.Vent));
+        Assert.Equal(0, generated.Counts.GetValueOrDefault(MountedKinds.Control));
+        Assert.DoesNotContain(generated.Pieces, p => MountedKinds.IsVent(Facts(catalogue, p.Prefab)) || MountedKinds.IsControl(Facts(catalogue, p.Prefab)));
+        Assert.True(generated.Pieces.Count > 3000, $"only {generated.Pieces.Count} pieces");
+    }
+
+    // The game refuses a face-mounted piece that lies on no supporting face (CanMountOnWall); Lattice's own wall-mount
+    // rule is run over every small face-mounted piece in the file, against the other pieces standing.
+    [BigBaseFact]
+    public void Every_face_mounted_piece_passes_the_wall_mount_support_rule()
+    {
+        var (catalogue, _, list) = Load();
+        var scenario = Scenario.With(catalogue);
+        foreach (var piece in list.Pieces)
+            scenario.Built(piece.Prefab, piece.At, piece.Turn.Index);
+        var built = scenario.Build();
+        var grid = new CubeGrid();
+        var geometry = new SupportGeometry(grid, new FamilySupportFacts(catalogue), catalogue);
+        var rule = new WallMountRule(geometry);
+        var facts = new SpotFacts(new DirectFacts(built.World, GameChecks.None), built.World.All, new Shapes(catalogue, grid));
+        var world = new SupportWorld(new AssumedIndex(), AssumedIndex.Every, false, facts, catalogue, new ReadLog());
+
+        var checkedPieces = 0;
+        var problems = new List<string>();
+        foreach (var piece in list.Pieces)
+        {
+            var pieceFacts = Facts(catalogue, piece.Prefab);
+            if (pieceFacts.Grid != GridSize.Small || pieceFacts.Turning.Placement != PlacedBy.FaceMount)
+                continue;
+            checkedPieces++;
+            var at = new Placement(pieceFacts.Key, piece.At, piece.Turn);
+            var judged = rule.Judge(new SupportCase(new GhostId(1), at, pieceFacts, world));
+            if (judged is not Judgement.Supported)
+                problems.Add($"{piece.Prefab} at {piece.At} turn {piece.Turn.Index}: {(judged is Judgement.Unsupported u ? u.Why.Facts.GetValueOrDefault("game") ?? "" : judged.GetType().Name)}");
+        }
+
+        output.WriteLine($"{checkedPieces} face-mounted small pieces, {problems.Count} not supported");
+        foreach (var problem in problems.Take(30))
+            output.WriteLine(problem);
+        Assert.True(checkedPieces > 0, "no face-mounted small piece in the file");
+        Assert.True(problems.Count == 0, $"{problems.Count} of {checkedPieces} face-mounted pieces fail:\n" + string.Join("\n", problems.Take(20)));
+    }
+
     [BigBaseFact]
     public void The_file_names_the_save_the_live_build_makes()
     {
@@ -306,6 +367,70 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
         Assert.Equal<Weighted>([new Weighted("K", 1)], BaseMix.Of(mix.Kits, PieceFamilies.Pipe));
         Assert.Equal<Weighted>([new Weighted("R", 30)], mix.OnPipe);
         Assert.True(BaseMix.Read(new StringReader("group frame many\n"), "bad").IsError);
+    }
+
+    // The world as the game's grid reports it: a structure listed in every cell whose spot it takes, so a wall is found
+    // from the large cells on both sides of it. The test kit's world lists a structure at its own position only.
+    private sealed class SpotFacts : IJudgeFacts
+    {
+        private readonly IJudgeFacts _inner;
+        private readonly Dictionary<Cell, List<StructureInfo>> _byCell = [];
+
+        public SpotFacts(IJudgeFacts inner, IEnumerable<StructureInfo> structures, Shapes shapes)
+        {
+            _inner = inner;
+            foreach (var info in structures)
+            {
+                var cells = new HashSet<Cell> { info.Ref.At };
+                if (shapes.Of(new Placement(info.Ref.Piece, info.Ref.At, info.Turn)).TryGet(out var shape))
+                    foreach (var spot in shape.Spots)
+                        cells.Add(spot.Cell);
+                foreach (var cell in cells)
+                {
+                    if (!_byCell.TryGetValue(cell, out var here))
+                        _byCell[cell] = here = [];
+                    here.Add(info);
+                }
+            }
+        }
+
+        public Option<StructureInfo> Structure(ReferenceId id) => _inner.Structure(id);
+
+        public ValueList<StructureInfo> At(Cell cell) =>
+            _byCell.TryGetValue(cell, out var here) ? ValueList.From(here) : ValueList<StructureInfo>.Empty;
+
+        public Option<Option<NetworkRef>> NetworkOf(ReferenceId id) => _inner.NetworkOf(id);
+
+        public Option<Option<RoomRef>> RoomAt(Cell cell) => _inner.RoomAt(cell);
+
+        public Option<GameAnswer> Game(Placement placement) => _inner.Game(placement);
+
+        public Option<Guarded<SupportVerdict>> MainSupport(SupportRules rules, SupportRules.Entry entry, GhostId ghost, SupportInput input) =>
+            _inner.MainSupport(rules, entry, ghost, input);
+
+        public Option<Guarded<RuleVerdict>> MainRule(ValidationRules rules, ValidationRules.Entry entry, RuleInput input) =>
+            _inner.MainRule(rules, entry, input);
+
+        public int EpochOf(GhostId ghost) => _inner.EpochOf(ghost);
+    }
+
+    // The catalogue file holds no support facts (the game's SmallGrid.AllowMounting and BlockGrid), so the rule would leave
+    // every piece to the game. Stand-ins by family: frames allow mounting and block their cell, walls allow mounting,
+    // windows offer nothing, and a small face-mounted piece blocks no cell and offers no mounting.
+    private sealed class FamilySupportFacts(FakeCatalogue catalogue) : ISupportFacts
+    {
+        public Option<SupportFacts> Of(PrefabKey piece)
+        {
+            if (!catalogue.Piece(piece).TryGet(out var facts))
+                return Option<SupportFacts>.None;
+            if (facts.Family == PieceFamilies.Frame)
+                return Option.Some(new SupportFacts(true, true, false, ValueSet<HostRole>.Empty));
+            if (facts.Family == PieceFamilies.Wall)
+                return Option.Some(new SupportFacts(true, false, false, ValueSet<HostRole>.Empty));
+            return facts.Family == PieceFamilies.Window || (facts.Grid == GridSize.Small && facts.Turning.Placement == PlacedBy.FaceMount)
+                ? Option.Some(SupportFacts.Nothing)
+                : Option<SupportFacts>.None;
+        }
     }
 
     private static PieceFacts Facts(FakeCatalogue catalogue, string prefab) => TestKitIds.Must(catalogue.Piece(PrefabHash.Piece(prefab)));

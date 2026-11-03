@@ -7,6 +7,7 @@ using Lattice.Core.Board;
 using Lattice.Core.Catalogue;
 using Lattice.Core.Grid;
 using Lattice.Core.Ports;
+using Lattice.Core.Support;
 
 namespace Lattice.BigBase;
 
@@ -39,8 +40,8 @@ internal static class MountedKinds
     }
 }
 
-// Vents and controls: a vent at the end of a room's pipe branch with its gas end toward the bus, a control on the
-// room's inside wall beside the doorway with its control face into the room and its power end wired to the cable branch.
+// Vents and controls: a vent on the floor plane at the end of a room's pipe branch, its back to the floor frame and its gas end toward the bus; a control on the
+// doorway wall's plane beside the doorway, its back to the wall piece and its power end wired along the wall to the cable branch.
 // They are dealt over the rooms in build order, so every stretch of the file holds some.
 internal sealed partial class BaseGenerator
 {
@@ -82,7 +83,11 @@ internal sealed partial class BaseGenerator
             if (room.Corridor.Pipe is not null && ventsOwed > 0)
                 ventsOwed -= Devices(room, vents, ventsOwed, reach, null, piece => VentSpot(room, piece), MountedKinds.Vent);
             if (room.Corridor.Cable is not null && controlsOwed > 0)
+            {
+                _wallPlane = room.Facing > 0 ? 20 * room.Corridor.Zc : 20 * (room.Corridor.Zc + 2);
                 controlsOwed -= Devices(room, controls, controlsOwed, reach, null, piece => ControlSpot(room, piece), MountedKinds.Control);
+                _wallPlane = null;
+            }
         }
     }
 
@@ -90,32 +95,36 @@ internal sealed partial class BaseGenerator
 
     private static int Spread(int total, int rank, int of) => (int)((long)total * (rank + 1) / of - (long)total * rank / of);
 
-    // In line past the branch's last cell, or beside one of its cells, the gas end toward the branch.
+    // On the floor plane over a floor frame, one cell past the branch's last cell or beside one of its cells, on the room's
+    // centre line: the back of the piece to the frame, its gas end toward the branch. A cell on a second plane (an edge)
+    // or with no frame under it gives no turn.
     private (Cell At, List<Turn> Turns) VentSpot(Room room, NamedPiece piece)
     {
         var step = room.Facing > 0 ? Small : -Small;
-        var x = 20 * room.DoorX + (room.Facing > 0 ? 5 : 15);
+        var lane = 20 * room.DoorX + (room.Facing > 0 ? 5 : 15);
         var y = FloorTop(room.Y0);
-        var deep = BusEnd(room, x, y);
+        var deep = BusEnd(room, lane, y);
         Cell at;
         Direction toward;
         if (_random.Next(2) == 0)
         {
-            at = new Cell(x, y, deep - step);
+            at = new Cell(lane, y, deep - step);
             toward = room.Facing > 0 ? Direction.ZPlus : Direction.ZMinus;
         }
         else
         {
-            var side = _random.Next(2) == 0 ? Small : -Small;
-            at = new Cell(x + side, y, deep + _random.Next(0, Bus) * step);
+            var side = room.Facing > 0 ? Small : -Small;
+            at = new Cell(lane + side, y, deep + _random.Next(0, Bus) * step);
             toward = side > 0 ? Direction.XMinus : Direction.XPlus;
         }
 
         var turns = new List<Turn>(4);
+        if (SupportGeometry.FacePlanes(at) != 1 || !_largeSpots.Contains(new SpotKey(new Cell(Centre(at.X / 20), Centre(room.Y0), Centre(at.Z / 20)), Slot.Centre)))
+            return (at, turns);
         for (var i = 0; i < Turn.Count; i++)
         {
             var turn = TurnAt(i);
-            if (!piece.Facts.AllowedTurns.Contains(turn))
+            if (!piece.Facts.AllowedTurns.Contains(turn) || _grid.Apply(turn, Direction.ZPlus) != Direction.YPlus)
                 continue;
             foreach (var end in piece.Facts.Ends)
                 if (Has<NetworkType.GasPipe>(end.Kinds))
@@ -129,22 +138,31 @@ internal sealed partial class BaseGenerator
         return (at, turns);
     }
 
-    // On the wall the doorway is in, a few cells to either side of the doorway, at hand height.
+    // On the plane of the wall the doorway is in, one to three small cells clear of the doorway's column, at hand height,
+    // against a wall piece that allows mounting: the back of the piece to the wall, its front into the room. Its ends lie
+    // along the wall, so its power end is wired along the wall plane to the branch where it passes through the doorway.
     private (Cell At, List<Turn> Turns) ControlSpot(Room room, NamedPiece piece)
     {
-        var reach = Small * (1 + _random.Next(4));
-        var x = _random.Next(2) == 0 ? 20 * room.DoorX - reach : 20 * (room.DoorX + 1) + reach;
-        var z = room.Facing > 0 ? 20 * room.Corridor.Zc - Small : 20 * (room.Corridor.Zc + 2) + Small;
-        var at = new Cell(x, FloorTop(room.Y0) + Small * _random.Next(2, 4), z);
-        var inward = room.Facing > 0 ? Direction.ZMinus : Direction.ZPlus;
+        var reach = Small * (1 + _random.Next(3));
+        var west = 20 * room.DoorX - reach;
+        var east = 20 * (room.DoorX + 1) + reach;
+        var x = _random.Next(2) == 0 ? west : east;
+        if (x == west ? room.DoorX == room.X0 : room.DoorX == room.X0 + room.W - 1)
+            x = x == west ? east : west;
+        var plane = _wallPlane ?? 0;
+        var y = FloorTop(room.Y0) + Small * _random.Next(2, 4);
+        var at = new Cell(x, y, plane);
         var turns = new List<Turn>(4);
-        if (piece.Facts.ControlFace.TryGet(out var face))
-            for (var i = 0; i < Turn.Count; i++)
-            {
-                var turn = TurnAt(i);
-                if (piece.Facts.AllowedTurns.Contains(turn) && _grid.Apply(turn, face) == inward)
-                    turns.Add(turn);
-            }
+        var wall = new Cell(Centre(x / 20), Centre(room.Y0 + 1), plane);
+        if (SupportGeometry.FacePlanes(at) != 1 || x <= 20 * room.X0 || x >= 20 * (room.X0 + room.W) || !_wallFaces.Contains(wall))
+            return (at, turns);
+        var inward = room.Facing > 0 ? Direction.ZMinus : Direction.ZPlus;
+        for (var i = 0; i < Turn.Count; i++)
+        {
+            var turn = TurnAt(i);
+            if (piece.Facts.AllowedTurns.Contains(turn) && _grid.Apply(turn, Direction.ZPlus) == inward)
+                turns.Add(turn);
+        }
 
         return (at, turns);
     }
