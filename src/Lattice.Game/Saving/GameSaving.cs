@@ -66,7 +66,8 @@ internal sealed class GameSaving
         var path = Path.GetFullPath(Path.Combine(folder, file));
         if (Saving.FollowSave(path, _newWorld).TryGetError(out var why))
             _log($"Lattice saving: the plans stay in {Saving.Folder.Root}: {why}");
-        _newWorld = false;
+        else
+            _newWorld = false;
 
         _capture = Saving.BeforeGameSave();
         _savingTo = path;
