@@ -110,6 +110,8 @@ internal sealed class WorldWatcher : MonoBehaviour
 
     private void Open()
     {
+        // Taken before any early return: a load that never opens its plans must not reach the next world.
+        var loadedSave = SaveHooks.TakeLoaded();
         var seat = NetworkManager.IsClient ? WorldSeat.Client : WorldSeat.Host;
         var modules = ModuleSwitches.Decide(LatticeModules.All, _members, seat, drawing: !GameManager.IsBatchMode);
         if (modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
@@ -145,7 +147,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         GameSaving? saving = null;
         if (seat == WorldSeat.Host && modules.IsOn(LatticeModules.Saving))
         {
-            saving = GameSaving.Open(SaveHooks.TakeLoaded(), StationSaveUtils.GetSavePathSavesSubDir().FullName, _log);
+            saving = GameSaving.Open(loadedSave, StationSaveUtils.GetSavePathSavesSubDir().FullName, _log);
             SaveHooks.Current = saving;
             ports = ports with { Saving = Option.Some(new OpenedSaving(saving.Saving, saving.Opened)) };
         }
@@ -208,6 +210,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         {
             GameSync.Current = null;
             SaveHooks.Current = null;
+            SaveHooks.ForgetLoaded();
             var bridge = _bridge;
             _bridge = null;
             bridge?.End();

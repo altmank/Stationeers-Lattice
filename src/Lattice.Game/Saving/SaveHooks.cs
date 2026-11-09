@@ -55,6 +55,9 @@ internal static class SaveHooks
         return loaded == null ? Option<string>.None : Option.Some(loaded);
     }
 
+    /// <summary>Drops the loaded save: the world it was for has ended, so it must not reach the next one.</summary>
+    public static void ForgetLoaded() => LoadedFrom = null;
+
     /// <summary>Checks every member and patches; refused, with nothing patched, when a member is missing or a patch fails.</summary>
     public static Result<Unit, Reason> Install()
     {
