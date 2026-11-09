@@ -45,6 +45,11 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
 [url=https://ko-fi.com/xceled]ko-fi.com/xceled[/url]
   </Description>
   <ChangeLog>
+v0.22.17
+- Fixed: a game save that failed still recorded the plans against the old save file.
+- Fixed: after a load that failed, the next new world could open that save's plans.
+- Fixed: a new world whose plans couldn't move at its first save tries again at the next save.
+
 v0.22.16
 - Fixed: a loaded world saved under a new name kept its plans under the old name, so they were missing when the new save loaded.
 

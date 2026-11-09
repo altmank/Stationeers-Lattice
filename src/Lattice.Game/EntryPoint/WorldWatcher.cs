@@ -210,7 +210,6 @@ internal sealed class WorldWatcher : MonoBehaviour
         {
             GameSync.Current = null;
             SaveHooks.Current = null;
-            SaveHooks.ForgetLoaded();
             var bridge = _bridge;
             _bridge = null;
             bridge?.End();

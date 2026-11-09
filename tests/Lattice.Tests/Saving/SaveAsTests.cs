@@ -203,6 +203,27 @@ public sealed class SaveAsTests : IDisposable
     }
 
     [Fact]
+    public void A_new_world_whose_first_move_failed_moves_at_the_next_save_and_leaves_no_new_world_folder()
+    {
+        var fresh = new PlanSaving(new WorldFolder(SaveFiles.NewWorldFolder(Path.Combine(_data, "saves"), Guid.NewGuid())));
+        var opened = fresh.Open(Option<SaveKey>.None);
+        var session = new Session { Saving = fresh, Board = new TestBoard(Option.Some(opened.Seed)) };
+        session.Place(0);
+        var newFolder = fresh.Folder.Root;
+        Directory.CreateDirectory(newFolder);
+        var locked = Path.Combine(newFolder, "locked.txt");
+        File.WriteAllText(locked, "x");
+
+        using (new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert.True(SaveStarting(session, SavePath("B"), newWorld: true).IsError);
+
+        Assert.True(SaveStarting(session, SavePath("B"), newWorld: true).IsOk);
+        Assert.Equal(Lattice("B"), session.Saving.Folder.Root);
+        Assert.False(Directory.Exists(newFolder));
+        Assert.Empty(Directory.GetDirectories(Path.Combine(_data, "lattice"), "_new-*"));
+    }
+
+    [Fact]
     public void A_staging_folder_left_by_a_cut_short_copy_is_removed_when_plans_open()
     {
         var half = Lattice("B") + ".copying-" + Guid.NewGuid().ToString("N");

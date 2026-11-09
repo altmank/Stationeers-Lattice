@@ -8,6 +8,7 @@ using Lattice.Core.Modules;
 using Lattice.Core.Saving;
 using Lattice.Core.World;
 using Lattice.Game.World;
+using Assets.Scripts.Serialization;
 
 namespace Lattice.Game.Saving;
 
@@ -47,16 +48,22 @@ internal static class SaveHooks
     /// <summary>The save file the game is loading or last loaded; taken by <see cref="TakeLoaded"/>.</summary>
     public static string? LoadedFrom { get; private set; }
 
-    /// <summary>The save the game loaded, once: none for a new world.</summary>
+    /// <summary>The station name the load was called with.</summary>
+    public static string? LoadedName { get; private set; }
+
+    /// <summary>
+    /// The save the game loaded, once: none for a new world, and none when the load failed (the game then holds no
+    /// current save and no station name; see <see cref="LoadedSave"/>).
+    /// </summary>
     public static Option<string> TakeLoaded()
     {
-        var loaded = LoadedFrom;
+        var path = LoadedFrom;
+        var name = LoadedName;
         LoadedFrom = null;
-        return loaded == null ? Option<string>.None : Option.Some(loaded);
+        LoadedName = null;
+        var game = XmlSaveLoad.Instance;
+        return LoadedSave.Accept(path, name, game != null && game.CurrentWorldSave != null, game?.CurrentStationName);
     }
-
-    /// <summary>Drops the loaded save: the world it was for has ended, so it must not reach the next one.</summary>
-    public static void ForgetLoaded() => LoadedFrom = null;
 
     /// <summary>Checks every member and patches; refused, with nothing patched, when a member is missing or a patch fails.</summary>
     public static Result<Unit, Reason> Install()
@@ -101,8 +108,12 @@ internal static class SaveHooks
     private static HarmonyMethod Hook(string name) =>
         new(typeof(SaveHooks).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static));
 
-    private static void BeforeLoadGame(string path) =>
-        PatchGuard.Run(nameof(BeforeLoadGame), path, static p => LoadedFrom = p, OnFault);
+    private static void BeforeLoadGame(string path, string stationName) =>
+        PatchGuard.Run(nameof(BeforeLoadGame), (path, stationName), static n =>
+        {
+            LoadedFrom = n.path;
+            LoadedName = n.stationName;
+        }, OnFault);
 
     private static void BeforeSave(DirectoryInfo saveDirectory, string saveFileName)
     {

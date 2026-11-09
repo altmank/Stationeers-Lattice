@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.22.17
+
+Fixed:
+- a game save that failed still recorded the plans against the old save file.
+- after a load that failed, the next new world could open that save's plans.
+- a new world whose plans couldn't move at its first save tries again at the next save.
+
 ## 0.22.16
 
 Fixed: a loaded world saved under a new name kept its plans under the old name, so they were missing when the new save loaded.

@@ -100,6 +100,72 @@ public sealed class SaveFilesTests : IDisposable
         Assert.True(world.Saving.MoveTo(new WorldFolder(taken)).IsError);
     }
 
+    [Fact]
+    public void A_save_the_game_did_not_touch_between_start_and_finish_is_not_written()
+    {
+        var path = Save("head.save", "meta-1");
+        var before = SaveFiles.Fingerprint(path).TryGet(out var was) ? Option.Some(was) : Option<string>.None;
+
+        Assert.False(SaveFiles.WasWritten(before, SaveFiles.Fingerprint(path)));
+    }
+
+    [Fact]
+    public void A_save_the_game_rewrote_between_start_and_finish_is_written()
+    {
+        var path = Save("head.save", "meta-1");
+        var before = SaveFiles.Fingerprint(path).TryGet(out var was) ? Option.Some(was) : Option<string>.None;
+        File.Delete(path);
+        Save("head.save", "meta-2");
+
+        Assert.True(SaveFiles.WasWritten(before, SaveFiles.Fingerprint(path)));
+    }
+
+    [Fact]
+    public void A_load_that_succeeded_gives_its_path()
+    {
+        var accepted = LoadedSave.Accept("A.save", "A", gameHasCurrentSave: true, gameStationName: "A");
+
+        Assert.True(accepted.TryGet(out var path));
+        Assert.Equal("A.save", path);
+    }
+
+    [Fact]
+    public void A_load_that_failed_then_a_new_game_gives_none()
+    {
+        Assert.False(LoadedSave.Accept("A.save", "A", gameHasCurrentSave: false, gameStationName: null).TryGet(out _));
+    }
+
+    [Fact]
+    public void A_load_that_failed_then_a_new_game_with_a_stale_current_save_and_another_name_gives_none()
+    {
+        Assert.False(LoadedSave.Accept("A.save", "A", gameHasCurrentSave: true, gameStationName: null).TryGet(out _));
+        Assert.False(LoadedSave.Accept("A.save", "A", gameHasCurrentSave: true, gameStationName: "Other").TryGet(out _));
+    }
+
+    [Fact]
+    public void A_load_that_failed_then_another_that_succeeded_gives_the_second_path()
+    {
+        var accepted = LoadedSave.Accept("B.save", "B", gameHasCurrentSave: true, gameStationName: "B");
+
+        Assert.True(accepted.TryGet(out var path));
+        Assert.Equal("B.save", path);
+    }
+
+    [Fact]
+    public void A_load_started_inside_a_running_world_gives_the_second_save_s_path()
+    {
+        var accepted = LoadedSave.Accept("B.save", "B", gameHasCurrentSave: true, gameStationName: "B");
+
+        Assert.True(accepted.TryGet(out var path));
+        Assert.Equal("B.save", path);
+    }
+
+    [Fact]
+    public void No_path_noted_gives_none()
+    {
+        Assert.False(LoadedSave.Accept(null, null, gameHasCurrentSave: true, gameStationName: "A").TryGet(out _));
+    }
+
     private static GhostId[] Ids(BoardSeed seed)
     {
         var ids = new GhostId[seed.Ghosts.Count];
