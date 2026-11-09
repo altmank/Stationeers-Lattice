@@ -81,6 +81,13 @@ internal static class SaveFiles
         }
     }
 
+    /// <summary>
+    /// Whether the game wrote the save: it has a fingerprint now, and not the one that was at its path
+    /// (<paramref name="before"/>) when the save started. A save that failed before writing leaves the old file as it was.
+    /// </summary>
+    public static bool WasWritten(Option<string> before, Result<string, Reason> after) =>
+        after.TryGet(out var now) && !(before.TryGet(out var was) && string.Equals(was, now, StringComparison.Ordinal));
+
     private static bool Rolling(string folder, string rolling) => string.Equals(folder, rolling, StringComparison.OrdinalIgnoreCase);
 
     private static Reason Problem(string file, string problem) =>

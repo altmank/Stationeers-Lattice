@@ -49,6 +49,20 @@ public sealed class SaveFilesTests : IDisposable
     }
 
     [Fact]
+    public void A_save_was_written_only_when_its_fingerprint_is_new()
+    {
+        var old = Result<string, Reason>.Ok("aaaa");
+        var fresh = Result<string, Reason>.Ok("bbbb");
+        var none = SaveFiles.Fingerprint(Path.Combine(_root, "missing.save"));
+
+        Assert.True(SaveFiles.WasWritten(Option<string>.None, fresh));
+        Assert.True(SaveFiles.WasWritten(Option.Some("aaaa"), fresh));
+        Assert.False(SaveFiles.WasWritten(Option.Some("aaaa"), old));
+        Assert.False(SaveFiles.WasWritten(Option.Some("aaaa"), none));
+        Assert.False(SaveFiles.WasWritten(Option<string>.None, none));
+    }
+
+    [Fact]
     public void A_file_that_is_no_save_has_no_fingerprint()
     {
         Directory.CreateDirectory(_root);

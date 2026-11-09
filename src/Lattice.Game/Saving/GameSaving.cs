@@ -18,6 +18,7 @@ internal sealed class GameSaving
     private bool _newWorld;
     private SaveCapture? _capture;
     private string? _savingTo;
+    private Option<string> _before = Option<string>.None;
 
     private GameSaving(PlanSaving saving, OpenedPlans opened, bool newWorld, Action<string> log)
     {
@@ -71,6 +72,7 @@ internal sealed class GameSaving
 
         _capture = Saving.BeforeGameSave();
         _savingTo = path;
+        _before = SaveFiles.Fingerprint(path).Match(static was => Option.Some(was), static _ => Option<string>.None);
     }
 
     /// <summary>The game finished a save: the record of the save just written, keyed by its path and fingerprint.</summary>
@@ -80,11 +82,16 @@ internal sealed class GameSaving
         var path = _savingTo;
         _capture = null;
         _savingTo = null;
+        var before = _before;
+        _before = Option<string>.None;
         if (capture == null || path == null || !File.Exists(path))
             return;
-        if (SaveFiles.Fingerprint(path).TryGet(out var fingerprint))
-            Saving.AfterGameSave(capture, new SaveKey(path, fingerprint), DateTimeOffset.Now);
-        else
+        var after = SaveFiles.Fingerprint(path);
+        if (!after.TryGet(out var fingerprint))
             _log($"Lattice saving: no record for {path}: it has no fingerprint.");
+        else if (!SaveFiles.WasWritten(before, after))
+            _log($"Lattice saving: no record for {path}: the game did not write it.");
+        else
+            Saving.AfterGameSave(capture, new SaveKey(path, fingerprint), DateTimeOffset.Now);
     }
 }
