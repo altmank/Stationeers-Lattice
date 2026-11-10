@@ -1,11 +1,11 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Lattice.Api;
 using Lattice.Core.Saving;
 using Lattice.Core.Slices;
 using Lattice.Core.Written;
+using Lattice.Tests.Validation;
 using Xunit.Abstractions;
 
 namespace Lattice.Tests.Saving;
@@ -127,33 +127,42 @@ public sealed class LongLineTests(ITestOutputHelper output)
         Assert.Equal(2, world.Saving.Heads[plan]);
     }
 
-    // Worst of five standalone runs under the perf lock: 1.079, 0.930, 0.903, 0.826, 0.688 ms; plus 30%, rounded up: 1.5 ms.
+    // Worst of eleven runs of the shared Perf set under the perf lock (five runs first gave a worst of 0.897 and the pin then failed at 1.277):
+    // 0.710, 0.759, 0.897, 0.720, 0.795, 0.631, 1.029, 1.277, 1.079, 0.808, 0.799 ms; plus 30%, rounded up: 1.7 ms.
+    private const double StepCpuPinMs = 1.7;
+
     [Fact]
     [Trait("Category", "Perf")]
-    public void The_longest_step_over_a_big_plan_is_at_most_one_and_a_half_milliseconds()
+    public void A_saving_step_over_a_big_plan_costs_bounded_thread_cpu_and_collector_pause()
     {
+        var cpu = ThreadCpu.Calibrate();
+        Assert.True(cpu.Measures, "the thread's CPU time is not measured here, so the steps cannot be judged on it");
         var worst = 0.0;
         for (var run = 0; run < 2; run++)
         {
             using var world = new SavedWorld();
             PlaceMany(world);
+            Perf.Collect();
             worst = 0;
             var n = 0;
             StepOutcome outcome;
             do
             {
-                var clock = Stopwatch.StartNew();
+                var pause = GC.GetTotalPauseDuration();
+                var start = cpu.Now();
                 outcome = world.Saving.Step();
-                var took = clock.Elapsed.TotalMilliseconds;
-                if (took > 0.5) output.WriteLine($"run {run} step {n} {took:F3} ms");
+                var spent = cpu.Between(start, cpu.Now()).TotalMilliseconds;
+                var paused = (GC.GetTotalPauseDuration() - pause).TotalMilliseconds;
+                var took = spent + paused;
+                if (took > 0.5) output.WriteLine($"run {run} step {n} {took:F3} ms ({spent:F3} CPU, {paused:F3} paused)");
                 n++;
                 worst = Math.Max(worst, took);
             }
             while (outcome == StepOutcome.More);
         }
 
-        output.WriteLine($"{Ghosts} ghosts: longest saving step {worst:F3} ms");
-        Assert.True(worst <= 1.5, $"{worst:F3} ms");
+        output.WriteLine($"{Ghosts} ghosts: longest saving step {worst:F3} ms of thread CPU plus collector pause");
+        Assert.True(worst <= StepCpuPinMs, $"{worst:F3} ms");
     }
 
     // Steps until the file holds the given number of parts past its header.
