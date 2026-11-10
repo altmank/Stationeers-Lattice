@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.19
+
+Fixed: the first big plan placed or loaded in a session no longer causes a stutter.
+
 ## 0.22.18
 
 Fixed: a mod with a type that does not load no longer stops Lattice from starting.

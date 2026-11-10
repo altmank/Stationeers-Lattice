@@ -63,6 +63,7 @@ internal sealed class RenderHost : MonoBehaviour
             return Result<RenderHost, Reason>.Error(refused);
         }
 
+        RenderWarmUp.Schedule(world);
         var host = holder.AddComponent<RenderHost>();
         host._renderer = renderer;
         host._styles = styles;

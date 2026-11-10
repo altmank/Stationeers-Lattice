@@ -379,6 +379,90 @@ public sealed class FrameSchedulerTests
         Assert.Equal(JobState.Running, consumer.State);
     }
 
+    private StepOutcome Step(StepOutcome outcome)
+    {
+        _clock.Advance(Micro);
+        return outcome;
+    }
+
+    [Fact]
+    public void A_job_that_only_asks_for_the_next_frame_leaves_the_scheduler_idle_after_its_first_step()
+    {
+        var scheduler = Scheduler();
+        scheduler.Schedule(WorkKind.Drawing, new SteppedJob(() => Step(StepOutcome.NextFrame)), Priority.Normal);
+
+        Assert.False(scheduler.Idle);
+        scheduler.RunFrame();
+        Assert.True(scheduler.Idle);
+        scheduler.RunFrame();
+        Assert.True(scheduler.Idle);
+    }
+
+    [Fact]
+    public void A_job_that_returns_more_keeps_the_scheduler_busy()
+    {
+        var scheduler = Scheduler();
+        scheduler.Schedule(WorkKind.Drawing, new SteppedJob(() => Step(StepOutcome.More)), Priority.Normal);
+
+        scheduler.RunFrame();
+
+        Assert.False(scheduler.Idle);
+    }
+
+    [Fact]
+    public void A_background_job_that_turns_busy_makes_the_scheduler_busy_until_it_is_back_to_the_next_frame()
+    {
+        var scheduler = Scheduler();
+        var busySteps = 0;
+        scheduler.Schedule(WorkKind.Drawing, new SteppedJob(() =>
+        {
+            if (busySteps > 0 && busySteps-- > 0)
+            {
+                _clock.Advance(TimeSpan.FromMilliseconds(2));
+                return StepOutcome.More;
+            }
+
+            return Step(StepOutcome.NextFrame);
+        }), Priority.Normal);
+        scheduler.RunFrame();
+        Assert.True(scheduler.Idle);
+
+        busySteps = 1;
+        scheduler.RunFrame();
+        Assert.False(scheduler.Idle);
+
+        scheduler.RunFrame();
+        Assert.True(scheduler.Idle);
+    }
+
+    [Fact]
+    public void A_job_added_before_its_first_frame_is_not_idle()
+    {
+        var scheduler = Scheduler();
+        scheduler.Schedule(WorkKind.Checking, new SteppedJob(() => Step(StepOutcome.NextFrame)), Priority.Normal);
+
+        Assert.False(scheduler.Idle);
+    }
+
+    [Fact]
+    public void A_job_waiting_in_the_queue_that_has_never_stepped_is_not_idle()
+    {
+        var scheduler = Scheduler();
+        scheduler.Schedule(WorkKind.Checking, new SteppedJob(() =>
+        {
+            _clock.Advance(TimeSpan.FromMilliseconds(2));
+            return StepOutcome.Done;
+        }), Priority.High);
+        var waiting = new SteppedJob(() => Step(StepOutcome.NextFrame));
+        scheduler.Schedule(WorkKind.Checking, waiting, Priority.Low);
+
+        scheduler.RunFrame();
+
+        Assert.False(scheduler.Idle);
+        scheduler.RunFrame();
+        Assert.True(scheduler.Idle);
+    }
+
     private sealed class SteppedJob(Func<StepOutcome> step) : ISlicedWork
     {
         public StepOutcome Step() => step();

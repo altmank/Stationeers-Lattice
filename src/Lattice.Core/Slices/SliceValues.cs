@@ -9,6 +9,9 @@ namespace Lattice.Core.Slices;
 /// </summary>
 internal readonly record struct Priority(int Rank)
 {
+    /// <summary>Below every other rank: only the time nothing else wants.</summary>
+    public static readonly Priority Lowest = new(int.MinValue);
+
     public static readonly Priority Low = new(-1);
 
     public static readonly Priority Normal = new(0);
