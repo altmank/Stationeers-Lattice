@@ -29,7 +29,7 @@ public sealed class BigBaseFactAttribute() : FixtureFactAttribute(Lacking())
     private static string? Lacking() =>
         GameCatalogue.Path().IsNone
             ? "No catalogue written by the game in tests/fixtures/generated: run tests/fixtures/make-fixtures.ps1 -Catalogue <file>."
-            : MissingSave([GeneratedBigBaseTests.BaseFileName, GeneratedBigBaseTests.MixFileName]);
+            : MissingSave([GeneratedBigBaseTests.BaseFileName, GeneratedBigBaseTests.MixFileName, GeneratedBigBaseTests.VanillaCatalogueFileName]);
 }
 
 /// <summary>
@@ -41,6 +41,7 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
 {
     public const string BaseFileName = "lattice-gen-big.tsv";
     public const string MixFileName = "lattice-gen-big-mix.txt";
+    public const string VanillaCatalogueFileName = "catalogue-vanilla.lcat";
 
     [BigBaseFact]
     public void Counts_per_piece_group_sit_within_ten_percent_of_the_target_mix()
@@ -329,15 +330,39 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
     [BigBaseFact]
     public void The_same_seed_makes_the_same_base_and_another_seed_another()
     {
-        var catalogue = GameCatalogue.Path().Reduce("");
+        var vanilla = Fixtures.Save(VanillaCatalogueFileName).Reduce("");
         var mix = Fixtures.Save(MixFileName).Reduce("");
 
-        var first = TestKitIds.MustRead(BigBaseTool.Make(catalogue, mix, 128).MapError(e => new FileError(mix, 0, e)));
-        var again = TestKitIds.MustRead(BigBaseTool.Make(catalogue, mix, 128).MapError(e => new FileError(mix, 0, e)));
-        var other = TestKitIds.MustRead(BigBaseTool.Make(catalogue, mix, 129).MapError(e => new FileError(mix, 0, e)));
+        var first = TestKitIds.MustRead(BigBaseTool.Make(vanilla, vanilla, mix, 128).MapError(e => new FileError(mix, 0, e)));
+        var again = TestKitIds.MustRead(BigBaseTool.Make(vanilla, vanilla, mix, 128).MapError(e => new FileError(mix, 0, e)));
+        var other = TestKitIds.MustRead(BigBaseTool.Make(vanilla, vanilla, mix, 129).MapError(e => new FileError(mix, 0, e)));
 
         Assert.Equal(first.Text, again.Text);
         Assert.NotEqual(first.Text, other.Text);
+    }
+
+    [Fact]
+    public void A_catalogue_with_a_piece_the_vanilla_one_lacks_is_refused_naming_it()
+    {
+        var vanilla = FakeCatalogue.Hand();
+        var template = vanilla.Pieces[0];
+        var modded = new FakeCatalogue([.. vanilla.Pieces, template with { Name = "StructureModdedExtra" }], kitLines: vanilla.KitLines, itemLines: vanilla.ItemLines);
+
+        Assert.Equal(["StructureModdedExtra"], BigBaseTool.NotInVanilla(modded, vanilla));
+        Assert.Empty(BigBaseTool.NotInVanilla(vanilla, vanilla));
+    }
+
+    [BigBaseFact]
+    public void The_game_catalogue_with_a_mod_loaded_is_refused_by_the_vanilla_guard()
+    {
+        var modded = GameCatalogue.Path().Reduce("");
+        var vanilla = Fixtures.Save(VanillaCatalogueFileName).Reduce("");
+        var mix = Fixtures.Save(MixFileName).Reduce("");
+
+        var made = BigBaseTool.Make(modded, vanilla, mix, 128);
+
+        Assert.True(made.TryGetError(out var why));
+        Assert.Contains("StructureMatterlinkCapacitor", why);
     }
 
     [Fact]

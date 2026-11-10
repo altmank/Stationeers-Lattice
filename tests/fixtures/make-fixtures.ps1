@@ -82,6 +82,13 @@ foreach ($name in 'lattice-gen-big.tsv', 'lattice-gen-big-mix.txt') {
     }
 }
 
+# The base game's own catalogue (exported with no mod loaded), the source of truth for what a generated base may name.
+$vanillaSource = Join-Path (Split-Path $SaveDir -Parent) 'catalogue\catalogue-headless-vanilla.lcat'
+if (Test-Path $vanillaSource) {
+    Copy-Item -LiteralPath $vanillaSource -Destination (Join-Path $generated 'catalogue-vanilla.lcat') -Force
+    Write-Host "vanilla   $vanillaSource -> catalogue-vanilla.lcat"
+}
+
 $catalogueTarget = Join-Path $generated 'catalogue.lcat'
 $catalogueSource = if ($Catalogue) { $Catalogue } else { Join-Path $PSScriptRoot '..\Lattice.TestKit\Catalogue\hand-catalogue.lcat' }
 Copy-Item -LiteralPath $catalogueSource -Destination $catalogueTarget -Force

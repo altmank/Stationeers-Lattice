@@ -18,16 +18,22 @@ internal static class BigBaseTool
 {
     public const string Station = "lattice-gen-big";
 
-    /// <summary>The base's text and a report of its counts per family against the mix, or why it could not be made.</summary>
-    public static Result<(string Text, string Report), string> Make(string cataloguePath, string mixPath, int seed)
+    /// <summary>
+    /// The base's text and a report of its counts per family against the mix, or why it could not be made. Every piece
+    /// the catalogue names must be in the vanilla catalogue (the base game's alone): a base is designed against the base game.
+    /// </summary>
+    public static Result<(string Text, string Report), string> Make(string cataloguePath, string vanillaPath, string mixPath, int seed)
     {
-        if (!File.Exists(cataloguePath))
-            return Result<(string, string), string>.Error("no catalogue at " + cataloguePath);
-        Result<FakeCatalogue, FileError> read;
-        using (var reader = new StreamReader(cataloguePath))
-            read = CatalogueFile.Read(reader, cataloguePath);
-        if (!read.TryGet(out var catalogue))
-            return Result<(string, string), string>.Error(cataloguePath + " does not read as a catalogue");
+        var readCatalogue = ReadCatalogue(cataloguePath);
+        if (!readCatalogue.TryGet(out var catalogue))
+            return Result<(string, string), string>.Error(readCatalogue.Match(static _ => "", static why => why));
+        var readVanilla = ReadCatalogue(vanillaPath);
+        if (!readVanilla.TryGet(out var vanilla))
+            return Result<(string, string), string>.Error(readVanilla.Match(static _ => "", static why => why));
+        var modded = NotInVanilla(catalogue, vanilla);
+        if (modded.Count > 0)
+            return Result<(string, string), string>.Error(
+                $"{Path.GetFileName(cataloguePath)} names {modded.Count} pieces the vanilla catalogue {Path.GetFileName(vanillaPath)} lacks: {string.Join(", ", modded)}");
         if (!BaseMix.Load(mixPath).TryGet(out var mix))
             return Result<(string, string), string>.Error(mixPath + " does not read as a mix");
         var made = new BaseGenerator(catalogue, mix, seed).Generate();
@@ -37,7 +43,7 @@ internal static class BigBaseTool
         var comments = new List<string>
         {
             $"{Station}: a generated big base for Lattice's tests, seed {seed}, {generated.Pieces.Count} structures in {generated.Rooms} rooms on {generated.Storeys} storeys",
-            $"catalogue {Path.GetFileName(cataloguePath)} SHA1 {Sha1(cataloguePath)}; mix {Path.GetFileName(mixPath)} SHA1 {Sha1(mixPath)}",
+            $"catalogue {Path.GetFileName(cataloguePath)} SHA1 {Sha1(cataloguePath)}; vanilla {Path.GetFileName(vanillaPath)} SHA1 {Sha1(vanillaPath)}; mix {Path.GetFileName(mixPath)} SHA1 {Sha1(mixPath)}",
             "station " + Station,
         };
         if (generated.Stand.TryGet(out var stand))
@@ -45,6 +51,30 @@ internal static class BigBaseTool
         using var text = new StringWriter(CultureInfo.InvariantCulture);
         BaseFile.Write(text, comments, generated.Pieces);
         return Result<(string, string), string>.Ok((text.ToString(), Report(generated, mix)));
+    }
+
+    /// <summary>The prefab names of the pieces <paramref name="catalogue"/> holds and <paramref name="vanilla"/> does not, in order.</summary>
+    internal static IReadOnlyList<string> NotInVanilla(FakeCatalogue catalogue, FakeCatalogue vanilla)
+    {
+        var known = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var piece in vanilla.Pieces)
+            known.Add(piece.Name);
+        var unknown = new List<string>();
+        foreach (var piece in catalogue.Pieces)
+            if (!known.Contains(piece.Name))
+                unknown.Add(piece.Name);
+        unknown.Sort(StringComparer.Ordinal);
+        return unknown;
+    }
+
+    private static Result<FakeCatalogue, string> ReadCatalogue(string path)
+    {
+        if (!File.Exists(path))
+            return Result<FakeCatalogue, string>.Error("no catalogue at " + path);
+        using var reader = new StreamReader(path);
+        return CatalogueFile.Read(reader, path).TryGet(out var catalogue)
+            ? Result<FakeCatalogue, string>.Ok(catalogue)
+            : Result<FakeCatalogue, string>.Error(path + " does not read as a catalogue");
     }
 
     /// <summary>One line per family the mix or the base names: count, target, and the difference in per cent.</summary>
