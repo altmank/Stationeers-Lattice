@@ -58,6 +58,8 @@ internal sealed class WarmUp : ISlicedWork
     private double _learnedTicks = 1000 * PriorTicksPerByte;
     private double _learnedBytes = 1000;
     private readonly HashSet<Type> _closed = new();
+    private readonly Queue<Type> _counting = new();
+    private readonly HashSet<Type> _shared = new();
     private Type? _listing;
     private MethodBase[] _members = [];
     private int _member;
@@ -73,13 +75,16 @@ internal sealed class WarmUp : ISlicedWork
     }
 
     /// <summary>Where the warm-up is: types and methods still to go, methods compiled.</summary>
-    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} left out, last {_last?.DeclaringType?.FullName}.{_last?.Name}";
+    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} too dear, {ValueGenerics} on value-type generics left out, last {_last?.DeclaringType?.FullName}.{_last?.Name}";
 
     /// <summary>Methods this warm-up has compiled so far.</summary>
     public int Compiled { get; private set; }
 
     /// <summary>Methods left to compile when first called, because compiling them was expected to take longer than a frame can spare.</summary>
     public int Skipped { get; private set; }
+
+    /// <summary>Methods of generic types closed over value types, left to compile when first called: the runtime compiles each instantiation slowly and unpredictably.</summary>
+    public int ValueGenerics { get; private set; }
 
     /// <summary>
     /// Queues the warm-up of the types of <paramref name="assembly"/> whose namespace is one of
@@ -132,6 +137,13 @@ internal sealed class WarmUp : ISlicedWork
             return StepOutcome.More;
         }
 
+        if (_counting.Count > 0)
+        {
+            for (var taken = 0; taken < PerStep && _counting.Count > 0; taken++)
+                ValueGenerics += CountMethods(_counting.Dequeue());
+            return StepOutcome.More;
+        }
+
         if (_deferred.Count > 0 && !_retried)
         {
             _retried = true;
@@ -141,7 +153,27 @@ internal sealed class WarmUp : ISlicedWork
         }
 
         _sets.Add(_set);
+        _sets.Log($"Lattice warm-up {_set}: {Compiled} methods compiled; left to first call: {Skipped} expected to compile too slowly, {ValueGenerics} on {_closed.Count} generic types closed over value types.");
         return StepOutcome.Done;
+    }
+
+    // The methods a closed generic type would have had compiled: the declared methods and constructors that are not abstract or extern.
+    private static int CountMethods(Type type)
+    {
+        try
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            var count = type.GetConstructors(all).Length;
+            foreach (var method in type.GetMethods(all))
+                if (!method.IsAbstract && !method.ContainsGenericParameters && (method.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) == 0)
+                    count++;
+            return count;
+        }
+        catch (Exception)
+        {
+            // A type that cannot be listed (a missing dependency) counts for nothing.
+            return 0;
+        }
     }
 
     // A step compiles methods while the time it has taken, plus the cost expected of the next, fits the step limit. A method
@@ -258,8 +290,8 @@ internal sealed class WarmUp : ISlicedWork
             _listing = null;
     }
 
-    // A generic type closed over a value type is compiled per instantiation, so the ones Lattice's own signatures and fields
-    // name (a dictionary keyed by an id, a list of cells) are queued to be compiled as types, their methods one by one.
+    // A generic type closed over a value type is compiled per instantiation, and Mono compiles each slowly and unpredictably, so the ones Lattice's own signatures and fields
+    // name (a dictionary keyed by an id, a list of cells) are not compiled: they are counted, their methods left to first call.
     private void Note(Type type)
     {
         if (type.IsByRef || type.IsPointer || type.IsArray)
@@ -278,8 +310,15 @@ internal sealed class WarmUp : ISlicedWork
             Note(argument);
         }
 
-        if (valued && _closed.Add(type))
+        if (valued)
+        {
+            if (_closed.Add(type))
+                _counting.Enqueue(type);
+        }
+        else if (_shared.Add(type))
+        {
             _types.Enqueue(type);
+        }
     }
 
     private void Compile(MethodBase method, int size)
@@ -344,4 +383,7 @@ internal sealed class WarmedSets
         lock (_done)
             _done.Add(set);
     }
+
+    /// <summary>Where a finished set's summary goes; set once by the host.</summary>
+    internal Action<string> Log { get; set; } = static _ => { };
 }

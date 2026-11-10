@@ -74,6 +74,26 @@ public sealed class WarmUpTests
     }
 
     [Fact]
+    public void A_generic_type_closed_over_a_value_type_is_left_to_first_call_and_one_closed_over_a_reference_type_is_compiled()
+    {
+        var compiled = new System.Collections.Generic.List<System.Reflection.MethodBase>();
+        var logged = new System.Collections.Generic.List<string>();
+        sets.Log = logged.Add;
+        var scheduler = Scheduler();
+        var job = Job(WarmUp.Schedule(sets, scheduler, "slices-generics", typeof(Warm.Holder).Assembly, ["Lattice.Tests.Slices.Warm"], (method, _) => compiled.Add(method)));
+        for (var i = 0; i < 10_000 && job.State == JobState.Running; i++)
+            scheduler.RunFrame();
+
+        Assert.Equal(JobState.Done, job.State);
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Box<string>));
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Holder));
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(Warm.Box<int>));
+        Assert.True(Work(job).ValueGenerics >= 3, $"left out {Work(job).ValueGenerics}");
+        Assert.Single(logged);
+        Assert.Contains("slices-generics", logged[0]);
+    }
+
+    [Fact]
     public void A_frame_in_which_other_work_took_time_compiles_nothing()
     {
         var scheduler = Scheduler();
