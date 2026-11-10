@@ -118,24 +118,32 @@ internal static class WorldPatches
         _harmony = null;
     }
 
-    /// <summary>The declared <c>Setting</c> setters of every structure type that implements <c>ISetable</c>.</summary>
+    /// <summary>
+    /// The declared <c>Setting</c> setters of every structure type that implements <c>ISetable</c>. A type of another
+    /// mod that does not load is skipped, and the skipped ones are logged once.
+    /// </summary>
     private static List<MethodBase> SettingSetters()
     {
-        var setters = new List<MethodBase>();
         var interfaceName = typeof(ISetable).FullName + ".Setting";
+        var types = new List<Type?>();
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            foreach (var type in TypesOf(assembly))
-            {
-                if (type == null || type.IsInterface || !typeof(Structure).IsAssignableFrom(type) || !typeof(ISetable).IsAssignableFrom(type))
-                    continue;
-                foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-                    if ((property.Name == "Setting" || property.Name == interfaceName)
-                        && property.PropertyType == typeof(double)
-                        && property.GetSetMethod(true) is { IsAbstract: false } setter
-                        && !setters.Contains(setter))
-                        setters.Add(setter);
-            }
+            types.AddRange(TypesOf(assembly));
+        var walk = TypeWalk.Run(types, type => SettingSettersOf(type, interfaceName));
+        if (walk.SkippedLine() is { } line)
+            Log(line);
+        return [.. walk.Methods];
+    }
 
+    private static IEnumerable<MethodBase> SettingSettersOf(Type type, string interfaceName)
+    {
+        if (type.IsInterface || !typeof(Structure).IsAssignableFrom(type) || !typeof(ISetable).IsAssignableFrom(type))
+            return [];
+        var setters = new List<MethodBase>(2);
+        foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            if ((property.Name == "Setting" || property.Name == interfaceName)
+                && property.PropertyType == typeof(double)
+                && property.GetSetMethod(true) is { IsAbstract: false } setter)
+                setters.Add(setter);
         return setters;
     }
 
@@ -148,6 +156,10 @@ internal static class WorldPatches
         catch (ReflectionTypeLoadException e)
         {
             return e.Types;
+        }
+        catch (Exception e) when (TypeWalk.DoesNotLoad(e))
+        {
+            return [];
         }
     }
 

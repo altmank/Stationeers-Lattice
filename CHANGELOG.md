@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.18
+
+Fixed: a mod with a type that does not load no longer stops Lattice from starting.
+
 ## 0.22.17
 
 Fixed:
