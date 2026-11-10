@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test-only BepInEx entry for Lattice's VM live checks. Never shipped. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>LatticeLiveChecks</AssemblyName>
+    <RootNamespace>LatticeLiveChecks</RootNamespace>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsTestProject>false</IsTestProject>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <!-- Lattice.Api is netstandard2.1, which the game's Mono loads; NuGet does not call it compatible with net472. -->
+    <AssetTargetFallback>$(AssetTargetFallback);netstandard2.1</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701;NU1702</NoWarn>
+    <StationeersDir Condition="'$(StationeersDir)' == ''">$(STATIONEERS_DIR)</StationeersDir>
+    <ManagedDir>$(StationeersDir)\rocketstation_Data\Managed</ManagedDir>
+    <BepInExDir>$(StationeersDir)\BepInEx\core</BepInExDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(ManagedDir)\*.dll" Exclude="$(ManagedDir)\System.Runtime.CompilerServices.Unsafe.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(BepInExDir)\BepInEx.dll">
+      <Private>false</Private>
+    </Reference>
+    <!-- Lattice.Api only: Core and Game are reached by reflection, as a consumer mod would not reach them at all. -->
+    <ProjectReference Include="..\..\src\Lattice.Api\Lattice.Api.csproj" Private="false" />
+  </ItemGroup>
+</Project>

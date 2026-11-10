@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Lattice Live Checks</Name>
+  <ModID>lattice.livechecks</ModID>
+  <Author>altmank</Author>
+  <Version>0.1.0</Version>
+  <Description>Test-only plugin for Lattice's VM live checks: starts Lattice.Game.Live's mode from -lattice-live. Never shipped.</Description>
+  <WorkshopHandle>0</WorkshopHandle>
+  <Tags />
+</ModMetadata>

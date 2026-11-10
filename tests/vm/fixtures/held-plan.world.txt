@@ -1,0 +1,12 @@
+﻿station lattice gen big
+tsv lattice-gen-big.tsv
+world Lunar
+difficulty Creative
+held 5000
+plans 1
+ghosts 5000
+spawned 31120
+refused 0
+unknown 0
+save-success True
+stand 1 2 3
