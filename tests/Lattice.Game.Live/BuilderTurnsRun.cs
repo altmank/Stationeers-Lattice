@@ -366,7 +366,7 @@ internal static class BuilderTurnsRun
         private static readonly MethodInfo EnterMulti = AccessTools.Method(typeof(InventoryManager), "SetMultiConstructorItemPlacement");
 
         public bool HasCursor => InventoryManager.CurrentMode == InventoryManager.Mode.Placement
-            && InventoryManager.ConstructionCursor != null && InventoryManager.ConstructionCursor.name == prefab.name;
+            && InventoryManager.ConstructionCursor != null && InventoryManager.ConstructionCursor == InventoryManager.GetStructureCursor(prefab.name);
 
         // The cursor comes from the kit in the active hand: the single kit's placement (:2399, entered from :2279 and :2290)
         // or the multi kit's (:2391, from :2274 and :2285), each ending in UpdatePlacement, whose cursor pick is
@@ -375,6 +375,8 @@ internal static class BuilderTurnsRun
         public IEnumerator Enter()
         {
             Clear();
+            yield return null;
+            yield return null;
             var hand = InventoryManager.ActiveHandSlot;
             var held = OnServer.Create<Item>(kit, hand);
             if (held is Stackable stack)
@@ -491,7 +493,7 @@ internal static class BuilderTurnsRun
 
         private Structure? StandingAt(Vector3 cell) =>
             Scene.AllStructures()
-                .Where(s => s.name == prefab.name && !_claimed.Contains(s.ReferenceId) && Vector3.Distance(s.ThingTransformPosition, cell) < Cell)
+                .Where(s => s.PrefabHash == prefab.PrefabHash && !_claimed.Contains(s.ReferenceId) && Vector3.Distance(s.ThingTransformPosition, cell) < Cell)
                 .OrderBy(s => Vector3.Distance(s.ThingTransformPosition, cell))
                 .FirstOrDefault() is { } found && _claimed.Add(found.ReferenceId)
                 ? found
