@@ -102,11 +102,13 @@ public sealed class WarmUpTests
         var cost = TimeSpan.FromMilliseconds(1.1);
         var scheduler = new FrameScheduler(clock, new FrameBudgets(Create(), Create(), Create(), Create()));
         var dear = 0;
+        var largestDear = 0;
         var job = Job(WarmUp.Schedule(sets, scheduler, "slices-mixed", typeof(WarmUp).Assembly, Slices, (_, size) =>
         {
             if (size <= 60)
                 return;
             dear++;
+            largestDear = Math.Max(largestDear, size);
             clock.Advance(cost);
         }));
         var longest = TimeSpan.Zero;
@@ -118,8 +120,8 @@ public sealed class WarmUpTests
         }
 
         Assert.True(longest <= Budget + cost, $"the longest frame took {longest.TotalMilliseconds} ms");
-        Assert.True(Work(job).Skipped > 0, "no dear method was held back");
-        Assert.True(dear < 40, $"{dear} dear methods were compiled");
+        Assert.True(Work(job).Skipped >= 20, $"{Work(job).Skipped} dear methods were held back");
+        Assert.True(largestDear <= 300, $"a dear method of {largestDear} IL bytes was compiled");
     }
 
     [Fact]
