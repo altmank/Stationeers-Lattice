@@ -4,6 +4,8 @@
 
 Fixed: the first big plan placed or loaded in a session no longer causes a stutter.
 
+Fixed: saving a big plan no longer causes a hitch.
+
 ## 0.22.18
 
 Fixed: a mod with a type that does not load no longer stops Lattice from starting.

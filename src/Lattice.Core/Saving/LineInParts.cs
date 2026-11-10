@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using Lattice.Core.Written;
 
@@ -22,7 +23,7 @@ internal sealed class LineInParts
         _state = state;
         _checksum = checksum;
         _checksum.Reset();
-        _text = new StringBuilder(160 + (line.Ops.Count * 120));
+        _text = new StringBuilder(Math.Min(160 + (line.Ops.Count * 120), PlanSaving.AppendChars));
         ChangeLineForm.WriteHeader(_text, line);
         _checksum.Add(_text, 0);
     }
@@ -49,6 +50,6 @@ internal sealed class LineInParts
         return did;
     }
 
-    /// <summary>Ends the line once <see cref="Done"/>: its text as appended to the file, line break included. Called once.</summary>
-    public string End() => _text.Append(" #").Append(_checksum.Value).Append('\n').ToString();
+    /// <summary>Ends the line once <see cref="Done"/>: its text as appended to the file, without the line break the writer adds. Called once.</summary>
+    public string End() => _text.Append(" #").Append(_checksum.Value).ToString();
 }
