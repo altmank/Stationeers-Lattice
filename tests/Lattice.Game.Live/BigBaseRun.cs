@@ -144,7 +144,6 @@ internal static class BigBaseRun
             yield break;
         }
 
-        yield return ProbeLanding(stand, line);
         var placed = new Measured();
         yield return PlaceOnGround(structures, stand, line, gate, placed);
         if (gate.Failed)
@@ -192,7 +191,6 @@ internal static class BigBaseRun
 
         // The floor exists once the spawn is done: the body stands on it now and is held there for the rest of the run.
         yield return StandBody(stand, line);
-        line("bigbase: probe at the stand spot (body there): " + ProbeStand(stand));
         var ground = GroundVerdict.Judge(GroundSamples(structures, stand), LowestPiece(structures));
         line("bigbase: " + ground.Describe());
         if (!ground.Ok)
@@ -330,16 +328,29 @@ internal static class BigBaseRun
             yield break;
         }
 
+        // A new world's terrain colliders come some seconds after the body: the body is held where it landed until a ray down
+        // from 100 m over it hits the terrain.
         var mask = TerrainMask();
         var at = body.ThingTransformPosition;
         result.Landing = at;
-        if (!(mask != 0 && Physics.Raycast(at + Vector3.up * 100f, Vector3.down, out var hit, 400f, mask, QueryTriggerInteraction.Ignore)))
+        _standAt = at;
+        var waited = Stopwatch.StartNew();
+        float? ground = null;
+        while (ground is null && waited.Elapsed.TotalSeconds < MeasureMost)
         {
-            gate.Fail(line, $"no ground under the landing: the body is at {WorldFile.Metres(at.x, at.y, at.z)} and a ray down from 100 m over it hits no terrain");
+            yield return null;
+            HoldBody();
+            ground = mask != 0 && Physics.Raycast(at + Vector3.up * 100f, Vector3.down, out var down, 400f, mask, QueryTriggerInteraction.Ignore)
+                ? down.point.y
+                : null;
+        }
+
+        if (ground is not { } landingGround)
+        {
+            gate.Fail(line, $"no ground under the landing after {MeasureMost:F0} s: the body is at {WorldFile.Metres(at.x, at.y, at.z)} and a ray down from 100 m over it hits no terrain");
             yield break;
         }
 
-        var landingGround = hit.point.y;
         Vector3? lander = null;
         foreach (var capsule in UnityEngine.Object.FindObjectsOfType<LanderCapsule>())
             if (lander is not { } l || Vector3.Distance(capsule.ThingTransformPosition, at) < Vector3.Distance(l, at))
@@ -349,7 +360,7 @@ internal static class BigBaseRun
         var (dx, dz) = BaseOffset.Beside(footprint, new LandingSpot(at.x, at.z, lander?.x, lander?.z));
         var plane = footprint.Moved(new BaseOffset(dx, 0f, dz));
         var (standX, standZ) = (stand.X + dx, stand.Z + dz);
-        line($"bigbase: landing: body at {WorldFile.Metres(at.x, at.y, at.z)}, ground y {landingGround:0.##}, lander {(lander is { } p ? WorldFile.Metres(p.x, p.y, p.z) : "none")}; " +
+        line($"bigbase: landing: body at {WorldFile.Metres(at.x, at.y, at.z)}, ground y {landingGround:0.##} after {waited.Elapsed.TotalSeconds:F1} s, lander {(lander is { } p ? WorldFile.Metres(p.x, p.y, p.z) : "none")}; " +
              $"the base goes to x {plane.MinX:0.##} to {plane.MaxX:0.##}, z {plane.MinZ:0.##} to {plane.MaxZ:0.##} (move x {dx:0.##} z {dz:0.##})");
 
         var samples = new List<GroundSample>();
@@ -400,78 +411,6 @@ internal static class BigBaseRun
     {
         var layer = LayerMask.NameToLayer("Terrain");
         return layer >= 0 ? 1 << layer : 0;
-    }
-
-    private static string Ray(Vector3 from, Vector3 direction, float length, int mask, bool backfaces = false)
-    {
-        var before = Physics.queriesHitBackfaces;
-        Physics.queriesHitBackfaces = backfaces;
-        try
-        {
-            return Physics.Raycast(from, direction, out var hit, length, mask, QueryTriggerInteraction.Ignore)
-                ? $"hit y {hit.point.y.ToString("0.##", CultureInfo.InvariantCulture)} ({hit.collider.name})"
-                : "no hit";
-        }
-        finally
-        {
-            Physics.queriesHitBackfaces = before;
-        }
-    }
-
-    // Terrain colliders within the radius of a point: how many, and the heights their bounds span.
-    private static string Colliders(Vector3 at, float radius, int mask)
-    {
-        var found = Physics.OverlapSphere(at, radius, mask, QueryTriggerInteraction.Ignore);
-        if (found.Length == 0)
-            return $"no terrain colliders within {radius:F0} m";
-        var (low, high) = (float.MaxValue, float.MinValue);
-        foreach (var c in found)
-        {
-            low = Math.Min(low, c.bounds.min.y);
-            high = Math.Max(high, c.bounds.max.y);
-        }
-
-        return $"{found.Length} terrain colliders within {radius:F0} m, bounds y {low:0.##} to {high:0.##} (first {found[0].name}, {found[0].GetType().Name})";
-    }
-
-    private static string ProbeStand(StandSpot stand)
-    {
-        var mask = TerrainMask();
-        var at = new Vector3(stand.X, stand.Y, stand.Z);
-        return $"terrain mask {mask}; down from +1000 m: {Ray(at + Vector3.up * 1000f, Vector3.down, 2000f, mask)}; " +
-               $"up from the spot: {Ray(at, Vector3.up, 2000f, mask)}; up with backfaces: {Ray(at, Vector3.up, 2000f, mask, true)}; " +
-               $"inside terrain (sphere 0.5 m): {Physics.CheckSphere(at, 0.5f, mask, QueryTriggerInteraction.Ignore)}; {Colliders(at, 100f, mask)}";
-    }
-
-    // Where the landing put the body and the ground there, at once and after 10 s for terrain to build; then the stand spot
-    // seen from the landing.
-    private static IEnumerator ProbeLanding(StandSpot stand, Action<string> line)
-    {
-        for (var pass = 0; pass < 2; pass++)
-        {
-            if (Assets.Scripts.Inventory.InventoryManager.Parent is not { } body)
-            {
-                line("bigbase: probe at the landing: no body");
-                yield break;
-            }
-
-            var mask = TerrainMask();
-            var at = body.ThingTransformPosition;
-            line($"bigbase: probe at the landing ({(pass == 0 ? "at once" : "after 10 s")}): body at {WorldFile.Metres(at.x, at.y, at.z)}; " +
-                 $"down from +100 m: {Ray(at + Vector3.up * 100f, Vector3.down, 400f, mask)}; {Colliders(at, 100f, mask)}");
-            if (pass == 0)
-                yield return new WaitForSecondsRealtime(10f);
-        }
-
-        var capsules = new List<string>();
-        foreach (var capsule in UnityEngine.Object.FindObjectsOfType<LanderCapsule>())
-        {
-            var p = capsule.ThingTransformPosition;
-            capsules.Add($"{WorldFile.Metres(p.x, p.y, p.z)} ({capsule.LanderMode})");
-        }
-
-        line($"bigbase: probe: lander capsules {capsules.Count}{(capsules.Count > 0 ? ": " + string.Join(", ", capsules) : "")}");
-        line("bigbase: probe at the stand spot (body at the landing): " + ProbeStand(stand));
     }
 
     // The body stood at the stand spot as the game's teleport does (Human.ForceSetPosition: position, transform, rigidbody and
