@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.20
+
+Fixed: preparing code after a load no longer causes a rare hitch.
+
 ## 0.22.19
 
 Fixed: placing or loading a big plan stutters much less: its work is spread over frames, and the code it first runs is prepared in idle frames.
