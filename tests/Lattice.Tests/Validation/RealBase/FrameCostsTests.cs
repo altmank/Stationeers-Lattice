@@ -101,7 +101,7 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
                          $"per line {perLine:F2} us judged on thread CPU without pauses (at most {SavingPerLine} us)";
         var fresh = FreshCells(built, PlanSize).Select(c => RealBaseBench.Draft(new Placement(bench.Catalogue.Named("StructureFrame").Key, c, default))).ToList();
         Assert.IsType<Outcome.Applied>(bench.Submit(new Command.CreatePlan(RealBaseBench.Plan("New wing")) { Ghosts = ValueList.From(fresh) }));
-        probe.Run("validation", until: w => w.Settled, TimeSpan.FromSeconds(120));
+        probe.Run("validation", until: w => w.Settled && bench.Saving.Pending == 0, TimeSpan.FromSeconds(120));
         var steady = probe.Run("steady", until: w => w.Frames.Count >= SteadyFrames, TimeSpan.FromSeconds(120));
 
         var lines = probe.Windows.Select(w => w.ToString()).Append(savingCost).Append($"check cost {CheckCost.TotalMilliseconds} ms; checks {bench.Check.Calls.Count}").ToList();
