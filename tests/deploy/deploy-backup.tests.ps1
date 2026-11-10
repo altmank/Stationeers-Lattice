@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tests build.ps1's deploy backup (-BackupRoot, -NoBackup) against scratch folders only. Exits non-zero on any failure.
+    Tests build.ps1's optional deploy backup (-BackupRoot) against scratch folders only. Exits non-zero on any failure.
     build.ps1 -DeployOnly refuses unless the package's Lattice.Api.dll carries the HEAD commit, so the test copies
     build.ps1 into a scratch git repo and builds a tiny stand-in Lattice.Api.dll stamped with that repo's HEAD. The
     real build.ps1 logic is unchanged; only the repo it runs in is a scratch one.
@@ -68,22 +68,19 @@ try {
     Check '2 deployed' ($r.Code -eq 0 -and (Tree-Hash $t) -eq $pkgHash)
     Check '2 no backup folder' (-not (Test-Path (Join-Path $b 'Lattice')))
 
-    # 3. target exists, no backup root, no -NoBackup: refused, unchanged (also a nonexistent root)
-    foreach ($root in @('', (Join-Path $scratch 'nope'))) {
-        $t = Join-Path $scratch 't3\Lattice'; Remove-Item (Split-Path $t) -Recurse -Force -ErrorAction SilentlyContinue
-        New-Old $t '0.0.1'; $oldHash = Tree-Hash $t
-        $saved = $env:STATIONEERS_MOD_BACKUPS; $env:STATIONEERS_MOD_BACKUPS = $null
-        try { $r = Run-Deploy @('-Target', $t, '-BackupRoot', $root) } finally { $env:STATIONEERS_MOD_BACKUPS = $saved }
-        Check "3 refused (root '$root')" ($r.Code -ne 0 -and $r.Out.Contains('pass -BackupRoot or set STATIONEERS_MOD_BACKUPS, or -NoBackup for a test install'))
-        Check "3 target unchanged (root '$root')" ((Tree-Hash $t) -eq $oldHash)
-    }
+    # 3. target exists, a backup root that does not exist: refused, unchanged
+    $t = Join-Path $scratch 't3\Lattice'
+    New-Old $t '0.0.1'; $oldHash = Tree-Hash $t
+    $r = Run-Deploy @('-Target', $t, '-BackupRoot', (Join-Path $scratch 'nope'))
+    Check '3 refused' ($r.Code -ne 0 -and $r.Out.Contains('no backup folder at'))
+    Check '3 target unchanged' ((Tree-Hash $t) -eq $oldHash)
 
-    # 4. -NoBackup: replaced, no backup
-    $t = Join-Path $scratch 't4\Lattice'; $b = Join-Path $scratch 'b4'
-    New-Item -ItemType Directory $b | Out-Null; New-Old $t '0.0.1'
-    $r = Run-Deploy @('-Target', $t, '-BackupRoot', $b, '-NoBackup')
+    # 4. no backup root (the default): replaced, nothing kept
+    $t = Join-Path $scratch 't4\Lattice'
+    New-Old $t '0.0.1'
+    $r = Run-Deploy @('-Target', $t)
     Check '4 replaced' ($r.Code -eq 0 -and (Tree-Hash $t) -eq $pkgHash)
-    Check '4 no backup' (-not (Test-Path (Join-Path $b 'Lattice')))
+    Check '4 nothing kept' (-not $r.Out.Contains('== kept'))
 
     # 5. move fails (a file in the target held open): refused, unchanged, nothing copied
     $t = Join-Path $scratch 't5\Lattice'; $b = Join-Path $scratch 'b5'
