@@ -91,6 +91,37 @@ internal sealed class WorldFolder
     /// </summary>
     public void Append(PlanId plan, string lines)
     {
+        using var stream = OpenForAppend(plan);
+        var bytes = Utf8.GetBytes(lines);
+        stream.Write(bytes, 0, bytes.Length);
+        stream.Flush();
+    }
+
+    /// <summary>
+    /// Appends <paramref name="count"/> characters of <paramref name="text"/> from <paramref name="start"/>, then a line
+    /// break when <paramref name="lineBreak"/>, as <see cref="Append(PlanId, string)"/> does; the bytes are encoded into a
+    /// buffer the folder keeps, so a long line written in parts makes no copy of its text.
+    /// </summary>
+    public void Append(PlanId plan, string text, int start, int count, bool lineBreak = false)
+    {
+        using var stream = OpenForAppend(plan);
+        var most = Utf8.GetMaxByteCount(count) + 1;
+        if (_part.Length < most)
+            _part = new byte[most];
+        var length = Utf8.GetBytes(text, start, count, _part, 0);
+        if (lineBreak)
+            _part[length++] = (byte)'\n';
+        stream.Write(_part, 0, length);
+        stream.Flush();
+    }
+
+    /// <summary>Whether the plan has its active file.</summary>
+    public bool HasPlanFile(PlanId plan) => File.Exists(PlanPath(plan));
+
+    private byte[] _part = Array.Empty<byte>();
+
+    private FileStream OpenForAppend(PlanId plan)
+    {
         Directory.CreateDirectory(Plans);
         var path = PlanPath(plan);
         var archived = ArchivedPath(plan);
@@ -101,10 +132,7 @@ internal sealed class WorldFolder
         else if (_tailChecked.Add(plan))
             MoveTornTail(plan, path);
         _tailChecked.Add(plan);
-        using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
-        var bytes = Utf8.GetBytes(lines);
-        stream.Write(bytes, 0, bytes.Length);
-        stream.Flush();
+        return new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
     }
 
     /// <summary>Moves a finished plan's file to the archive.</summary>
