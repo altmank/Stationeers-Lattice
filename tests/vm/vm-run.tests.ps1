@@ -17,8 +17,8 @@ try {
 } finally { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
 Check 'the file loads' ([bool] $c)
 
-$names = @('render-timing', 'render', 'render-look', 'render-perf', 'bigbase-build', 'bigbase-load')
-Check 'exactly the six runs' ((@($c.Runs.Keys | Sort-Object) -join ',') -eq (($names | Sort-Object) -join ','))
+$names = @('render-timing', 'render', 'render-look', 'render-perf', 'bigbase-build', 'bigbase-load', 'builder-turns')
+Check 'exactly the seven runs' ((@($c.Runs.Keys | Sort-Object) -join ',') -eq (($names | Sort-Object) -join ','))
 $tokens = 'data', 'out', 'savefile'   # vm-client-run's own tokens, passed through the kit untouched
 foreach ($n in $names) {
     $r = $c.Runs[$n]

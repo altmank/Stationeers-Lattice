@@ -14,7 +14,7 @@ using Matrix4x4 = UnityEngine.Matrix4x4;
 namespace Lattice.Tests.Render;
 
 /// <summary>
-/// The draw-call budget at 20,000 ghosts. A 20,000-structure sample of a large real base (Vulcan2_4)
+/// The draw-call budget at 20,000 ghosts. A 20,000-structure sample of a large real base
 /// (LatticeFixtures\bigbase\vulcan-structures.tsv) holds 150 to 165 pieces in 559 to 561 (piece, 32 m chunk) batches,
 /// with 1.4 to 4.0 shown mesh parts per batch by a catalogue export's look counts. Here 300 pieces (Vulcan's
 /// pieces at two looks each), 2.8 parts each, every ghost with a fill and an edge, all in view: one draw group per

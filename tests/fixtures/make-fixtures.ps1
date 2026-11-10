@@ -10,7 +10,7 @@
 .PARAMETER Saves
     The saves to copy (default: lattice-gen-big). A name without .save is a library world: its save is copied from
     <WorldDir>\<name>\<name>\<name>.save as generated\<name>.save, with <WorldDir>\<name>\world.txt as
-    generated\<name>.world.txt. A name ending .save is read from SaveDir. Vulcan2_4.save is copied only when named.
+    generated\<name>.world.txt. A name ending .save is read from SaveDir.
 .PARAMETER WorldDir
     The library of test worlds (default: $env:STATIONEERS_WORLDS).
 .PARAMETER Catalogue
