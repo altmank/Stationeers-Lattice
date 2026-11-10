@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Assets.Scripts;
@@ -24,13 +25,26 @@ namespace Lattice.Game.Live;
 
 /// <summary>
 /// Lattice's own timings in the game, read by Harmony around <see cref="LatticeWorld.Start"/> and
-/// <see cref="LatticeWorld.Frame"/> (test instance only): the last start's wall time and, while recording, each frame's.
+/// <see cref="LatticeWorld.Frame"/> (test instance only): the last start's wall time and, while recording, each frame's wall
+/// time and the main thread's CPU time over it (<c>GetThreadTimes</c>: a process the host pauses or a collection that runs
+/// inside the frame shows in wall time only).
 /// </summary>
 internal static class LatticeTiming
 {
     private static readonly Stopwatch StartWatch = new();
     private static readonly Stopwatch FrameWatch = new();
     private static bool _installed;
+    private static double _frameCpuStart;
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentThread();
+
+    [DllImport("kernel32.dll")]
+    private static extern bool GetThreadTimes(IntPtr thread, out long created, out long exited, out long kernel, out long user);
+
+    /// <summary>The calling thread's CPU time (kernel plus user) in milliseconds; 100 ns ticks as the system counts them.</summary>
+    public static double ThreadCpuMs() =>
+        GetThreadTimes(GetCurrentThread(), out _, out _, out var kernel, out var user) ? (kernel + user) / 10000.0 : -1;
 
     public static double LastStartMs { get; private set; } = -1;
 
@@ -39,6 +53,8 @@ internal static class LatticeTiming
     public static bool Recording { get; set; }
 
     public static List<double> FrameMs { get; } = new(4096);
+
+    public static List<double> FrameCpuMs { get; } = new(4096);
 
     public static void Install()
     {
@@ -61,13 +77,19 @@ internal static class LatticeTiming
         Starts++;
     }
 
-    private static void FrameBegins() => FrameWatch.Restart();
+    private static void FrameBegins()
+    {
+        _frameCpuStart = ThreadCpuMs();
+        FrameWatch.Restart();
+    }
 
     private static void FrameEnds()
     {
         FrameWatch.Stop();
-        if (Recording)
-            FrameMs.Add(FrameWatch.Elapsed.TotalMilliseconds);
+        if (!Recording)
+            return;
+        FrameMs.Add(FrameWatch.Elapsed.TotalMilliseconds);
+        FrameCpuMs.Add(ThreadCpuMs() - _frameCpuStart);
     }
 }
 
@@ -756,6 +778,7 @@ internal static class BigBaseRun
     private static IEnumerator Settle(LatticeWorld world, Action<string> line, string what, float limit, Action? tick = null)
     {
         LatticeTiming.FrameMs.Clear();
+        LatticeTiming.FrameCpuMs.Clear();
         var game = new List<double>(4096);
         var start = Time.realtimeSinceStartup;
         var idle = 0;
@@ -776,6 +799,8 @@ internal static class BigBaseRun
     private static IEnumerator Frames(LatticeWorld world, Action<string> line, string what, int count)
     {
         LatticeTiming.FrameMs.Clear();
+        LatticeTiming.FrameCpuMs.Clear();
+        var (gc0, gc1, gc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
         var game = new List<double>(count);
         for (var i = 0; i < count; i++)
         {
@@ -786,7 +811,8 @@ internal static class BigBaseRun
         var before = GC.GetAllocatedBytesForCurrentThread();
         world.Frame();
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        line($"bigbase: {what}: game frames {Stats(game)}; Lattice frames {Stats(LatticeTiming.FrameMs)}; one Lattice frame now allocates {allocated} bytes");
+        line($"bigbase: {what}: game frames {Stats(game)}; Lattice frames (wall) {Stats(LatticeTiming.FrameMs)}; Lattice frames (cpu) {Stats(LatticeTiming.FrameCpuMs)}; " +
+             $"gc gen0/1/2 {GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}; one Lattice frame now allocates {allocated} bytes");
     }
 
     private static string Stats(List<double> ms)

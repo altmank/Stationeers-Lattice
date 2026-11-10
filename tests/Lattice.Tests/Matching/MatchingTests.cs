@@ -370,7 +370,7 @@ public sealed class MatchingTests
     }
 
     // A ghost's own structure standing as planned decides, whatever else shares its spots and whichever came first:
-    // the game accepted both, as in a large real base (Vulcan2_4) where such overlaps stand.
+    // the game accepted both, as in a large player-built base where such overlaps stand.
 
     [Fact]
     public void A_ghost_is_done_when_its_own_structure_stands_though_an_overlapping_neighbour_came_first()

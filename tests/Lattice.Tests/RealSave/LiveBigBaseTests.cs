@@ -53,8 +53,8 @@ public sealed class LiveBigBaseTests
     public void Steady_frames_hold_the_budget_and_allocate_nothing()
     {
         var steady = Lines("live-bridge-bigbase-load.log").Single(static l => l.StartsWith("LIVE bigbase: steady:", StringComparison.Ordinal));
-        var lattice = steady.Substring(steady.IndexOf("Lattice frames", StringComparison.Ordinal));
-        Assert.Contains("over 6 ms 0;", lattice);
+        var cpu = steady.Substring(steady.IndexOf("Lattice frames (cpu)", StringComparison.Ordinal));
+        Assert.Contains("over 6 ms 0;", cpu);
         Assert.EndsWith("one Lattice frame now allocates 0 bytes", steady);
     }
 
