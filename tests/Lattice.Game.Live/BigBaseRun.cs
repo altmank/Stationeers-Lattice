@@ -26,8 +26,9 @@ namespace Lattice.Game.Live;
 /// <summary>
 /// Lattice's own timings in the game, read by Harmony around <see cref="LatticeWorld.Start"/> and
 /// <see cref="LatticeWorld.Frame"/> (test instance only): the last start's wall time and, while recording, each frame's wall
-/// time and the main thread's CPU time over it (<c>GetThreadTimes</c>: a process the host pauses or a collection that runs
-/// inside the frame shows in wall time only).
+/// time and the main thread's CPU time over it (<c>QueryThreadCycleTime</c>, whose cycles are turned into milliseconds by the
+/// rate measured while the thread spins at install: <c>GetThreadTimes</c> advances only in 15.6 ms scheduler ticks). A
+/// process the host pauses, or a stall off the thread, shows in wall time only.
 /// </summary>
 internal static class LatticeTiming
 {
@@ -40,11 +41,35 @@ internal static class LatticeTiming
     private static extern IntPtr GetCurrentThread();
 
     [DllImport("kernel32.dll")]
-    private static extern bool GetThreadTimes(IntPtr thread, out long created, out long exited, out long kernel, out long user);
+    private static extern bool QueryThreadCycleTime(IntPtr thread, out ulong cycles);
 
-    /// <summary>The calling thread's CPU time (kernel plus user) in milliseconds; 100 ns ticks as the system counts them.</summary>
+    private static double _cyclesPerMs;
+
+    public static double CyclesPerMs => _cyclesPerMs;
+
+    /// <summary>The calling thread's CPU time in milliseconds, from its cycle count; -1 when the rate is not measured.</summary>
     public static double ThreadCpuMs() =>
-        GetThreadTimes(GetCurrentThread(), out _, out _, out var kernel, out var user) ? (kernel + user) / 10000.0 : -1;
+        _cyclesPerMs > 0 && QueryThreadCycleTime(GetCurrentThread(), out var cycles) ? cycles / _cyclesPerMs : -1;
+
+    // The most cycles per millisecond over three 40 ms spins of this thread: a spin the host pauses counts fewer cycles, so
+    // the largest rate is the true one.
+    private static double MeasureCyclesPerMs()
+    {
+        var best = 0.0;
+        for (var i = 0; i < 3; i++)
+        {
+            QueryThreadCycleTime(GetCurrentThread(), out var from);
+            var watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalMilliseconds < 40)
+            {
+            }
+
+            QueryThreadCycleTime(GetCurrentThread(), out var to);
+            best = Math.Max(best, (to - from) / watch.Elapsed.TotalMilliseconds);
+        }
+
+        return best;
+    }
 
     public static double LastStartMs { get; private set; } = -1;
 
@@ -61,6 +86,7 @@ internal static class LatticeTiming
         if (_installed)
             return;
         _installed = true;
+        _cyclesPerMs = MeasureCyclesPerMs();
         var harmony = new Harmony("lattice.live.timing");
         harmony.Patch(AccessTools.Method(typeof(LatticeWorld), nameof(LatticeWorld.Start)),
             prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(StartBegins)), postfix: new HarmonyMethod(typeof(LatticeTiming), nameof(StartEnds)));
@@ -812,7 +838,7 @@ internal static class BigBaseRun
         world.Frame();
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         line($"bigbase: {what}: game frames {Stats(game)}; Lattice frames (wall) {Stats(LatticeTiming.FrameMs)}; Lattice frames (cpu) {Stats(LatticeTiming.FrameCpuMs)}; " +
-             $"gc gen0/1/2 {GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}; one Lattice frame now allocates {allocated} bytes");
+             $"gc gen0/1/2 {GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}; cpu rate {LatticeTiming.CyclesPerMs / 1e6:F2} GHz; one Lattice frame now allocates {allocated} bytes");
     }
 
     private static string Stats(List<double> ms)
