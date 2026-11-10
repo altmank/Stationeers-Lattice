@@ -346,7 +346,7 @@ public sealed class GeneratedBigBaseTests(ITestOutputHelper output)
     {
         var vanilla = FakeCatalogue.Hand();
         var template = vanilla.Pieces[0];
-        var modded = new FakeCatalogue([.. vanilla.Pieces, template with { Name = "StructureModdedExtra" }], kitLines: vanilla.KitLines, itemLines: vanilla.ItemLines);
+        var modded = new FakeCatalogue([.. vanilla.Pieces, template with { Name = "StructureModdedExtra", KitNames = ValueList<string>.Empty, Facts = template.Facts with { Key = PrefabHash.Piece("StructureModdedExtra"), Kits = ValueList<KitPlace>.Empty } }], kitLines: vanilla.KitLines, itemLines: vanilla.ItemLines);
 
         Assert.Equal(["StructureModdedExtra"], BigBaseTool.NotInVanilla(modded, vanilla));
         Assert.Empty(BigBaseTool.NotInVanilla(vanilla, vanilla));
