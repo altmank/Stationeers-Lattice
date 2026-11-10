@@ -26,12 +26,11 @@ namespace Lattice.Tests.Validation.RealBase;
 /// <para>
 /// Warm-up is on unless <c>LATTICE_PLAN_WARMUP=0</c>. With it, each world first runs idle frames until Lattice's
 /// <see cref="WarmUp"/> has compiled its sets, then the plan arrives: no arrival frame of any run's thread CPU, less
-/// the collector pause in it and Validation's <c>AskWork</c> steps (the plan's first ask: real work and first calls the
-/// warm-up does not reach, reported in the lines) passes <see cref="Frame"/> on the process's first arrival (the later ones are warm
+/// the collector pause in it passes <see cref="Frame"/> on the process's first arrival (the later ones are warm
 /// whatever the warm-up did, and the runtime's own tier-up lands in them), nor does an idle frame pass
 /// <see cref="IdleFrame"/>, and the main thread compiles at most <see cref="Compiled"/> methods over that arrival and
 /// its reload. Without it (the run that shows what the warm-up removes) the
-/// cold arrival is reported, not judged. The pin is cold only in a process where nothing ran the same code before:
+/// cold arrival is reported, not judged. The fake world's networks are derived before the arrival, because the game reads each structure's network as it is asked. The pin is cold only in a process where nothing ran the same code before:
 /// it is a Perf test (thread CPU is shared-core sensitive); run it alone (<c>--filter FullyQualifiedName~PlanArrivalTests</c>) for the cold pin: in a shared process the code is already compiled and the frames are noisier.
 /// </para>
 /// </summary>
@@ -45,6 +44,8 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
     private readonly List<string> _lines = new();
     private Renderer? _renderer;
     private long _compiledInArrival;
+    private int _askSteps;
+    private double _askLongest;
 
     [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
@@ -58,15 +59,19 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
         {
             var first = (Idle: new List<double>(), Arrival: new List<double>());
             long firstCompiled = 0;
+            var firstAskSteps = 0;
             foreach (var run in new[] { "first", "second", "third" })
             {
                 _lines.Add($"=== {run}, warm-up {(warmUp ? "on" : "off")} ===");
                 _compiledInArrival = 0;
+                _askSteps = 0;
+                _askLongest = 0;
                 var costs = Arrive(warmUp);
                 _lines.Add($"{run}: worst arrival frame {costs.Arrival.Max():F1} ms of thread CPU without pauses; worst idle frame {costs.Idle.DefaultIfEmpty().Max():F1} ms (after the first ten, which are the world's own start: {costs.Idle.Skip(10).DefaultIfEmpty().Max():F1} ms); " +
                            $"methods compiled by the main thread over the arrival and reload {_compiledInArrival}");
+                _lines.Add($"{run}: AskWork steps over the arrival and reload {_askSteps}, longest {_askLongest:F2} ms");
                 if (run == "first")
-                    (first, firstCompiled) = (costs, _compiledInArrival);
+                    (first, firstCompiled, firstAskSteps) = (costs, _compiledInArrival, _askSteps);
             }
 
             foreach (var line in _lines)
@@ -74,6 +79,7 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
             File.WriteAllLines(Path.Combine(Fixtures.Generated, $"plan-arrival-{(warmUp ? "warm-up" : "no-warm-up")}.txt"), _lines);
             if (!warmUp)
                 return;
+            Assert.True(firstAskSteps > 0, "validation answered no asks in the first arrival, so its steps were not judged");
             Assert.True(first.Arrival.Max() <= Frame, $"worst first arrival frame {first.Arrival.Max():F1} ms of thread CPU without collector pauses, at most {Frame}");
             Assert.True(first.Idle.Skip(10).Max() <= IdleFrame, $"worst idle frame after the first ten {first.Idle.Skip(10).Max():F1} ms, at most {IdleFrame}");
             Assert.True(firstCompiled <= Compiled, $"the main thread compiled {firstCompiled} methods over the first arrival and reload, at most {Compiled}");
@@ -92,6 +98,9 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
         var world = new FakeWorld(bench.Catalogue);
         foreach (var s in new FakeScan(bench.Save.World).Structures().Where(s => !heldIds.Contains(s.Ref.Id)))
             world.Load(s);
+        // FakeWorld works out every network on its first network read after a change; the game reads a structure's own network.
+        Assert.NotEmpty(world.AllNetworks);
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, held);
         var idle = new List<double>();
         var arrival = new List<double>();
         bench.Start(Option<SaveKey>.None, world, warmUp);
@@ -172,9 +181,13 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
             var compiled = JitInfo.GetCompiledMethodCount(true) - methods;
             if (window is "arrival" or "reload")
                 _compiledInArrival += compiled;
-            // Validation's first ask of a plan is one step of real work and its own first calls (not part of this warm-up's sets' reach): reported, not judged here.
-            var asks = steps.Where(s => s.Work == "AskWork").Sum(s => s.Ms);
-            costs.Add(cpu - gc.Pause.TotalMilliseconds - Math.Min(asks, cpu));
+            costs.Add(cpu - gc.Pause.TotalMilliseconds);
+            if (window is "arrival" or "reload")
+            {
+                var ask = steps.Where(s => s.Work == "AskWork").Select(s => s.Ms).ToList();
+                _askSteps += ask.Count;
+                _askLongest = Math.Max(_askLongest, ask.DefaultIfEmpty().Max());
+            }
             if (cpu < 3 && window != "warm-up")
                 continue;
             if (window == "warm-up" && f % 25 != 0 && cpu < 3)
