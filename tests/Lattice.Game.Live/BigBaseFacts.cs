@@ -384,3 +384,53 @@ internal readonly record struct Landing(int Descending, int Venting, bool BodyIn
             BodyInCapsule ? "the body is still in a capsule" : "",
         }.Where(static p => p.Length > 0));
 }
+
+/// <summary>How a timed step is named in the log: its work type, <c>Outer.Inner</c> for a nested type.</summary>
+internal static class StepLabel
+{
+    /// <summary>The type's name with its declaring types in front (<c>PlanStateModule.Work</c>); a generic's arity suffix is dropped.</summary>
+    public static string Of(Type type)
+    {
+        var name = Plain(type);
+        for (var outer = type.DeclaringType; outer is not null; outer = outer.DeclaringType)
+            name = Plain(outer) + "." + name;
+        return name;
+    }
+
+    private static string Plain(Type type)
+    {
+        var at = type.Name.IndexOf('`');
+        return at < 0 ? type.Name : type.Name.Substring(0, at);
+    }
+}
+
+/// <summary>The fixed phase texts a step is labelled with, so recording a step allocates no string.</summary>
+internal static class StepPhase
+{
+    private static readonly string[] SafetyChecks = ["safety:0", "safety:1", "safety:2", "safety:3", "safety:4", "safety:5", "safety:6", "safety:7"];
+
+    /// <summary>The label of build safety's check <paramref name="check"/> (0 to 7); <c>safety:?</c> for any other number.</summary>
+    public static string Safety(int check) => check >= 0 && check < SafetyChecks.Length ? SafetyChecks[check] : "safety:?";
+}
+
+/// <summary>Which recorded frames a window's log describes.</summary>
+internal static class SlowFrames
+{
+    /// <summary>
+    /// The indexes of the frames whose time is over <paramref name="over"/> ms, slowest first (the earlier frame first among equals),
+    /// at most <paramref name="top"/> of them.
+    /// </summary>
+    public static List<int> Pick(IReadOnlyList<double> ms, int top, double over)
+    {
+        var order = new List<int>();
+        for (var i = 0; i < ms.Count; i++)
+            if (ms[i] > over)
+                order.Add(i);
+        order.Sort((a, b) =>
+        {
+            var byTime = ms[b].CompareTo(ms[a]);
+            return byTime != 0 ? byTime : a.CompareTo(b);
+        });
+        return order.GetRange(0, Math.Min(Math.Max(top, 0), order.Count));
+    }
+}
