@@ -28,13 +28,11 @@
     wait while someone else holds the lock; if it fails, the deploy stops without touching the target. A deploy with no
     lock script, or one naming a file that does not exist, refuses unless -NoLock or -LockHeld is given.
 .PARAMETER BackupRoot
-    The folder that keeps the version a deploy replaces (default: the STATIONEERS_MOD_BACKUPS environment variable). When
-    the target exists, the deploy moves it (inside the lock window) to <BackupRoot>\Lattice\<old version>-<yyyyMMdd-HHmmss>,
-    reading the version from the target's About\About.xml (`unknown` if there is none), and prints where. If the move
-    fails the deploy stops and copies nothing. A deploy that would replace an existing target refuses, before taking any
-    lock, unless this names an existing folder or -NoBackup is given. A missing target needs no backup.
-.PARAMETER NoBackup
-    Replace the target without keeping the old version (for test installs).
+    Optional: a folder that keeps the version a deploy replaces. Given, the deploy moves an existing target (inside the
+    lock window) to <BackupRoot>\Lattice\<old version>-<yyyyMMdd-HHmmss>, reading the version from the target's
+    About\About.xml (`unknown` if there is none), and prints where; if the move fails it stops and copies nothing. A
+    BackupRoot that is not an existing folder is refused before any lock. Not given, the target is replaced; every
+    deployed version is a commit that can be rebuilt.
 .PARAMETER NoLock
     Deploy without any lock (for a machine where nothing else uses the game folder).
 .PARAMETER LockHeld
@@ -50,8 +48,7 @@ param(
     [string] $Target = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'My Games\Stationeers\mods\Lattice'),
     [switch] $Force,
     [string] $LockScript = $env:STATIONEERS_GAME_LOCK,
-    [string] $BackupRoot = $env:STATIONEERS_MOD_BACKUPS,
-    [switch] $NoBackup,
+    [string] $BackupRoot = '',
     [switch] $NoLock,
     [switch] $LockHeld
 )
@@ -85,10 +82,9 @@ if (($Deploy -or $DeployOnly) -and $takeLock -and -not ($LockScript -and (Test-P
     exit 1
 }
 
-# Also decided before the lock: an existing target is never replaced without a place to keep it.
-if (($Deploy -or $DeployOnly) -and -not $NoBackup -and (Test-Path $Target) -and
-    -not ($BackupRoot -and (Test-Path $BackupRoot -PathType Container))) {
-    Write-Host '== deploy refused: the target exists and there is no backup folder: pass -BackupRoot or set STATIONEERS_MOD_BACKUPS, or -NoBackup for a test install' -ForegroundColor Red
+# Also decided before the lock: a backup folder that was asked for must exist.
+if (($Deploy -or $DeployOnly) -and $BackupRoot -and -not (Test-Path $BackupRoot -PathType Container)) {
+    Write-Host "== deploy refused: no backup folder at $BackupRoot" -ForegroundColor Red
     exit 1
 }
 
@@ -112,7 +108,7 @@ function Invoke-Deploy {
     }
     try {
         if (Test-Path $Target) {
-            if ($NoBackup) {
+            if (-not $BackupRoot) {
                 Remove-Item $Target -Recurse -Force
             }
             else {
