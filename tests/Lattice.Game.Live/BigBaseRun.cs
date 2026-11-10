@@ -30,7 +30,7 @@ namespace Lattice.Game.Live;
 /// rate measured while the thread spins at install: <c>GetThreadTimes</c> advances only in 15.6 ms scheduler ticks). A
 /// process the host pauses, or a stall off the thread, shows in wall time only.
 /// </summary>
-internal static class LatticeTiming
+internal static partial class LatticeTiming
 {
     private static readonly Stopwatch StartWatch = new();
     private static readonly Stopwatch FrameWatch = new();
@@ -81,6 +81,14 @@ internal static class LatticeTiming
 
     public static List<double> FrameCpuMs { get; } = new(4096);
 
+    /// <summary>Clears every recorded frame, with each frame's module and step entries.</summary>
+    public static void ClearFrames()
+    {
+        FrameMs.Clear();
+        FrameCpuMs.Clear();
+        ClearParts();
+    }
+
     public static void Install()
     {
         if (_installed)
@@ -92,6 +100,7 @@ internal static class LatticeTiming
             prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(StartBegins)), postfix: new HarmonyMethod(typeof(LatticeTiming), nameof(StartEnds)));
         harmony.Patch(AccessTools.Method(typeof(LatticeWorld), nameof(LatticeWorld.Frame)),
             prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(FrameBegins)), postfix: new HarmonyMethod(typeof(LatticeTiming), nameof(FrameEnds)));
+        InstallParts(harmony);
     }
 
     private static void StartBegins() => StartWatch.Restart();
@@ -107,6 +116,8 @@ internal static class LatticeTiming
     {
         _frameCpuStart = ThreadCpuMs();
         FrameWatch.Restart();
+        if (Recording)
+            BeginParts();
     }
 
     private static void FrameEnds()
@@ -116,6 +127,7 @@ internal static class LatticeTiming
             return;
         FrameMs.Add(FrameWatch.Elapsed.TotalMilliseconds);
         FrameCpuMs.Add(ThreadCpuMs() - _frameCpuStart);
+        EndParts();
     }
 }
 
@@ -803,8 +815,8 @@ internal static class BigBaseRun
     // Frames until validation has been idle for 3 frames, recording game and Lattice frame costs.
     private static IEnumerator Settle(LatticeWorld world, Action<string> line, string what, float limit, Action? tick = null)
     {
-        LatticeTiming.FrameMs.Clear();
-        LatticeTiming.FrameCpuMs.Clear();
+        LatticeTiming.Watching = world;
+        LatticeTiming.ClearFrames();
         var game = new List<double>(4096);
         var start = Time.realtimeSinceStartup;
         var idle = 0;
@@ -820,12 +832,14 @@ internal static class BigBaseRun
         }
 
         line($"bigbase: {what}: {(idle >= 3 ? "settled" : "NOT settled")} after {Time.realtimeSinceStartup - start:F1} s; game frames {Stats(game)}; Lattice frames {Stats(LatticeTiming.FrameMs)}");
+        foreach (var slow in LatticeTiming.Describe(what, 5, 0, int.MaxValue))
+            line(slow);
     }
 
     private static IEnumerator Frames(LatticeWorld world, Action<string> line, string what, int count)
     {
-        LatticeTiming.FrameMs.Clear();
-        LatticeTiming.FrameCpuMs.Clear();
+        LatticeTiming.Watching = world;
+        LatticeTiming.ClearFrames();
         var (gc0, gc1, gc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
         var game = new List<double>(count);
         for (var i = 0; i < count; i++)
@@ -839,6 +853,8 @@ internal static class BigBaseRun
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         line($"bigbase: {what}: game frames {Stats(game)}; Lattice frames (wall) {Stats(LatticeTiming.FrameMs)}; Lattice frames (cpu) {Stats(LatticeTiming.FrameCpuMs)}; " +
              $"gc gen0/1/2 {GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}; cpu rate {LatticeTiming.CyclesPerMs / 1e6:F2} GHz; one Lattice frame now allocates {allocated} bytes");
+        foreach (var slow in LatticeTiming.Describe(what, 50, 6.0, count))
+            line(slow);
     }
 
     private static string Stats(List<double> ms)
