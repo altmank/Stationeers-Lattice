@@ -54,6 +54,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Idle MSBuild node workers outlive the build and hold its process tree open for whoever waits on it.
+$env:MSBUILDDISABLENODEREUSE = '1'
 $solution = Join-Path $PSScriptRoot 'Lattice.sln'
 
 # A fresh checkout (the deploy queue builds in a temporary worktree) has no Directory.Build.props.user: fall back to
@@ -160,7 +162,7 @@ if ($DeployOnly) {
 }
 
 Invoke-Step 'restore' { dotnet restore $solution }
-Invoke-Step 'build'   { dotnet build $solution --no-restore -c $Configuration }
+Invoke-Step 'build'   { dotnet build $solution --no-restore -c $Configuration -nodeReuse:false }
 $filter = if ($Perf) { 'Category=Perf' } else { 'Category!=Perf' }
 $tiered = $env:DOTNET_TieredCompilation
 if ($Perf) { $env:DOTNET_TieredCompilation = '0' }

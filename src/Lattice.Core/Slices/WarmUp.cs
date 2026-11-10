@@ -22,16 +22,16 @@ namespace Lattice.Core.Slices;
 internal sealed class WarmUp : ISlicedWork
 {
     /// <summary>The frame's real work below which the world counts as idle.</summary>
-    private static readonly TimeSpan Quiet = TimeSpan.FromTicks(2500);
+    private static readonly TimeSpan Quiet = TimeSpan.FromTicks(10000);
 
     /// <summary>Methods with more IL bytes than this are left to compile when first called: one step would pass its slice.</summary>
     private const int LargestMethod = 1000;
 
     /// <summary>The most methods one step takes on, listing or compiling.</summary>
-    private const int PerStep = 16;
+    private const int PerStep = 8;
 
-    /// <summary>A compiling step ends once it has taken this long (0.4 ms), even before <see cref="PerStep"/> methods.</summary>
-    private static readonly long StepTicks = System.Diagnostics.Stopwatch.Frequency / 2500;
+    /// <summary>A compiling step ends once it has taken this long (0.25 ms), even before <see cref="PerStep"/> methods.</summary>
+    private static readonly long StepTicks = System.Diagnostics.Stopwatch.Frequency / 4000;
 
     private readonly WarmedSets _sets;
     private readonly string _set;
@@ -154,10 +154,13 @@ internal sealed class WarmUp : ISlicedWork
                     Note(info.ReturnType);
                 foreach (var parameter in member.GetParameters())
                     Note(parameter.ParameterType);
+                if (member.GetMethodBody() is { } body)
+                    foreach (var local in body.LocalVariables)
+                        Note(local.LocalType);
             }
             catch (Exception)
             {
-                // A signature that cannot be read (a missing dependency) only costs its generic instantiations; the method itself is still queued.
+                // A signature or body that cannot be read (a missing dependency) only costs its generic instantiations; the method itself is still queued.
             }
         }
 

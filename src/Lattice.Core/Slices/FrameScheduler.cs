@@ -8,6 +8,9 @@ namespace Lattice.Core.Slices;
 /// Runs long main-thread work in slices: each frame, every kind of work gets its own budget, spent on its jobs from
 /// the highest priority down. A lower priority job gets only the time higher ones leave. Main thread only.
 /// A frame over queued work allocates nothing; a job scheduled during a frame starts in the next one.
+/// A job of the lowest priority is stepped for as long as time is left in the budget, whatever its steps are expected to cost:
+/// its steps are small by design, and an estimate stretched once by something outside the job (a collection) would otherwise
+/// keep it from ever running again, since the estimate only changes when the job steps.
 /// In each budget Lattice's own jobs run before consumers' (<see cref="ScheduleConsumer"/>), so a consumer's work never
 /// holds back saving, sending or checking. A step of Lattice's own work that throws ends its job and goes to
 /// <c>faulted</c>, and the frame goes on; with no handler it leaves <see cref="RunFrame"/>. A consumer's step is not
@@ -128,7 +131,7 @@ internal sealed class FrameScheduler(IClock clock, FrameBudgets budgets, Action<
             {
                 var job = _jobs[i];
                 var nextFrame = false;
-                while (job.State == JobState.Running && !nextFrame && (!stepped || now < deadline && now + job.StepEstimate <= deadline))
+                while (job.State == JobState.Running && !nextFrame && (!stepped || now < deadline && (job.Priority == Priority.Lowest || now + job.StepEstimate <= deadline)))
                 {
                     var outcome = job.Consumer || faulted is null ? job.Work.Step() : Guarded(job, faulted);
                     var after = clock.Now;
@@ -137,7 +140,7 @@ internal sealed class FrameScheduler(IClock clock, FrameBudgets budgets, Action<
                     if (outcome != StepOutcome.NextFrame && job.Priority != Priority.Lowest)
                         Work += after - now;
                     now = after;
-                    stepped = true;
+                    stepped |= outcome != StepOutcome.NextFrame;
                     if (outcome == StepOutcome.Done)
                         job.Finish();
                     nextFrame = outcome == StepOutcome.NextFrame;
