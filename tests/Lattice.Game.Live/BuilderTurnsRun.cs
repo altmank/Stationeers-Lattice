@@ -247,12 +247,12 @@ internal static class BuilderTurnsRun
                     var allowed = piece.AllowedTurns.Contains(Turn.Create(seen < 0 ? 0 : seen).Match(static t => t, static r => throw new InvalidOperationException(r.ToString())));
                     if (!allowed)
                         outside++;
-                    Say(BuilderTurnsFacts.PlacementLine(prefab.name, seen, true, $"at {WorldFile.Metres(structure.ThingTransformPosition.x, structure.ThingTransformPosition.y, structure.ThingTransformPosition.z)} cursor turn {turn} allowed {(allowed ? "yes" : "no")}"));
+                    line(BuilderTurnsFacts.PlacementLine(prefab.name, seen, true, $"at {WorldFile.Metres(structure.ThingTransformPosition.x, structure.ThingTransformPosition.y, structure.ThingTransformPosition.z)} cursor turn {turn} allowed {(allowed ? "yes" : "no")}"));
                 }
                 else
                 {
                     refused++;
-                    Say(BuilderTurnsFacts.PlacementLine(prefab.name, turn, false, attempt.Why));
+                    line(BuilderTurnsFacts.PlacementLine(prefab.name, turn, false, attempt.Why));
                 }
             }
 
