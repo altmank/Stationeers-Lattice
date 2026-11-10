@@ -28,6 +28,9 @@ internal sealed class SlicedJob
     /// </summary>
     internal TimeSpan StepEstimate { get; private set; }
 
+    /// <summary>What the job's last step said; none before its first step.</summary>
+    internal StepOutcome? LastOutcome { get; private set; }
+
     private long _last;
     private long _beforeLast;
 
@@ -38,8 +41,9 @@ internal sealed class SlicedJob
             State = JobState.Cancelled;
     }
 
-    internal void Observe(TimeSpan stepCost)
+    internal void Observe(TimeSpan stepCost, StepOutcome outcome)
     {
+        LastOutcome = outcome;
         var (a, b, c) = (stepCost.Ticks, _last, _beforeLast);
         StepEstimate = TimeSpan.FromTicks(Math.Max(Math.Min(a, b), Math.Min(Math.Max(a, b), c)));
         (_last, _beforeLast) = (a, b);

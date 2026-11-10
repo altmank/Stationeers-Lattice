@@ -60,6 +60,7 @@ internal sealed class LatticeWorld : IGhostSystem
     {
         _modules = ports.Modules;
         _log = runtime.Log;
+        WarmsUp = runtime.WarmUp;
         Faults = new ModuleFaults(runtime.Log);
         Seat = ports.Seat;
         _lapse = Lapse;
@@ -113,6 +114,16 @@ internal sealed class LatticeWorld : IGhostSystem
     public WorldSeat Seat { get; }
 
     internal ModuleFaults Faults { get; }
+
+    /// <summary>Whether this world compiles Lattice's methods ahead in idle frames: <see cref="Publish"/> queues Core's, the renderer's host queues Render's.</summary>
+    internal bool WarmsUp { get; }
+
+    /// <summary>The namespaces of Core whose methods a big plan runs: saving and its written form, styles, the board, matching and plan state.</summary>
+    internal static readonly string[] WarmNamespaces =
+    [
+        "Lattice.Core.Saving", "Lattice.Core.Written", "Lattice.Core.Styles", "Lattice.Core.Styles.Library", "Lattice.Core.Board",
+        "Lattice.Core.Matching", "Lattice.Core.Plans", "Lattice.Core.Ports", "Lattice.Core.Grid", "Lattice.Core.World", "Lattice.Core.Validation", "Lattice.Core.Support",
+    ];
 
     internal GhostBoard Ghosts { get; private set; } = null!;
 
@@ -179,8 +190,14 @@ internal sealed class LatticeWorld : IGhostSystem
     /// </summary>
     public void Publish()
     {
-        if (!_ended)
-            LatticeSystem.Publish(this);
+        if (_ended)
+            return;
+        if (WarmsUp)
+            {
+            WarmUp.Schedule(Scheduler, "core", typeof(LatticeWorld).Assembly, WarmNamespaces, () => ValidationModule is { Busy: true });
+            WarmUp.Schedule(Scheduler, "api", typeof(ApiVersion).Assembly, ["Lattice.Api"]);
+        }
+        LatticeSystem.Publish(this);
     }
 
     /// <summary>

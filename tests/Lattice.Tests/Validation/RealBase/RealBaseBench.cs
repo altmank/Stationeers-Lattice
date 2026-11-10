@@ -99,8 +99,8 @@ internal sealed class RealBaseBench : IDisposable
         Assert.True(missing.Count == 0, $"the plan of {facts.Count} pieces holds no {string.Join(", ", missing)}");
     }
 
-    /// <summary>Starts the world's Lattice as the host, opening saving at <paramref name="save"/>; returns the start time.</summary>
-    public TimeSpan Start(Option<SaveKey> save, FakeWorld? world = null)
+    /// <summary>Starts the world's Lattice as the host, opening saving at <paramref name="save"/>, compiling its methods ahead in idle frames when <paramref name="warmUp"/>; returns the start time.</summary>
+    public TimeSpan Start(Option<SaveKey> save, FakeWorld? world = null, bool warmUp = false)
     {
         World = world ?? Save.World;
         Lattice?.End();
@@ -113,7 +113,7 @@ internal sealed class RealBaseBench : IDisposable
             World = Option.Some(new GamePorts(World, new FakeScan(World), World, _check)),
             Saving = Option.Some(new OpenedSaving(_saving, opened)),
         };
-        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add) with { Clock = _clock }));
+        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add) with { Clock = _clock, WarmUp = warmUp }));
         watch.Stop();
         return watch.Elapsed;
     }

@@ -62,6 +62,9 @@ internal sealed record WorldRuntime(
     /// <summary>The decided time limit of other mods' rules.</summary>
     public TimeSpan RuleLimit { get; init; } = RuleGuard.DefaultLimit;
 
+    /// <summary>Whether the world compiles Lattice's own methods ahead in idle frames (<see cref="Slices.WarmUp"/>); the game's runtime does.</summary>
+    public bool WarmUp { get; init; }
+
     /// <summary>The worker analyzers run on; none runs them on validation's worker.</summary>
     public Func<IValidationWorker?> AnalyzerWorker { get; init; } = static () => null;
 
