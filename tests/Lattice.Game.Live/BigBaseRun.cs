@@ -374,6 +374,14 @@ internal static class BigBaseRun
                 yield return new WaitForSecondsRealtime(10f);
         }
 
+        var capsules = new List<string>();
+        foreach (var capsule in UnityEngine.Object.FindObjectsOfType<LanderCapsule>())
+        {
+            var p = capsule.ThingTransformPosition;
+            capsules.Add($"{WorldFile.Metres(p.x, p.y, p.z)} ({capsule.LanderMode})");
+        }
+
+        line($"bigbase: probe: lander capsules {capsules.Count}{(capsules.Count > 0 ? ": " + string.Join(", ", capsules) : "")}");
         line("bigbase: probe at the stand spot (body at the landing): " + ProbeStand(stand));
     }
 
