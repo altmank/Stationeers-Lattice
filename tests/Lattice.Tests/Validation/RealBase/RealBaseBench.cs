@@ -118,6 +118,12 @@ internal sealed class RealBaseBench : IDisposable
         return watch.Elapsed;
     }
 
+    /// <summary>Starts noting the frame clock's reads for the frame about to run.</summary>
+    public void ClockStart() => _clock.StartFrame();
+
+    /// <summary>Main-thread CPU in milliseconds between consecutive frame-clock reads of the last frame.</summary>
+    public List<double> ClockGaps() => _clock.Gaps();
+
     /// <summary>The game saves: Lattice's records are written; returns the save's key.</summary>
     public SaveKey GameSave()
     {
