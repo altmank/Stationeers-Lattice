@@ -7,7 +7,7 @@ namespace Lattice.Tests.RealSave;
 
 /// <summary>
 /// What the big-base live runs recorded on the test instance (Lattice.Game.Live <c>bigbase-build</c> and
-/// <c>bigbase-load</c>; logs copied from <c>LatticeFixtures\bridge</c> by make-fixtures.ps1): a large real base (Vulcan2_4) rebuilt
+/// <c>bigbase-load</c>; logs copied from <c>LatticeFixtures\bridge</c> by make-fixtures.ps1): a large real base rebuilt
 /// in a vanilla world, then loaded, completed, saved and reloaded with Lattice running.
 /// </summary>
 public sealed class LiveBigBaseTests
