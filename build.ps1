@@ -171,6 +171,14 @@ finally {
     $env:DOTNET_TieredCompilation = $tiered
 }
 
+# The VM run hooks and the publish script run under Windows PowerShell 5.1 inside the kit, so their tests do too.
+# They touch no game and no VM, and take a few seconds.
+if (-not $Perf) {
+    foreach ($t in Get-ChildItem (Join-Path $PSScriptRoot 'tests\vm') -Filter *.tests.ps1) {
+        Invoke-Step "script test $($t.Name)" { powershell.exe -NoProfile -ExecutionPolicy Bypass -File $t.FullName }
+    }
+}
+
 Write-Host '== green' -ForegroundColor Green
 
 if ($Deploy) { Invoke-Deploy }

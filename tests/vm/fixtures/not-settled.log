@@ -1,0 +1,11 @@
+﻿LIVE bigbase: main menu up after 41.2 s
+LIVE bigbase: new world Lunar Creative LunarStart: running after 63.0 s
+LIVE bigbase: body stands at (1.0, 2.0, 3.0) (stand spot 1 2 3)
+LIVE bigbase: 31120 structures in the base file, 0 of prefabs the game lacks (modded), 0 held back, 31120 to spawn; saved as lattice-gen-big
+LIVE bigbase: spawning: 31120 of 31120 (0 refused) in 20.0 s
+LIVE bigbase: spawned 31120, refused 0 (prefabs the game lacks 0), of 31120 to spawn, in 20.5 s
+LIVE bigbase: after the spawn: NOT settled after 5.1 s; game frames 1; Lattice frames 2
+LIVE PASS bigbase: the body ends 0.10 m from the stand spot after the settle (limit 2 m)
+LIVE bigbase: save lattice gen big: success True ''
+LIVE bigbase: board 0 ghosts in 0 plans
+LIVE done
