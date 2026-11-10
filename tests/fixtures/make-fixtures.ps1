@@ -9,7 +9,7 @@
     The folder of live-run logs and data (bridge\, saving\, bigbase\, catalogue\); default: the nearest LatticeFixtures
     folder above the repo, none if there is none. Saves are never read from it.
 .PARAMETER Saves
-    The library worlds to copy (default: lattice-gen-big and lattice-known). Each save is copied from
+    The library worlds to copy (default: lattice-gen-big, lattice-known and lattice-builder-turns). Each save is copied from
     <WorldDir>\<name>\<name>.save, or <WorldDir>\<name>\<name>\<name>.save, as generated\<name>.save, with
     <WorldDir>\<name>\world.txt as generated\<name>.world.txt.
 .PARAMETER WorldDir
@@ -19,7 +19,7 @@
 #>
 param(
     [string] $FixturesDir = '',
-    [string[]] $Saves = @('lattice-gen-big', 'lattice-known'),
+    [string[]] $Saves = @('lattice-gen-big', 'lattice-known', 'lattice-builder-turns'),
     [string] $WorldDir = $env:STATIONEERS_WORLDS,
     [string] $Catalogue = ''
 )
