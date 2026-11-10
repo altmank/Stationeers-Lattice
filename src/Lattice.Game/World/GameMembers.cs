@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Lattice.Api;
 using Lattice.Core.Modules;
+using Lattice.Core.World;
 
 namespace Lattice.Game.World;
 
@@ -93,6 +94,19 @@ internal static class GameMembers
         return null;
     }
 
+    /// <summary>The type in one assembly, or null when the assembly lacks it or cannot resolve it (another mod's broken dependency).</summary>
+    private static Type? TypeIn(System.Reflection.Assembly assembly, string fullName)
+    {
+        try
+        {
+            return assembly.GetType(fullName);
+        }
+        catch (Exception e) when (TypeWalk.DoesNotLoad(e))
+        {
+            return null;
+        }
+    }
+
     private static Type? TypeNamed(string fullName, Dictionary<string, Type?> types)
     {
         if (types.TryGetValue(fullName, out var known))
@@ -100,7 +114,7 @@ internal static class GameMembers
         var found = Type.GetType(fullName);
         if (found == null)
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                if (assembly.GetType(fullName) is { } type)
+                if (TypeIn(assembly, fullName) is { } type)
                 {
                     found = type;
                     break;
