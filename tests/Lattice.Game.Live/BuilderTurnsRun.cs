@@ -118,11 +118,13 @@ internal static class BuilderTurnsRun
     private const float PlaceSeconds = 10f;
 
     private static Vector3? _stand;
+    private static Action<string>? Log;
 
     public static IEnumerator Run(string outDir, Action<string> line)
     {
         void Say(string text) => line("builder-turns: " + text);
         var failed = false;
+        Log = Say;
 
         if (GameManager.GameState != GameState.Running)
         {
@@ -392,6 +394,8 @@ internal static class BuilderTurnsRun
                 EnterSingle.Invoke(null, [single]);
             yield return null;
             yield return null;
+            if (!HasCursor)
+                Log?.Invoke($"{prefab.name} no cursor: kit {held?.GetType().Name ?? "not created"} in hand {InventoryManager.ActiveHandSlot.Get<Item>()?.name ?? "none"}, mode {InventoryManager.CurrentMode}, cursor {(InventoryManager.ConstructionCursor != null ? InventoryManager.ConstructionCursor.name : "none")}, game's cursor for the piece {(InventoryManager.GetStructureCursor(prefab.name) != null ? "exists" : "missing")}, panel {InventoryManager.Instance.ConstructionPanel.IsVisible}");
         }
 
         public IEnumerator Leave()
