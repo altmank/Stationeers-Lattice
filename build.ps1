@@ -23,7 +23,7 @@
     Deploy even while Stationeers runs (only for a mod the running game has never loaded). It skips no lock check.
 .PARAMETER LockScript
     The script that guards the game folder while a deploy copies (default: the STATIONEERS_GAME_LOCK environment
-    variable). The deploy calls `& <script> acquire -Owner <owner>` before it replaces the target and
+    variable). The deploy calls `& <script> acquire -Owner <owner> -ExpectedMinutes 5 [-Item <item>]` before it replaces the target and
     `& <script> release -Owner <owner>` afterwards, even when the copy fails; each must exit 0 on success. acquire may
     wait while someone else holds the lock; if it fails, the deploy stops without touching the target. A deploy with no
     lock script, or one naming a file that does not exist, refuses unless -NoLock or -LockHeld is given.
@@ -38,6 +38,11 @@
 .PARAMETER LockHeld
     The caller already holds the game lock for its whole run: the deploy neither takes nor releases it (the lock is
     not re-entrant). No -LockScript is needed.
+.PARAMETER LockOwner
+    The owner name the deploy gives the lock (default "lattice-deploy <folder> pid <pid>"). A lock that checks owners
+    wants the caller's own name here.
+.PARAMETER LockItem
+    Optional: the work item the deploy is for, passed to the lock as -Item.
 #>
 param(
     [ValidateSet('Debug', 'Release')]
@@ -50,7 +55,9 @@ param(
     [string] $LockScript = $env:STATIONEERS_GAME_LOCK,
     [string] $BackupRoot = '',
     [switch] $NoLock,
-    [switch] $LockHeld
+    [switch] $LockHeld,
+    [string] $LockOwner = '',
+    [string] $LockItem = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -100,9 +107,11 @@ function Invoke-Deploy {
         Write-Host "== deploy failed: no package at $package" -ForegroundColor Red
         exit 1
     }
-    $owner = "lattice-deploy $(Split-Path $PSScriptRoot -Leaf) pid $PID"
+    $owner = if ($LockOwner) { $LockOwner } else { "lattice-deploy $(Split-Path $PSScriptRoot -Leaf) pid $PID" }
     if ($takeLock) {
-        & $LockScript acquire -Owner $owner | ForEach-Object { Write-Host "   $_" }
+        $lockArgs = @('-Owner', $owner, '-ExpectedMinutes', 5)
+        if ($LockItem) { $lockArgs += @('-Item', $LockItem) }
+        & $LockScript acquire @lockArgs | ForEach-Object { Write-Host "   $_" }
         if ($LASTEXITCODE -ne 0) {
             Write-Host "== deploy failed: could not take the game lock (exit $LASTEXITCODE)" -ForegroundColor Red
             exit 1
