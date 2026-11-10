@@ -45,7 +45,7 @@ public sealed class LiveBigBaseTests
         Assert.Equal(spawnedLine.Groups[2].Value, spawnedLine.Groups[1].Value);
         Assert.InRange(int.Parse(spawnedLine.Groups[1].Value), held * 9 / 10, held * 11 / 10);
         Assert.Contains(load, static l => l.StartsWith("LIVE PASS the first held-back structure spawned at ", StringComparison.Ordinal) && l.Contains(", inside the base's footprint"));
-        var judged = Number(load, @"load match MatchReport \{ Judged = (\d+)");
+        var judged = load.Select(static l => Regex.Match(l, @"load match MatchReport \{ Judged = (\d+)")).Where(static m => m.Success).Max(static m => int.Parse(m.Groups[1].Value));
         Assert.Equal(held, judged);
     }
 
