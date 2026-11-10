@@ -11,6 +11,7 @@ namespace Lattice.Core.Saving;
 internal static class SavingManifest
 {
     private const string SaveHelper = "Assets.Scripts.Serialization.SaveHelper";
+    private const string XmlSaveLoad = "Assets.Scripts.Serialization.XmlSaveLoad";
 
     /// <summary>The patch target that names the save file a load reads.</summary>
     public static readonly GameMember.Method LoadGame = new("Assets.Scripts.Serialization.LoadHelper", "LoadGame", Params("System.String", "System.String"));
@@ -29,6 +30,11 @@ internal static class SavingManifest
         {
             LoadGame, Save, SavingFinished,
             new GameMember.Method("UnityEngine.Debug", "LogError", Params("System.Object")),
+            new GameMember.Type("UnityEngine.Object"),
+            new GameMember.Method("UnityEngine.Object", "op_Inequality", Params("UnityEngine.Object", "UnityEngine.Object")),
+            new GameMember.Field(XmlSaveLoad, "Instance"),
+            new GameMember.Field(XmlSaveLoad, "CurrentStationName"),
+            new GameMember.Property(XmlSaveLoad, "CurrentWorldSave"),
         }));
 
     private static ValueList<string> Params(params string[] types) => ValueList.From(types);

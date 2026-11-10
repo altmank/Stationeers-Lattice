@@ -53,7 +53,7 @@ internal static class SaveHooks
 
     /// <summary>
     /// The save the game loaded, once: none for a new world, and none when the load failed (the game then holds no
-    /// current save and no station name; see <see cref="LoadedSave"/>).
+    /// current save and no station name; see <see cref="LoadedSaveRule"/>).
     /// </summary>
     public static Option<string> TakeLoaded()
     {
@@ -62,7 +62,7 @@ internal static class SaveHooks
         LoadedFrom = null;
         LoadedName = null;
         var game = XmlSaveLoad.Instance;
-        return LoadedSave.Accept(path, name, game != null && game.CurrentWorldSave != null, game?.CurrentStationName);
+        return LoadedSaveRule.Accept(path, name, game != null && game.CurrentWorldSave != null, game?.CurrentStationName);
     }
 
     /// <summary>Checks every member and patches; refused, with nothing patched, when a member is missing or a patch fails.</summary>

@@ -10,7 +10,7 @@ namespace Lattice.Core.Saving;
 /// <c>CurrentStationName</c> only after it runs. So a path noted for a load that then failed meets a game with no current
 /// save (or no station name) when the next world starts, and is not taken for that world.
 /// </summary>
-internal static class LoadedSave
+internal static class LoadedSaveRule
 {
     /// <summary>
     /// The noted save path when the game still holds the load it was noted for: a current world save, and a station
