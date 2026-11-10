@@ -149,6 +149,9 @@ internal sealed class RealBaseBench : IDisposable
     /// </summary>
     public BaseFrameTimes Settle(TimeSpan limit)
     {
+        // What the setup left on the heap (the submitted drafts, the board work, the previous world) is collected before the first frame,
+        // so the window holds the pauses Lattice's own checking causes and not the bench's.
+        Perf.Collect();
         var frames = new List<BaseFrame>(1024);
         var all = Stopwatch.StartNew();
         var idleFrames = 0;
