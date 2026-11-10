@@ -16,7 +16,7 @@ internal static class RenderWarmUp
     /// <summary>Queues the warm-up of Render's methods on the world's scheduler when the world warms up.</summary>
     public static void Schedule(LatticeWorld world)
     {
-        if (world.WarmsUp)
-            WarmUp.Schedule(world.Scheduler, Set, typeof(Renderer).Assembly, Namespaces);
+        if (world.WarmSets is { } sets)
+            WarmUp.Schedule(sets, world.Scheduler, Set, typeof(Renderer).Assembly, Namespaces);
     }
 }

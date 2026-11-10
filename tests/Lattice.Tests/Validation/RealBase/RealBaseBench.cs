@@ -36,6 +36,9 @@ internal sealed class RealBaseBench : IDisposable
     /// <summary>The save file of the library world every offline real-base suite reads.</summary>
     public const string BigBase = "lattice-gen-big.save";
 
+    /// <summary>The warm-up sets compiled so far in this test process.</summary>
+    public static WarmedSets Warmed { get; } = new();
+
     private static readonly Lazy<ThreadCpu> CpuClock = new(ThreadCpu.Calibrate);
     private readonly CpuNotingClock _clock = new(Cpu);
     private readonly FakePlacementCheck _check = new();
@@ -113,7 +116,7 @@ internal sealed class RealBaseBench : IDisposable
             World = Option.Some(new GamePorts(World, new FakeScan(World), World, _check)),
             Saving = Option.Some(new OpenedSaving(_saving, opened)),
         };
-        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add) with { Clock = _clock, WarmUp = warmUp }));
+        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add) with { Clock = _clock, WarmUp = warmUp ? Warmed : null }));
         watch.Stop();
         return watch.Elapsed;
     }

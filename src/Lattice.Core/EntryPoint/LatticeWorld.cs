@@ -60,7 +60,7 @@ internal sealed class LatticeWorld : IGhostSystem
     {
         _modules = ports.Modules;
         _log = runtime.Log;
-        WarmsUp = runtime.WarmUp;
+        WarmSets = runtime.WarmUp;
         Faults = new ModuleFaults(runtime.Log);
         Seat = ports.Seat;
         _lapse = Lapse;
@@ -115,11 +115,11 @@ internal sealed class LatticeWorld : IGhostSystem
 
     internal ModuleFaults Faults { get; }
 
-    /// <summary>Whether this world compiles Lattice's methods ahead in idle frames: <see cref="Publish"/> queues Core's, the renderer's host queues Render's.</summary>
-    internal bool WarmsUp { get; }
+    /// <summary>The sets this world compiles ahead in idle frames, none when it does not: <see cref="Publish"/> queues Core's, the renderer's host queues Render's.</summary>
+    internal WarmedSets? WarmSets { get; }
 
     /// <summary>The namespaces of Core whose methods a big plan runs: saving and its written form, styles, the board, matching and plan state.</summary>
-    internal static readonly string[] WarmNamespaces =
+    internal static string[] WarmNamespaces =>
     [
         "Lattice.Core.Saving", "Lattice.Core.Written", "Lattice.Core.Styles", "Lattice.Core.Styles.Library", "Lattice.Core.Board",
         "Lattice.Core.Matching", "Lattice.Core.Plans", "Lattice.Core.Ports", "Lattice.Core.Grid", "Lattice.Core.World", "Lattice.Core.Validation", "Lattice.Core.Support",
@@ -192,10 +192,10 @@ internal sealed class LatticeWorld : IGhostSystem
     {
         if (_ended)
             return;
-        if (WarmsUp)
-            {
-            WarmUp.Schedule(Scheduler, "core", typeof(LatticeWorld).Assembly, WarmNamespaces, () => ValidationModule is { Busy: true });
-            WarmUp.Schedule(Scheduler, "api", typeof(ApiVersion).Assembly, ["Lattice.Api"]);
+        if (WarmSets is { } sets)
+        {
+            WarmUp.Schedule(sets, Scheduler, "core", typeof(LatticeWorld).Assembly, WarmNamespaces);
+            WarmUp.Schedule(sets, Scheduler, "api", typeof(ApiVersion).Assembly, ["Lattice.Api"]);
         }
         LatticeSystem.Publish(this);
     }

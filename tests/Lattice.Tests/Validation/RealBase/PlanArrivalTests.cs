@@ -31,14 +31,14 @@ namespace Lattice.Tests.Validation.RealBase;
 /// <see cref="IdleFrame"/>, and the main thread compiles at most <see cref="Compiled"/> methods over that arrival and
 /// its reload. Without it (the run that shows what the warm-up removes) the
 /// cold arrival is reported, not judged. The pin is cold only in a process where nothing ran the same code before:
-/// run it alone (<c>--filter FullyQualifiedName~PlanArrivalTests</c>); in a shared process it passes trivially.
+/// it is a Perf test (thread CPU is shared-core sensitive); run it alone (<c>--filter FullyQualifiedName~PlanArrivalTests</c>) for the cold pin: in a shared process the code is already compiled and the frames are noisier.
 /// </para>
 /// </summary>
 [Collection(LatticeSystemCollection.Name)]
 public sealed class PlanArrivalTests(ITestOutputHelper output)
 {
     private const int PlanSize = 5000;
-    private const double Frame = 12.5;
+    private const double Frame = 10.0;
     private const double IdleFrame = 10.0;
     private const long Compiled = 500;
     private readonly List<string> _lines = new();
@@ -46,6 +46,7 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
     private long _compiledInArrival;
 
     [RealBaseFact(RealBaseBench.BigBase)]
+    [Trait(Perf.Trait, Perf.Value)]
     public void A_big_plan_arriving_costs_no_frame_past_the_budgets()
     {
         var warmUp = Environment.GetEnvironmentVariable("LATTICE_PLAN_WARMUP") != "0";
@@ -124,14 +125,14 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
             return Frames("start", bench, 30);
         var frames = 0;
         var wall = Stopwatch.StartNew();
-        while (!(WarmUp.IsDone("core") && WarmUp.IsDone("api") && WarmUp.IsDone("render")) && wall.Elapsed < TimeSpan.FromSeconds(300))
+        while (!(RealBaseBench.Warmed.IsDone("core") && RealBaseBench.Warmed.IsDone("api") && RealBaseBench.Warmed.IsDone("render")) && wall.Elapsed < TimeSpan.FromSeconds(300))
         {
             costs.AddRange(Frames("warm-up", bench, 1, frames++));
             System.Threading.Thread.Sleep(1);
         }
 
-        _lines.Add($"warm-up finished after {frames} idle frames (core {WarmUp.IsDone("core")}, render {WarmUp.IsDone("render")})");
-        Assert.True(WarmUp.IsDone("core") && WarmUp.IsDone("api") && WarmUp.IsDone("render"), $"the warm-up never finished: work {bench.Lattice.Scheduler.WorkThisFrame.TotalMilliseconds:F2} ms, idle {bench.Lattice.Scheduler.Idle}, validation busy {bench.Lattice.ValidationModule?.Busy}, saving pending {bench.Saving.Pending}, answers {bench.AnswersReady()}; log {string.Join(" | ", bench.Log.Where(l => l.Contains("fail")).Take(3))}; jobs {Jobs(bench)}");
+        _lines.Add($"warm-up finished after {frames} idle frames (core {RealBaseBench.Warmed.IsDone("core")}, render {RealBaseBench.Warmed.IsDone("render")})");
+        Assert.True(RealBaseBench.Warmed.IsDone("core") && RealBaseBench.Warmed.IsDone("api") && RealBaseBench.Warmed.IsDone("render"), $"the warm-up never finished: work {bench.Lattice.Scheduler.WorkThisFrame.TotalMilliseconds:F2} ms, idle {bench.Lattice.Scheduler.Idle}, validation busy {bench.Lattice.ValidationModule?.Busy}, saving pending {bench.Saving.Pending}, answers {bench.AnswersReady()}; log {string.Join(" | ", bench.Log.Where(l => l.Contains("fail")).Take(3))}; jobs {Jobs(bench)}");
         costs.AddRange(Frames("settled", bench, 30));
         return costs;
     }

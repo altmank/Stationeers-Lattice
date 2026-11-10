@@ -11,8 +11,8 @@ namespace Lattice.Core.Slices;
 /// compile, and a plan of thousands of ghosts reaches hundreds of cold methods inside one slice. One method is
 /// compiled per step, from the types of the given namespaces (nested types, closures and compiler-generated types
 /// included; open generics, abstract and extern methods left out), at the lowest priority and only while the frame's other
-/// work took next to no time, so a step is never taken from real work. Each set is done once per process: compiled
-/// methods stay compiled for later worlds. A method that cannot be compiled is skipped.
+/// work took next to no time, so a step is never taken from real work. Each set is done once per <see cref="WarmedSets"/>,
+/// which the host keeps for the whole process: compiled methods stay compiled for later worlds. A method that cannot be compiled is skipped.
 /// <para>
 /// Both calls are made because the runtimes differ: Unity's Mono compiles on <c>RuntimeMethodHandle.GetFunctionPointer</c>
 /// (its <c>RuntimeHelpers.PrepareMethod</c> does nothing), .NET compiles on <c>PrepareMethod</c> (its function pointer
@@ -22,25 +22,24 @@ namespace Lattice.Core.Slices;
 internal sealed class WarmUp : ISlicedWork
 {
     /// <summary>The frame's real work below which the world counts as idle.</summary>
-    private static readonly TimeSpan Quiet = TimeSpan.FromMilliseconds(0.25);
+    private static readonly TimeSpan Quiet = TimeSpan.FromTicks(2500);
 
     /// <summary>Methods with more IL bytes than this are left to compile when first called: one step would pass its slice.</summary>
     private const int LargestMethod = 3000;
 
-    private static readonly HashSet<string> Finished = new();
+    private readonly WarmedSets _sets;
     private readonly string _set;
     private readonly FrameScheduler _scheduler;
-    private readonly Func<bool>? _busy;
     private readonly Queue<Type> _types;
     private readonly Queue<MethodBase> _methods = new();
     private readonly HashSet<Type> _closed = new();
 
-    private WarmUp(string set, FrameScheduler scheduler, Queue<Type> types, Func<bool>? busy)
+    private WarmUp(WarmedSets sets, string set, FrameScheduler scheduler, Queue<Type> types)
     {
+        _sets = sets;
         _set = set;
         _scheduler = scheduler;
         _types = types;
-        _busy = busy;
     }
 
     /// <summary>Where the warm-up is: types and methods still to go, methods compiled.</summary>
@@ -49,39 +48,24 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>Methods this warm-up has compiled so far.</summary>
     public int Compiled { get; private set; }
 
-    /// <summary>Whether the set has been compiled completely by a warm-up of this process.</summary>
-    public static bool IsDone(string set)
-    {
-        lock (Finished)
-            return Finished.Contains(set);
-    }
-
-    /// <summary>Forgets that a set was compiled, so the next <see cref="Schedule"/> runs it again (tests).</summary>
-    internal static void Forget(string set)
-    {
-        lock (Finished)
-            Finished.Remove(set);
-    }
-
     /// <summary>
     /// Queues the warm-up of the types of <paramref name="assembly"/> whose namespace is one of
-    /// <paramref name="namespaces"/>, unless the set is done. <paramref name="busy"/> holds the warm-up back while work
-    /// outside the scheduler's jobs is going on. Returns the job, none when the set was done or the kind is unknown.
+    /// <paramref name="namespaces"/>, unless the set is done. Returns the job, none when the set was done or the kind is unknown.
     /// </summary>
-    public static SlicedJob? Schedule(FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces, Func<bool>? busy = null)
+    public static SlicedJob? Schedule(WarmedSets sets, FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces)
     {
-        if (IsDone(set))
+        if (sets.IsDone(set))
             return null;
         var types = new Queue<Type>();
         foreach (var type in LoadableTypes(assembly))
             if (type.DeclaringType is null && InNamespaces(type, namespaces))
                 types.Enqueue(type);
-        return scheduler.Schedule(WorkKind.Drawing, new WarmUp(set, scheduler, types, busy), Priority.Lowest).TryGet(out var job) ? job : null;
+        return scheduler.Schedule(WorkKind.Drawing, new WarmUp(sets, set, scheduler, types), Priority.Lowest).TryGet(out var job) ? job : null;
     }
 
     public StepOutcome Step()
     {
-        if (_scheduler.WorkThisFrame > Quiet || _busy?.Invoke() == true)
+        if (_scheduler.WorkThisFrame > Quiet)
             return StepOutcome.NextFrame;
         if (_methods.Count > 0)
         {
@@ -95,8 +79,7 @@ internal sealed class WarmUp : ISlicedWork
             return StepOutcome.More;
         }
 
-        lock (Finished)
-            Finished.Add(_set);
+        _sets.Add(_set);
         return StepOutcome.Done;
     }
 
@@ -203,5 +186,24 @@ internal sealed class WarmUp : ISlicedWork
             if (name == space)
                 return true;
         return false;
+    }
+}
+
+/// <summary>The warm-up sets already compiled; the host holds one for its whole process, because compiled methods outlive worlds.</summary>
+internal sealed class WarmedSets
+{
+    private readonly HashSet<string> _done = new();
+
+    /// <summary>Whether a warm-up completed the set.</summary>
+    public bool IsDone(string set)
+    {
+        lock (_done)
+            return _done.Contains(set);
+    }
+
+    internal void Add(string set)
+    {
+        lock (_done)
+            _done.Add(set);
     }
 }
