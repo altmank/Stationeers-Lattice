@@ -33,8 +33,8 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>A step ends once it has taken this long (0.25 ms), even before <see cref="PerStep"/> methods.</summary>
     private static readonly TimeSpan StepLimit = TimeSpan.FromTicks(2500);
 
-    /// <summary>A method expected to take longer than this (0.5 ms) to compile is not compiled: nothing could keep it from overrunning the frame.</summary>
-    private static readonly TimeSpan MethodLimit = TimeSpan.FromTicks(5000);
+    /// <summary>A method expected to take longer than this (3 ms, margin included) to compile is left to first call: a deferred method compiles inside the plan's arrival, which costs more than an idle frame up to the frame budgets' sum.</summary>
+    private static readonly TimeSpan MethodLimit = TimeSpan.FromTicks(30000);
 
     /// <summary>Compile cost expected per IL byte before any has been measured (2 µs, in ticks of 100 ns): the runtime's real cost is learned from the methods compiled.</summary>
     private const double PriorTicksPerByte = 20;
