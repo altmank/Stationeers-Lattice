@@ -8,10 +8,18 @@ using System.Text.RegularExpressions;
 namespace Lattice.Game.Live;
 
 /// <summary>Where the body stands in the base file's <c># stand x y z</c> line, in metres.</summary>
-internal readonly record struct StandSpot(float X, float Y, float Z);
+internal readonly record struct StandSpot(float X, float Y, float Z)
+{
+    /// <summary>The spot moved by an offset.</summary>
+    public StandSpot Moved(BaseOffset by) => new(X + by.Dx, Y + by.Dy, Z + by.Dz);
+}
 
-/// <summary>What the big-base file's comment lines say about the base (<c># station</c>, <c># stand</c>, the seed and the SHA1s).</summary>
-internal sealed record BaseHeader(string? Station, StandSpot? Stand, string Seed, string CatalogueSha1, string MixSha1)
+/// <summary>
+/// What the big-base file's comment lines say about the base (<c># station</c>, <c># stand</c>, <c># offset</c>, the seed and
+/// the SHA1s). <c># offset dx dy dz</c> is how far a world's build moved the base off the file's coordinates; a file with no
+/// such line is at its own coordinates (<see cref="BaseOffset.Zero"/>).
+/// </summary>
+internal sealed record BaseHeader(string? Station, StandSpot? Stand, string Seed, string CatalogueSha1, string MixSha1, BaseOffset Offset)
 {
     private static readonly Regex SeedPattern = new(@"\bseed (\d+)", RegexOptions.CultureInvariant);
     private static readonly Regex CataloguePattern = new(@"\bcatalogue \S+ SHA1 ([0-9A-Fa-f]+)", RegexOptions.CultureInvariant);
@@ -23,6 +31,7 @@ internal sealed record BaseHeader(string? Station, StandSpot? Stand, string Seed
         string? station = null;
         StandSpot? stand = null;
         string seed = "unknown", catalogue = "unknown", mix = "unknown";
+        var offset = BaseOffset.Zero;
         foreach (var text in lines)
         {
             if (!text.StartsWith("#", StringComparison.Ordinal))
@@ -31,6 +40,8 @@ internal sealed record BaseHeader(string? Station, StandSpot? Stand, string Seed
                 station = text.Substring("# station ".Length).Trim();
             else if (text.StartsWith("# stand ", StringComparison.Ordinal))
                 stand = ParseStand(text.Substring("# stand ".Length)) ?? stand;
+            else if (text.StartsWith("# offset ", StringComparison.Ordinal))
+                offset = ParseOffset(text.Substring("# offset ".Length)) ?? offset;
             else
             {
                 if (SeedPattern.Match(text) is { Success: true } s)
@@ -42,11 +53,14 @@ internal sealed record BaseHeader(string? Station, StandSpot? Stand, string Seed
             }
         }
 
-        return new BaseHeader(station, stand, seed, catalogue, mix);
+        return new BaseHeader(station, stand, seed, catalogue, mix, offset);
     }
 
     /// <summary>The save the build makes: the station, plus <c>-held</c> when anything is held back; none without a station line.</summary>
     public string? SaveName(int held) => Station is null ? null : held > 0 ? Station + "-held" : Station;
+
+    private static BaseOffset? ParseOffset(string text) =>
+        ParseStand(text) is { } v ? new BaseOffset(v.X, v.Y, v.Z) : null;
 
     private static StandSpot? ParseStand(string text)
     {
@@ -231,6 +245,9 @@ internal readonly record struct BaseOffset(float Dx, float Dy, float Dz)
     public const float Rise = Grid;
 
     public static BaseOffset Zero => new(0f, 0f, 0f);
+
+    /// <summary>A point of the base file moved by this offset, into world coordinates.</summary>
+    public (float X, float Y, float Z) Apply(float x, float y, float z) => (x + Dx, y + Dy, z + Dz);
 
     /// <summary>The offset as world.txt writes it: <c>dx dy dz</c> in metres.</summary>
     public string Text => WorldFile.Metres(Dx, Dy, Dz);

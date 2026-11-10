@@ -97,8 +97,9 @@ internal sealed class BaseStructure(string prefab, Vector3 position, Quaternion 
 /// steady frames, an autosave, the autosave loaded (plans equal), then the older head save loaded while the world runs
 /// (plans as at the head save; the new plan hidden, not offered, since the autosave holds its lines). The base file
 /// (<c>-lattice-bigbase &lt;tsv&gt;</c>) is the generated big base (LatticeFixtures\bigbase\lattice-gen-big.tsv, whose
-/// <c># station</c> line names the save, <c>lattice-gen-big</c>) or
-/// the structures of a Vulcan2_4 save copy; both outside the repo. A server builds in the new world it starts with; a
+/// <c># station</c> line names the save, <c>lattice-gen-big</c>), outside the repo. Its optional <c># offset dx dy dz</c>
+/// line is where the build shifted the base in the world loaded: <c>bigbase-load</c> moves every held-back structure by it
+/// (no line, no move). A server builds in the new world it starts with; a
 /// client, started from the main menu, loads the world <c>-lattice-save &lt;file&gt;</c> names, or makes a new one.
 /// </summary>
 internal static class BigBaseRun
@@ -635,18 +636,40 @@ internal static class BigBaseRun
             yield break;
         }
 
+        // The build shifted the base onto this world's ground; the file's own coordinates are 2 km off in the world.
+        var offset = header.Offset;
+        line($"bigbase: offset {offset.Text} ({(offset == BaseOffset.Zero ? "none in the base file: its own coordinates" : "from the base file's # offset line")})");
+        var by = new Vector3(offset.Dx, offset.Dy, offset.Dz);
+        structures = structures.ConvertAll(s => s.Moved(by));
+        var footprint = FootprintOf(structures);
+
         var (held, _, _) = Split(structures, heldCount);
 
         LatticeTiming.Recording = true;
         var watch = Stopwatch.StartNew();
+        var spawned = 0;
+        Vector3? firstAt = null;
         for (var i = 0; i < held.Count; i++)
         {
-            Scene.Spawn(held[i].Prefab, held[i].Position, held[i].Rotation, held[i].State);
+            if (Scene.Spawn(held[i].Prefab, held[i].Position, held[i].Rotation, held[i].State) is { } made)
+            {
+                spawned++;
+                firstAt ??= made.ThingTransformPosition;
+            }
+
             if (i % SpawnPerFrame == SpawnPerFrame - 1)
                 yield return null;
         }
 
-        line($"bigbase: held-back structures spawned in {watch.Elapsed.TotalSeconds:F1} s");
+        line($"bigbase: held-back structures spawned in {watch.Elapsed.TotalSeconds:F1} s: {spawned} of {held.Count}");
+        if (firstAt is { } first)
+        {
+            var inside = footprint.DistanceTo(first.x, first.z) == 0f && first.y >= footprint.Lowest - BaseOffset.HalfGrid;
+            line($"{(inside ? "PASS" : "FAIL")} the first held-back structure spawned at {WorldFile.Metres(first.x, first.y, first.z)}, " +
+                 $"{(inside ? "inside" : "outside")} the base's footprint x {footprint.MinX:0.##} to {footprint.MaxX:0.##}, z {footprint.MinZ:0.##} to {footprint.MaxZ:0.##}");
+        }
+        else
+            line("FAIL no held-back structure spawned");
         yield return Settle(world, line, "completion of the held-back plan", 300f);
         line($"bigbase: board {Board(world)}");
 
