@@ -74,11 +74,16 @@ internal static partial class LatticeTiming
         get => _watching;
         set
         {
+            if (_watching is not null && !ReferenceEquals(_watching, value))
+                _watching.Scheduler.StepObserver = null;
             _watching = value;
             if (value is not null)
                 value.Scheduler.StepObserver = Observer;
         }
     }
+
+    /// <summary>Why the phase labels are off (a member they read is missing), or null when they are on.</summary>
+    public static string? PhasesOff { get; private set; }
 
     /// <summary>The warm-up sets the world's process has finished, as one text for the log.</summary>
     public static string WarmSetsText(LatticeWorld world) =>
@@ -147,19 +152,25 @@ internal static partial class LatticeTiming
 
             var work = AccessTools.Inner(typeof(PlanStateModule), "Work");
             var job = AccessTools.Inner(typeof(PlanStateModule), "PlanJob");
-            _owner = work.GetFields(BindingFlags.Instance | BindingFlags.NonPublic).First(f => f.FieldType == typeof(PlanStateModule));
+            _owner = work?.GetFields(BindingFlags.Instance | BindingFlags.NonPublic).First(f => f.FieldType == typeof(PlanStateModule));
             _job = AccessTools.Field(typeof(PlanStateModule), "_job");
             _jobFindings = AccessTools.Field(job, "_findings");
             _jobGhosts = AccessTools.Field(job, "_ghosts");
             _jobBill = AccessTools.Field(job, "_bill");
             _jobSafety = AccessTools.Field(job, "_safety");
+            var rebuildsStep = AccessTools.Method(rebuilds, nameof(Rebuilds.Step));
+            var workStep = work is null ? null : AccessTools.Method(work, nameof(ISlicedWork.Step));
+            if (work is null || job is null || _job is null || _jobFindings is null || _jobGhosts is null || _jobBill is null || _jobSafety is null
+                || rebuildsStep is null || workStep is null)
+                throw new MissingMemberException("a member the phase labels read is missing");
 
-            harmony.Patch(AccessTools.Method(rebuilds, nameof(Rebuilds.Step)), prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(RebuildsBegin)));
-            harmony.Patch(AccessTools.Method(work, nameof(ISlicedWork.Step)), prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(PlanWorkBegin)));
+            harmony.Patch(rebuildsStep, prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(RebuildsBegin)));
+            harmony.Patch(workStep, prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(PlanWorkBegin)));
         }
-        catch (Exception)
+        catch (Exception error)
         {
             // A phase that cannot be read leaves its steps without one; they are still timed and labelled by their type.
+            PhasesOff = error.Message;
         }
     }
 

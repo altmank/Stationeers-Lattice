@@ -778,6 +778,7 @@ internal static class BigBaseRun
         line($"{(older == atHead && newWing.IsNone && found && ahead == 0 ? "PASS" : "FAIL")} the older save loads its plans as at the head save, the new plan hidden and not offered: plans equal {older == atHead} ({Lines(atHead)} plan lines), new plan on the board {newWing.IsSome}, record found {found}, plans ahead {ahead}");
         File.WriteAllText(Path.Combine(outDir, "bigbase-plans-older.txt"), older);
         LatticeTiming.Recording = false;
+        LatticeTiming.Watching = null;
     }
 
     private static bool Lattice(Action<string> line, out LatticeWorld world)
@@ -819,6 +820,8 @@ internal static class BigBaseRun
         LatticeTiming.Watching = world;
         LatticeTiming.ClearFrames();
         line($"bigbase: warm-up sets at the start of {what}: {LatticeTiming.WarmSetsText(world)}");
+        if (LatticeTiming.PhasesOff is { } off)
+            line($"bigbase: step phases are off: {off}");
         var game = new List<double>(4096);
         var start = Time.realtimeSinceStartup;
         var idle = 0;
@@ -848,6 +851,8 @@ internal static class BigBaseRun
         LatticeTiming.Watching = world;
         LatticeTiming.ClearFrames();
         line($"bigbase: warm-up sets at the start of {what}: {LatticeTiming.WarmSetsText(world)}");
+        if (LatticeTiming.PhasesOff is { } off)
+            line($"bigbase: step phases are off: {off}");
         var (gc0, gc1, gc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
         var game = new List<double>(count);
         for (var i = 0; i < count; i++)
