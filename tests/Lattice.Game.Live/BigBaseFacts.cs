@@ -66,14 +66,44 @@ internal readonly record struct GroundSample(float X, float Z, float? Y)
     public string Where => $"x {X.ToString("0.##", CultureInfo.InvariantCulture)} z {Z.ToString("0.##", CultureInfo.InvariantCulture)}";
 }
 
-/// <summary>The ground check under a base: raycast heights near the stand spot against the base's lowest piece.</summary>
+/// <summary>The ground check under a base: raycast heights over its footprint and near the stand spot against its lowest piece.</summary>
 internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, IReadOnlyList<string> Misses, float Lowest)
 {
     /// <summary>A hit above the lowest piece's y minus this many metres means the base would cut into the terrain.</summary>
     public const float Clearance = 1f;
 
-    /// <summary>Terrain colliders exist only near the body: only points this close (metres, on the ground plane) to the stand spot are sampled.</summary>
+    /// <summary>
+    /// Terrain colliders exist only near the body: a ray cast now reaches ground only at points this close (metres, on the
+    /// ground plane) to where the body stands. Only LOD level 0 has colliders (TerrainSystem.Lods\LodManager.cs:162) and the
+    /// LODs are centred on each requester (LodManager.cs:713).
+    /// </summary>
     public const float LoadedRadius = 60f;
+
+    /// <summary>How far apart the ground is measured across the footprint, in metres: four large cells.</summary>
+    public const float Spacing = 8f;
+
+    /// <summary>How far the ring of points around the stand spot lies from it, in metres.</summary>
+    public const float Ring = 40f;
+
+    /// <summary>
+    /// Every point the ground is judged at, each once: the stand spot, the footprint's corners and centre, a grid over the
+    /// whole footprint every <see cref="Spacing"/> metres, and a ring of eight points <see cref="Ring"/> metres around the
+    /// stand spot. The build measures them all before it spawns and the verdict judges them all; after the spawn it also
+    /// casts again at those <see cref="Within"/> the loaded radius of the stand spot.
+    /// </summary>
+    public static List<(float X, float Z)> Candidates(Footprint footprint, float standX, float standZ)
+    {
+        var points = new List<(float X, float Z)> { (standX, standZ) };
+        points.AddRange(footprint.Corners);
+        points.AddRange(footprint.Grid(Spacing));
+        for (var i = 0; i < 8; i++)
+        {
+            var angle = i * Math.PI / 4;
+            points.Add((standX + (float)(Ring * Math.Cos(angle)), standZ + (float)(Ring * Math.Sin(angle))));
+        }
+
+        return points.Distinct().ToList();
+    }
 
     /// <summary>The candidate points that lie within <see cref="LoadedRadius"/> of the stand spot.</summary>
     public static List<(float X, float Z)> Within(IEnumerable<(float X, float Z)> candidates, float standX, float standZ)
@@ -119,6 +149,150 @@ internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, I
         static string N(float? v) => v is { } y ? y.ToString("0.##", CultureInfo.InvariantCulture) : "none";
         var text = $"ground under the base: min {N(Min)} max {N(Max)}; lowest piece {N(Lowest)}";
         return Misses.Count > 0 ? text + $"; no ground found at {string.Join(", ", Misses)}" : text;
+    }
+}
+
+/// <summary>
+/// The ground the base covers: the piece centres' bounds on the ground plane, grown by half a large cell on each side
+/// (a large piece reaches <see cref="BaseOffset.HalfGrid"/> past its centre), and the lowest piece's centre height.
+/// </summary>
+internal readonly record struct Footprint(float MinX, float MinZ, float MaxX, float MaxZ, float Lowest)
+{
+    /// <summary>The footprint of the piece centres; none for no pieces.</summary>
+    public static Footprint? Of(IEnumerable<(float X, float Y, float Z)> centres)
+    {
+        Footprint? found = null;
+        foreach (var (x, y, z) in centres)
+            found = found is { } f
+                ? new Footprint(Math.Min(f.MinX, x - BaseOffset.HalfGrid), Math.Min(f.MinZ, z - BaseOffset.HalfGrid),
+                    Math.Max(f.MaxX, x + BaseOffset.HalfGrid), Math.Max(f.MaxZ, z + BaseOffset.HalfGrid), Math.Min(f.Lowest, y))
+                : new Footprint(x - BaseOffset.HalfGrid, z - BaseOffset.HalfGrid, x + BaseOffset.HalfGrid, z + BaseOffset.HalfGrid, y);
+        return found;
+    }
+
+    public (float X, float Z) Centre => ((MinX + MaxX) / 2f, (MinZ + MaxZ) / 2f);
+
+    /// <summary>The four corners and the centre.</summary>
+    public IReadOnlyList<(float X, float Z)> Corners => [(MinX, MinZ), (MinX, MaxZ), (MaxX, MinZ), (MaxX, MaxZ), Centre];
+
+    /// <summary>Points over the whole footprint at most <paramref name="spacing"/> metres apart along each axis, edges included.</summary>
+    public IReadOnlyList<(float X, float Z)> Grid(float spacing)
+    {
+        var zs = Steps(MinZ, MaxZ, spacing).ToList();
+        return [.. Steps(MinX, MaxX, spacing).SelectMany(x => zs.Select(z => (x, z)))];
+    }
+
+    private static IEnumerable<float> Steps(float min, float max, float spacing)
+    {
+        var inner = (int)Math.Ceiling((max - min) / spacing);
+        for (var i = 0; i < inner; i++)
+            yield return min + i * spacing;
+        yield return max;
+    }
+
+    public Footprint Moved(BaseOffset by) => new(MinX + by.Dx, MinZ + by.Dz, MaxX + by.Dx, MaxZ + by.Dz, Lowest + by.Dy);
+
+    /// <summary>The shortest distance on the ground plane from a point to the footprint; 0 inside it.</summary>
+    public float DistanceTo(float x, float z)
+    {
+        var dx = Math.Max(0f, Math.Max(MinX - x, x - MaxX));
+        var dz = Math.Max(0f, Math.Max(MinZ - z, z - MaxZ));
+        return (float)Math.Sqrt(dx * dx + dz * dz);
+    }
+}
+
+/// <summary>Where the landing left the body and, when the start has one, its lander capsule, on the ground plane.</summary>
+internal readonly record struct LandingSpot(float BodyX, float BodyZ, float? LanderX, float? LanderZ);
+
+/// <summary>
+/// How far the whole base moves from the base file's fixed coordinates to stand on this world's ground beside the landing.
+/// Every component is a whole number of large cells (<c>RocketGrid.GridSize</c> = 2 m,
+/// Assembly-CSharp\Assets.Scripts.GridSystem\RocketGrid.cs:221), so every piece keeps its place on both grids.
+/// </summary>
+internal readonly record struct BaseOffset(float Dx, float Dy, float Dz)
+{
+    /// <summary>A large cell, <c>RocketGrid.GridSize</c>.</summary>
+    public const float Grid = 2f;
+
+    /// <summary>Half a large cell, <c>RocketGrid.HalfGridSize</c> (RocketGrid.cs:219): how far a large piece reaches past its centre.</summary>
+    public const float HalfGrid = 1f;
+
+    /// <summary>
+    /// The least distance from the body's landing spot to the base's footprint: five large cells, so the body, and the
+    /// lander capsule behind it, stand on open ground outside the base.
+    /// </summary>
+    public const float Gap = 10f;
+
+    /// <summary>
+    /// How far the lowest piece's underside sits above the highest ground measured, at least: one large frame's height,
+    /// for terrain rising between the measured points. It is more than <see cref="GroundVerdict.Clearance"/>, so the
+    /// verdict's check holds at every measured point.
+    /// </summary>
+    public const float Rise = Grid;
+
+    public static BaseOffset Zero => new(0f, 0f, 0f);
+
+    /// <summary>The offset as world.txt writes it: <c>dx dy dz</c> in metres.</summary>
+    public string Text => WorldFile.Metres(Dx, Dy, Dz);
+
+    /// <summary>
+    /// The ground-plane move that puts the footprint <see cref="Gap"/> or more from the body, on the side away from the
+    /// lander, centred on the body across that side. The side follows the larger component of lander-to-body; with no
+    /// lander, or one under the body, the base goes to +x.
+    /// </summary>
+    public static (float Dx, float Dz) Beside(Footprint footprint, LandingSpot landing)
+    {
+        var (ax, az) = landing is { LanderX: { } lx, LanderZ: { } lz } ? (landing.BodyX - lx, landing.BodyZ - lz) : (0f, 0f);
+        if (ax * ax + az * az < 0.01f)
+            (ax, az) = (1f, 0f);
+        var (cx, cz) = footprint.Centre;
+        return Math.Abs(ax) >= Math.Abs(az)
+            ? (Along(ax, landing.BodyX, footprint.MinX, footprint.MaxX), Cells(landing.BodyZ - cz, Math.Round))
+            : (Cells(landing.BodyX - cx, Math.Round), Along(az, landing.BodyZ, footprint.MinZ, footprint.MaxZ));
+    }
+
+    /// <summary>
+    /// The vertical move that puts the lowest piece's underside (its centre less <see cref="HalfGrid"/>) <see cref="Rise"/>
+    /// or more above the highest ground, rounded up to whole cells: the underside ends 2 to 4 m over it.
+    /// </summary>
+    public static float Up(float lowestPiece, float highestGround) =>
+        Cells(highestGround + Rise + HalfGrid - lowestPiece, Math.Ceiling);
+
+    // A positive direction moves the footprint's near edge (its min) to body + Gap or beyond; a negative one its far edge
+    // (its max) to body - Gap or below.
+    private static float Along(float direction, float body, float min, float max) =>
+        direction > 0 ? Cells(body + Gap - min, Math.Ceiling) : Cells(body - Gap - max, Math.Floor);
+
+    private static float Cells(float metres, Func<double, double> round) => (float)(round(metres / Grid) * Grid);
+}
+
+/// <summary>
+/// The ground measured under the moved footprint before anything is built: the offset when every point has ground, or
+/// the points with none.
+/// </summary>
+internal readonly record struct GroundPlacement(BaseOffset? Offset, float? Highest, IReadOnlyList<string> Misses)
+{
+    /// <summary>
+    /// Where the body goes to measure: each spot in turn, with the points nearest it. Terrain colliders exist only near the
+    /// body, so each point is measured from the closest spot; a spot nearest to no point is left out.
+    /// </summary>
+    public static List<((float X, float Z) Spot, List<(float X, float Z)> Points)> Visits(
+        IReadOnlyList<(float X, float Z)> spots, IEnumerable<(float X, float Z)> points)
+    {
+        var visits = spots.Select(static s => (Spot: s, Points: new List<(float X, float Z)>())).ToList();
+        foreach (var p in points)
+            visits.OrderBy(v => (v.Spot.X - p.X) * (v.Spot.X - p.X) + (v.Spot.Z - p.Z) * (v.Spot.Z - p.Z)).First().Points.Add(p);
+        return visits.Where(static v => v.Points.Count > 0).ToList();
+    }
+
+    /// <summary>The full offset: the ground-plane move already chosen, and the rise over the highest of the samples.</summary>
+    public static GroundPlacement Over((float Dx, float Dz) beside, float lowestPiece, IReadOnlyList<GroundSample> samples)
+    {
+        var misses = samples.Where(static s => s.Y is null).Select(static s => s.Where).ToList();
+        if (samples.Count == 0 || misses.Count > 0)
+            return new GroundPlacement(null, null, misses);
+        var highest = samples.Max(static s => s.Y!.Value);
+        return new GroundPlacement(new BaseOffset(beside.Dx, BaseOffset.Up(lowestPiece, highest), beside.Dz), highest, misses);
     }
 }
 

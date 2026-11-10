@@ -81,6 +81,8 @@ internal sealed class BaseStructure(string prefab, Vector3 position, Quaternion 
     public Quaternion Rotation { get; } = rotation;
 
     public int State { get; } = state;
+
+    public BaseStructure Moved(Vector3 by) => new(Prefab, Position + by, Rotation, State);
 }
 
 /// <summary>
@@ -142,6 +144,15 @@ internal static class BigBaseRun
             yield break;
         }
 
+        var placed = new Measured();
+        yield return PlaceOnGround(structures, stand, line, gate, placed);
+        if (gate.Failed)
+            yield break;
+        var offset = placed.Offset;
+        var by = new Vector3(offset.Dx, offset.Dy, offset.Dz);
+        structures = structures.ConvertAll(s => s.Moved(by));
+        stand = new StandSpot(stand.X + offset.Dx, stand.Y + offset.Dy, stand.Z + offset.Dz);
+
         var (heldBack, rest, unknown) = Split(structures, held);
         line($"bigbase: {structures.Count} structures in the base file, {unknown} of prefabs the game lacks (modded), {heldBack.Count} held back, {rest.Count} to spawn; saved as {station}");
 
@@ -180,7 +191,7 @@ internal static class BigBaseRun
 
         // The floor exists once the spawn is done: the body stands on it now and is held there for the rest of the run.
         yield return StandBody(stand, line);
-        var ground = GroundVerdict.Judge(GroundSamples(structures, stand), LowestPiece(structures));
+        var ground = GroundVerdict.Judge([.. placed.Samples, .. GroundSamples(structures, stand)], LowestPiece(structures));
         line("bigbase: " + ground.Describe());
         if (!ground.Ok)
         {
@@ -208,7 +219,7 @@ internal static class BigBaseRun
         yield return SaveHelper.NewSave(station, CancellationToken.None).ToCoroutine(r => saved = r);
         line($"bigbase: save {station}: {(saved is { } result ? $"success {result.Success} '{result.Message}'" : "no result")}");
         line($"bigbase: board {Board(world)}");
-        WriteWorld(outDir, header, station, held, spawned, refused, unknown, saved?.Success ?? false, ground, stand, world, landing);
+        WriteWorld(outDir, header, station, held, spawned, refused, unknown, saved?.Success ?? false, ground, stand, world, landing, placed);
     }
 
     private static Vector3? _standAt;
@@ -271,37 +282,142 @@ internal static class BigBaseRun
         return lowest;
     }
 
-    // Terrain colliders exist only near the body, so the ground is sampled only within the loaded radius of the stand spot:
-    // the stand spot, a ring of eight points around it, and those of the base's four bounding corners and centre that lie
-    // within it. Rays go down at the terrain layer only, triggers ignored; a ray that hits nothing is a sample with no height.
+    // The ground cast again after the spawn, with the body at the stand spot: terrain colliders exist only near the body (only
+    // LOD level 0 has colliders, TerrainSystem.Lods\LodManager.cs:162, and the LODs are centred on each requester,
+    // LodManager.cs:713), so only the candidate points within the loaded radius of the stand spot. The verdict judges these
+    // with every point measured over the footprint before the spawn. A ray that hits nothing is a sample with no height.
     private static List<GroundSample> GroundSamples(List<BaseStructure> all, StandSpot stand)
     {
-        var (minX, minZ, maxX, maxZ) = (float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
-        foreach (var s in all)
-        {
-            minX = Math.Min(minX, s.Position.x);
-            maxX = Math.Max(maxX, s.Position.x);
-            minZ = Math.Min(minZ, s.Position.z);
-            maxZ = Math.Max(maxZ, s.Position.z);
-        }
-
-        var candidates = new List<(float X, float Z)>
-        {
-            (stand.X, stand.Z), (minX, minZ), (minX, maxZ), (maxX, minZ), (maxX, maxZ), ((minX + maxX) / 2f, (minZ + maxZ) / 2f),
-        };
-        for (var i = 0; i < 8; i++)
-        {
-            var angle = i * Mathf.PI / 4f;
-            candidates.Add((stand.X + 40f * Mathf.Cos(angle), stand.Z + 40f * Mathf.Sin(angle)));
-        }
-
-        var layer = LayerMask.NameToLayer("Terrain");
-        var mask = layer >= 0 ? 1 << layer : 0;
+        var mask = TerrainMask();
         var samples = new List<GroundSample>();
-        foreach (var (x, z) in GroundVerdict.Within(candidates, stand.X, stand.Z))
-            samples.Add(new GroundSample(x, z,
-                mask != 0 && Physics.Raycast(new Vector3(x, stand.Y + 100f, z), Vector3.down, out var hit, 400f, mask, QueryTriggerInteraction.Ignore) ? hit.point.y : null));
+        foreach (var (x, z) in GroundVerdict.Within(GroundVerdict.Candidates(FootprintOf(all), stand.X, stand.Z), stand.X, stand.Z))
+            samples.Add(new GroundSample(x, z, GroundAt(x, z, stand.Y, mask)));
         return samples;
+    }
+
+    private static Footprint FootprintOf(List<BaseStructure> all) =>
+        Footprint.Of(all.ConvertAll(static s => (s.Position.x, s.Position.y, s.Position.z)))
+        ?? throw new InvalidOperationException("a base with no pieces has no footprint");
+
+    // The terrain's height at a point: a ray down at the terrain layer only, triggers ignored, from 1,000 m over a height
+    // near the ground there and 2,000 m long, so neither a hill nor a hollow puts its start inside the ground or its end
+    // above it; null where it hits nothing (no terrain colliders there yet).
+    private static float? GroundAt(float x, float z, float near, int mask) =>
+        mask != 0 && Physics.Raycast(new Vector3(x, near + 1000f, z), Vector3.down, out var hit, 2000f, mask, QueryTriggerInteraction.Ignore)
+            ? hit.point.y
+            : null;
+
+    private sealed class Measured
+    {
+        public BaseOffset Offset { get; set; } = BaseOffset.Zero;
+
+        /// <summary>The ground under the body where it landed.</summary>
+        public Vector3? Landing { get; set; }
+
+        /// <summary>Every candidate point's ground, measured before the spawn, in world coordinates.</summary>
+        public List<GroundSample> Samples { get; } = [];
+    }
+
+    private const float MeasureLeast = 5f;
+    private const float MeasureMost = 30f;
+
+    // The base moves off the file's fixed coordinates to this world's ground beside the landing: across, by the landing and
+    // its lander (BaseOffset.Beside); up, over the highest terrain measured at every point the ground is judged at, the
+    // footprint's 8 m grid among them. Terrain colliders exist only near the body (LodManager.cs:162, :713), so the body is
+    // stood over the stand spot, each footprint corner and the centre in turn and held there until every point nearest it
+    // has ground (at least MeasureLeast, at most MeasureMost seconds).
+    private static IEnumerator PlaceOnGround(List<BaseStructure> structures, StandSpot stand, Action<string> line, StepGate gate, Measured result)
+    {
+        if (Assets.Scripts.Inventory.InventoryManager.Parent is not { } body)
+        {
+            line("bigbase: no body (server): the base stays at the file's coordinates");
+            yield break;
+        }
+
+        // A new world's terrain colliders come some seconds after the body (only LOD level 0 has colliders,
+        // TerrainSystem.Lods\LodManager.cs:162, centred on each requester, LodManager.cs:713): the body is held where it
+        // landed until a ray down from 100 m over it hits the terrain.
+        var mask = TerrainMask();
+        var at = body.ThingTransformPosition;
+        _standAt = at;
+        var waited = Stopwatch.StartNew();
+        float? ground = null;
+        while (ground is null && waited.Elapsed.TotalSeconds < MeasureMost)
+        {
+            yield return null;
+            HoldBody();
+            ground = mask != 0 && Physics.Raycast(at + Vector3.up * 100f, Vector3.down, out var down, 400f, mask, QueryTriggerInteraction.Ignore)
+                ? down.point.y
+                : null;
+        }
+
+        if (ground is not { } landingGround)
+        {
+            gate.Fail(line, $"no ground under the landing after {MeasureMost:F0} s: the body is at {WorldFile.Metres(at.x, at.y, at.z)} and a ray down from 100 m over it hits no terrain");
+            yield break;
+        }
+
+        result.Landing = new Vector3(at.x, landingGround, at.z);
+        Vector3? lander = null;
+        foreach (var capsule in UnityEngine.Object.FindObjectsOfType<LanderCapsule>())
+            if (lander is not { } l || Vector3.Distance(capsule.ThingTransformPosition, at) < Vector3.Distance(l, at))
+                lander = capsule.ThingTransformPosition;
+
+        var footprint = FootprintOf(structures);
+        var (dx, dz) = BaseOffset.Beside(footprint, new LandingSpot(at.x, at.z, lander?.x, lander?.z));
+        var plane = footprint.Moved(new BaseOffset(dx, 0f, dz));
+        var (standX, standZ) = (stand.X + dx, stand.Z + dz);
+        line($"bigbase: landing: body at {WorldFile.Metres(at.x, at.y, at.z)}, ground y {landingGround:0.##} after {waited.Elapsed.TotalSeconds:F1} s, lander {(lander is { } p ? WorldFile.Metres(p.x, p.y, p.z) : "none")}; " +
+             $"the base goes to x {plane.MinX:0.##} to {plane.MaxX:0.##}, z {plane.MinZ:0.##} to {plane.MaxZ:0.##} (move x {dx:0.##} z {dz:0.##})");
+
+        var samples = result.Samples;
+        var near = landingGround;
+        foreach (var (spot, points) in GroundPlacement.Visits([(standX, standZ), .. plane.Corners], GroundVerdict.Candidates(plane, standX, standZ)))
+        {
+            _standAt = new Vector3(spot.X, near + 2f, spot.Z);
+            Restand();
+            var watch = Stopwatch.StartNew();
+            var heights = new float?[points.Count];
+            do
+            {
+                yield return null;
+                HoldBody();
+                for (var i = 0; i < points.Count; i++)
+                    heights[i] = GroundAt(points[i].X, points[i].Z, near, mask);
+            }
+            while (watch.Elapsed.TotalSeconds < MeasureLeast || (Array.IndexOf(heights, null) >= 0 && watch.Elapsed.TotalSeconds < MeasureMost));
+
+            var found = new List<string>(points.Count);
+            for (var i = 0; i < points.Count; i++)
+            {
+                samples.Add(new GroundSample(points[i].X, points[i].Z, heights[i]));
+                found.Add(heights[i] is { } y ? y.ToString("0.##", CultureInfo.InvariantCulture) : "none");
+            }
+
+            line($"bigbase: ground near x {spot.X:0.##} z {spot.Z:0.##} after {watch.Elapsed.TotalSeconds:F1} s: {string.Join(" ", found)}");
+            foreach (var y in heights)
+                if (y is { } h)
+                {
+                    near = h;
+                    break;
+                }
+        }
+
+        var placement = GroundPlacement.Over((dx, dz), footprint.Lowest, samples);
+        if (placement.Offset is not { } offset)
+        {
+            gate.Fail(line, $"no ground under the base after waiting {MeasureMost:F0} s at {string.Join(", ", placement.Misses)}");
+            yield break;
+        }
+
+        result.Offset = offset;
+        line($"bigbase: offset {offset.Text}: highest ground {placement.Highest:0.##}, lowest piece {footprint.Lowest:0.##} to {footprint.Lowest + offset.Dy:0.##}");
+    }
+
+    private static int TerrainMask()
+    {
+        var layer = LayerMask.NameToLayer("Terrain");
+        return layer >= 0 ? 1 << layer : 0;
     }
 
     // The body stood at the stand spot as the game's teleport does (Human.ForceSetPosition: position, transform, rigidbody and
@@ -341,7 +457,7 @@ internal static class BigBaseRun
     }
 
     private static void WriteWorld(string outDir, BaseHeader header, string station, int held, int spawned, int refused, int unknown,
-        bool saveSuccess, GroundVerdict ground, StandSpot stand, LatticeWorld world, Landing landing)
+        bool saveSuccess, GroundVerdict ground, StandSpot stand, LatticeWorld world, Landing landing, Measured placed)
     {
         var path = Arg("-lattice-bigbase");
         string sha1;
@@ -367,6 +483,8 @@ internal static class BigBaseRun
             new("plans", world.Ghosts.Index.Plans.Count.ToString(CultureInfo.InvariantCulture)),
             new("ghosts", world.Ghosts.Index.Ghosts.Count.ToString(CultureInfo.InvariantCulture)),
             new("landed", landing.Landed ? "yes" : "no"),
+            new("offset", placed.Offset.Text),
+            new("landing", placed.Landing is { } at ? WorldFile.Metres(at.x, at.y, at.z) : null),
             new("stand", WorldFile.Metres(stand.X, stand.Y, stand.Z)),
             new("ground-min", N(ground.Min)),
             new("ground-max", N(ground.Max)),
