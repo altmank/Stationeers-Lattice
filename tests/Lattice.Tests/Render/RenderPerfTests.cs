@@ -14,9 +14,9 @@ using Matrix4x4 = UnityEngine.Matrix4x4;
 namespace Lattice.Tests.Render;
 
 /// <summary>
-/// The draw-call budget at 20,000 ghosts. A 20,000-structure sample of a large real base
-/// (LatticeFixtures\bigbase\vulcan-structures.tsv) holds 150 to 165 pieces in 559 to 561 (piece, 32 m chunk) batches,
-/// with 1.4 to 4.0 shown mesh parts per batch by a catalogue export's look counts. Here 300 pieces (Vulcan's
+/// The draw-call budget at 20,000 ghosts. A 20,000-structure sample of a large player-built base
+/// (the sample file in LatticeFixtures\bigbase) holds 150 to 165 pieces in 559 to 561 (piece, 32 m chunk) batches,
+/// with 1.4 to 4.0 shown mesh parts per batch by a catalogue export's look counts. Here 300 pieces (that base's
 /// pieces at two looks each), 2.8 parts each, every ghost with a fill and an edge, all in view: one draw group per
 /// piece and look across chunks and one call per part (fill and edge in one material), 840 calls against a budget of
 /// 1,000. Unity's procedural draw costs about 0.55 us a call on Mono (measured in game), about 0.46 ms here. Also Lattice's
@@ -45,7 +45,7 @@ public sealed class RenderPerfTests
         return pieces;
     }
 
-    private static (StyleBench Bench, RenderRig Rig, Renderer Renderer, int Parts) VulcanShaped()
+    private static (StyleBench Bench, RenderRig Rig, Renderer Renderer, int Parts) LargeBaseShaped()
     {
         var bench = new StyleBench(true, Modded());
         var rig = new RenderRig();
@@ -76,9 +76,9 @@ public sealed class RenderPerfTests
     }
 
     [Fact]
-    public void Twenty_thousand_ghosts_on_a_vulcan_shaped_base_stay_within_the_call_budget_at_0_B_a_frame()
+    public void Twenty_thousand_ghosts_on_a_large_base_shaped_world_stay_within_the_call_budget_at_0_B_a_frame()
     {
-        var (bench, rig, renderer, parts) = VulcanShaped();
+        var (bench, rig, renderer, parts) = LargeBaseShaped();
         renderer.Frame(0f);
         var counts = renderer.Counts;
 

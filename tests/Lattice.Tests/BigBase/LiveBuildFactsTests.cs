@@ -51,6 +51,40 @@ public sealed class LiveBuildFactsTests
     public void The_save_name_is_the_station_plus_held_when_anything_is_held_back(int held, string expected) =>
         Assert.Equal(expected, BaseHeader.Read(Header).SaveName(held));
 
+    [Fact]
+    public void An_offset_line_moves_the_base_into_world_coordinates()
+    {
+        var header = BaseHeader.Read([.. Header, "# offset -1886 -72 -1352"]);
+        Assert.Equal(new BaseOffset(-1886f, -72f, -1352f), header.Offset);
+        Assert.Equal((-1285f, 231f, -739f), header.Offset.Apply(601f, 303f, 613f));
+        Assert.Equal(new StandSpot(-1285f, 231f, -739f), new StandSpot(601f, 303f, 613f).Moved(header.Offset));
+    }
+
+    [Fact]
+    public void No_offset_line_means_the_files_own_coordinates()
+    {
+        var header = BaseHeader.Read(Header);
+        Assert.Equal(BaseOffset.Zero, header.Offset);
+        Assert.Equal((601f, 303f, 613f), header.Offset.Apply(601f, 303f, 613f));
+        Assert.Equal("0 0 0", header.Offset.Text);
+    }
+
+    [Fact]
+    public void An_offset_line_that_is_not_three_numbers_is_ignored() =>
+        Assert.Equal(BaseOffset.Zero, BaseHeader.Read(["# offset 1 2", "# offset a b c"]).Offset);
+
+    [Fact]
+    public void A_moved_footprint_holds_the_moved_pieces()
+    {
+        var offset = new BaseOffset(-1886f, -72f, -1352f);
+        var (x, y, z) = offset.Apply(650f, 330f, 640f);
+        var moved = Footprint.Of([offset.Apply(596.5f, 301f, 600f), offset.Apply(760f, 371f, 692f)])!.Value;
+
+        Assert.Equal(0f, moved.DistanceTo(x, z));
+        Assert.True(y >= moved.Lowest);
+        Assert.True(moved.DistanceTo(650f, 640f) > 1000f);
+    }
+
     private static GroundSample[] Heights(params float?[] ys)
     {
         var samples = new GroundSample[ys.Length];
