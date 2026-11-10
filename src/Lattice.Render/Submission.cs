@@ -268,6 +268,9 @@ internal sealed class DrawState(RenderPorts ports)
 
     public int UnknownPieces => _unknown.Count;
 
+    /// <summary>How many times a piece's parts were asked for because the piece was not held yet.</summary>
+    internal int PieceReads { get; private set; }
+
     public IGpu Gpu => ports.Gpu;
 
     /// <summary>Ports and joins for the groups that draw marks; none when the seat has no world to ask.</summary>
@@ -424,6 +427,7 @@ internal sealed class DrawState(RenderPorts ports)
     {
         if (_pieces.TryGetValue(key, out var known))
             return known;
+        PieceReads++;
         PieceDraw? piece = null;
         if (ports.Pieces.Of(key).TryGet(out var parts) && parts.Count > 0)
             piece = PieceDraw.Of(key, parts);
@@ -531,9 +535,15 @@ internal sealed class Rebuilds(IDrawPlan plan, ICameraView camera, DrawState sta
     {
         var count = plan.BatchCount;
         var until = Math.Min(count, _sort + SortPerStep);
-        for (; _sort < until; _sort++)
-            if (Sort(plan.BatchAt(_sort)))
+        var reads = state.PieceReads;
+        while (_sort < until)
+        {
+            if (Sort(plan.BatchAt(_sort++)))
                 _seen++;
+            if (state.PieceReads != reads)
+                break;
+        }
+
         if (_sort < count)
             return;
         _sorting = false;

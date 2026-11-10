@@ -49,6 +49,9 @@ internal sealed class WorldWatcher : MonoBehaviour
     private RenderHost? _render;
     private MenuPrefabReads? _prefabs;
 
+    // The game's prefabs do not change within a process: meshes read for one world serve the next.
+    private readonly GamePieceParts _pieceParts = new(new PieceMeshes());
+
     public void Prepare(CachedGameMembers members, bool networking, Action<string> log)
     {
         _members = members;
@@ -185,7 +188,7 @@ internal sealed class WorldWatcher : MonoBehaviour
     /// <summary>Drawing for the world, published before the world so a consumer's <c>Started</c> handler finds it.</summary>
     private void OpenRender(LatticeWorld world)
     {
-        var opened = RenderHost.Open(world, new GamePieceParts(new PieceMeshes()), GameText.Font(), _log);
+        var opened = RenderHost.Open(world, _pieceParts, GameText.Font(), _log);
         if (opened.TryGet(out var render))
         {
             _render = render;
