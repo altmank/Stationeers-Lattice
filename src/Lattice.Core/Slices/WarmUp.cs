@@ -433,23 +433,40 @@ internal sealed class WarmUp : ISlicedWork
             Note(argument);
         }
 
-        if (FromLatticeOrBase(type) && (valued ? _closed : _shared).Add(type))
+        if (Warmed(type) && (valued ? _closed : _shared).Add(type))
             _types.Enqueue(type);
     }
 
     // A generic type is warmed only when its definition is Lattice's or the base library's; the game's, Unity's and other mods' are not Lattice's to compile.
-    private static bool FromLatticeOrBase(Type type)
+    // A base-library generic with an enum among its type arguments is left to its first call: on Mono one such compile can pull in a cascade of other
+    // instantiations (HashSet<GasKind>.TryGetValue took 28 ms in game), and neither IL size nor a learned cost predicts it.
+    private static bool Warmed(Type type)
     {
         try
         {
             var name = type.GetGenericTypeDefinition().Assembly.GetName().Name ?? "";
-            return name.StartsWith("Lattice", StringComparison.Ordinal) || name.StartsWith("System", StringComparison.Ordinal)
-                || name is "mscorlib" or "netstandard";
+            if (name.StartsWith("Lattice", StringComparison.Ordinal))
+                return true;
+            return (name.StartsWith("System", StringComparison.Ordinal) || name is "mscorlib" or "netstandard") && !OverEnum(type);
         }
         catch (Exception)
         {
             return false;
         }
+    }
+
+    private static bool OverEnum(Type type)
+    {
+        if (type.IsEnum)
+            return true;
+        if (type.HasElementType)
+            return OverEnum(type.GetElementType()!);
+        if (!type.IsGenericType)
+            return false;
+        foreach (var argument in type.GetGenericArguments())
+            if (OverEnum(argument))
+                return true;
+        return false;
     }
 
     private void Compile(MethodBase method, int size)

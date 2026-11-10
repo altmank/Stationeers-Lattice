@@ -98,6 +98,24 @@ public sealed class WarmUpTests
     }
 
     [Fact]
+    public void Base_library_generics_over_an_enum_are_left_to_first_call_and_the_other_generics_are_still_compiled()
+    {
+        var compiled = new System.Collections.Generic.List<System.Reflection.MethodBase>();
+        var scheduler = Scheduler();
+        var job = Job(WarmUp.Schedule(sets, scheduler, "slices-enum-generics", typeof(Warm.Holder).Assembly, ["Lattice.Tests.Slices.Warm"], (method, _) => compiled.Add(method)));
+        for (var i = 0; i < 10_000 && job.State == JobState.Running; i++)
+            scheduler.RunFrame();
+
+        Assert.Equal(JobState.Done, job.State);
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.EnumHolder));
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.HashSet<int>));
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.HashSet<Warm.Colour>));
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Warm.Colour>>));
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.List<Warm.Colour>));
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Box<Warm.Colour>));
+    }
+
+    [Fact]
     public void Compiles_that_cost_nothing_do_not_teach_warm_up_that_compiling_is_free()
     {
         var clock = new TickingClock(TimeSpan.Zero);

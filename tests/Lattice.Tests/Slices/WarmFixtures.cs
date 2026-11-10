@@ -28,6 +28,15 @@ public sealed class Holder
     public List<KeyValuePair<int, string>> Pairs() => [];
 }
 
+public sealed class EnumHolder
+{
+    public HashSet<Colour> Set() => [];
+
+    public Dictionary<string, List<Colour>> Map() => [];
+
+    public HashSet<int> Ints() => [];
+}
+
 public sealed class Wide<T>
 {
     public T? Value { get; set; }
