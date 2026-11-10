@@ -301,6 +301,9 @@ internal sealed class FakePieceParts : IPieceParts
 
     public int Asks { get; private set; }
 
+    /// <summary>Every piece asked for, in the order asked.</summary>
+    public List<PrefabKey> Asked { get; } = new();
+
     public FakePieceParts With(PrefabKey piece, params RenderPart[] parts)
     {
         _parts[piece] = parts;
@@ -313,6 +316,7 @@ internal sealed class FakePieceParts : IPieceParts
     public Option<IReadOnlyList<RenderPart>> Of(PrefabKey piece)
     {
         Asks++;
+        Asked.Add(piece);
         return _parts.TryGetValue(piece, out var parts) ? Option.Some(parts)
             : Fallback is { } all ? Option.Some(all)
             : Option<IReadOnlyList<RenderPart>>.None;
