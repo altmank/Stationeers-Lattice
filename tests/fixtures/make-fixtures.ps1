@@ -24,6 +24,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+foreach ($save in $Saves) {
+    if ($save -match '(?i)vulcan\s*2_?4') {
+        [Console]::Error.WriteLine("make-fixtures: refused '$save': test worlds come from the world library, not a player's save.")
+        exit 1
+    }
+}
 if (-not $SaveDir) {
     for ($dir = Get-Item $PSScriptRoot; $dir; $dir = $dir.Parent) {
         $candidate = Join-Path $dir.FullName 'LatticeFixtures\saves'
