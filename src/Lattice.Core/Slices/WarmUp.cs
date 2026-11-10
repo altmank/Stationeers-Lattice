@@ -58,10 +58,9 @@ internal sealed class WarmUp : ISlicedWork
     private readonly Action<MethodBase, int> _compile;
     private bool _retried;
     private MethodBase? _last;
-    private double _learnedTicks = 1000 * PriorTicksPerByte;
-    private double _learnedBytes = 1000;
+    private readonly CostModel _plain = new();
+    private readonly CostModel _valued = new();
     private readonly HashSet<Type> _closed = new();
-    private readonly Queue<Type> _counting = new();
     private readonly HashSet<Type> _shared = new();
     private Type? _listing;
     private Type? _expanding;
@@ -81,7 +80,7 @@ internal sealed class WarmUp : ISlicedWork
     }
 
     /// <summary>Where the warm-up is: types and methods still to go, methods compiled.</summary>
-    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} too dear, {ValueGenerics} on value-type generics left out, last {_last?.DeclaringType?.FullName}.{_last?.Name}";
+    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} too dear ({SkippedValued} on value-type generics), last {_last?.DeclaringType?.FullName}.{_last?.Name}";
 
     /// <summary>Methods this warm-up has compiled so far.</summary>
     public int Compiled { get; private set; }
@@ -89,8 +88,8 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>Methods left to compile when first called, because compiling them was expected to take longer than a frame can spare.</summary>
     public int Skipped { get; private set; }
 
-    /// <summary>Methods of generic types closed over value types, left to compile when first called: the runtime compiles each instantiation slowly and unpredictably.</summary>
-    public int ValueGenerics { get; private set; }
+    /// <summary>Of <see cref="Skipped"/>, the methods of generic types closed over value types, which the runtime may compile far slower than the rest.</summary>
+    public int SkippedValued { get; private set; }
 
     /// <summary>
     /// Queues the warm-up of the types of <paramref name="assembly"/> whose namespace is one of
@@ -149,12 +148,6 @@ internal sealed class WarmUp : ISlicedWork
             return StepOutcome.More;
         }
 
-        if (_counting.Count > 0)
-        {
-            ValueGenerics += CountMethods(_counting.Dequeue());
-            return StepOutcome.More;
-        }
-
         if (_deferred.Count > 0 && !_retried)
         {
             _retried = true;
@@ -164,27 +157,8 @@ internal sealed class WarmUp : ISlicedWork
         }
 
         _sets.Add(_set);
-        _sets.Log($"Lattice warm-up {_set}: {Compiled} methods compiled; left to first call: {Skipped} expected to compile too slowly, {ValueGenerics} on {_closed.Count} generic types closed over value types.");
+        _sets.Log($"Lattice warm-up {_set}: {Compiled} methods compiled; left to first call: {Skipped} expected to compile too slowly, {SkippedValued} of them on generic types closed over value types.");
         return StepOutcome.Done;
-    }
-
-    // The methods a closed generic type would have had compiled: the declared methods and constructors that are not abstract or extern.
-    private static int CountMethods(Type type)
-    {
-        try
-        {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-            var count = type.GetConstructors(all).Length;
-            foreach (var method in type.GetMethods(all))
-                if (!method.IsAbstract && !method.ContainsGenericParameters && (method.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) == 0)
-                    count++;
-            return count;
-        }
-        catch (Exception)
-        {
-            // A type that cannot be listed (a missing dependency) counts for nothing.
-            return 0;
-        }
     }
 
     // A step compiles methods while the time it has taken, plus the cost expected of the next, fits the step limit. A method
@@ -199,7 +173,9 @@ internal sealed class WarmUp : ISlicedWork
                 return;
             var method = _methods.Peek();
             var size = SizeOf(method);
-            var expected = Expected(size);
+            var valued = IsValued(method);
+            var model = valued ? _valued : _plain;
+            var expected = model.Expected(size);
             if (taken > 0 && spent + expected > StepLimit)
                 return;
             _methods.Dequeue();
@@ -208,7 +184,11 @@ internal sealed class WarmUp : ISlicedWork
             if (expected > MethodLimit)
             {
                 if (_retried)
+                {
                     Skipped++;
+                    if (valued)
+                        SkippedValued++;
+                }
                 else
                     _deferred.Enqueue(method);
                 continue;
@@ -218,7 +198,7 @@ internal sealed class WarmUp : ISlicedWork
             _last = method;
             _compile(method, size);
             if (size <= LargestMethod)
-                Learn(size, _clock.Now - before);
+                model.Learn(size, _clock.Now - before);
         }
     }
 
@@ -234,16 +214,63 @@ internal sealed class WarmUp : ISlicedWork
         }
     }
 
-    private TimeSpan Expected(int size) =>
-        TimeSpan.FromTicks((long)((size + FixedBytes) * _learnedTicks / _learnedBytes * Margin));
-
-    // Only a compile that took measurable time teaches the cost per byte: a method already compiled, or left uncompiled for its size, costs next to nothing and would pull the learned cost to zero.
-    private void Learn(int size, TimeSpan cost)
+    // Methods of a generic type closed over a value type get their own compile cost: the runtime compiles each such instantiation in full, and may do it far slower than the rest.
+    private static bool IsValued(MethodBase method)
     {
-        if (cost < Measurable)
-            return;
-        _learnedTicks = _learnedTicks * 0.98 + cost.Ticks;
-        _learnedBytes = _learnedBytes * 0.98 + size + FixedBytes;
+        if (method.DeclaringType is not { IsGenericType: true } type)
+            return false;
+        foreach (var argument in type.GetGenericArguments())
+            if (argument.IsValueType)
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// What compiling costs for one kind of method, learned from the compiles that took measurable time (a method already compiled,
+    /// or left uncompiled for its size, costs next to nothing and would pull the cost to zero): a decayed fit of the cost by IL size
+    /// (a fixed cost per method plus a cost per byte), by cost per byte alone until enough have been seen or when the fit is not sound.
+    /// </summary>
+    private sealed class CostModel
+    {
+        private const int Enough = 8;
+        private double _n, _sx, _sy, _sxx, _sxy;
+        private double _ticks = 1000 * PriorTicksPerByte;
+        private double _bytes = 1000;
+
+        /// <summary>The cost expected of a method of this IL size, the margin included.</summary>
+        public TimeSpan Expected(int size)
+        {
+            if (_n >= Enough)
+            {
+                var mx = _sx / _n;
+                var my = _sy / _n;
+                var variance = _sxx / _n - mx * mx;
+                if (variance > 1)
+                {
+                    var perByte = (_sxy / _n - mx * my) / variance;
+                    var fixedCost = my - perByte * mx;
+                    if (perByte > 0 && fixedCost >= 0)
+                        return TimeSpan.FromTicks((long)((fixedCost + perByte * size) * Margin));
+                }
+            }
+
+            return TimeSpan.FromTicks((long)((size + FixedBytes) * _ticks / _bytes * Margin));
+        }
+
+        public void Learn(int size, TimeSpan cost)
+        {
+            if (cost < Measurable)
+                return;
+            const double decay = 0.98;
+            var ticks = (double)cost.Ticks;
+            _n = _n * decay + 1;
+            _sx = _sx * decay + size;
+            _sy = _sy * decay + ticks;
+            _sxx = _sxx * decay + (double)size * size;
+            _sxy = _sxy * decay + size * ticks;
+            _ticks = _ticks * decay + ticks;
+            _bytes = _bytes * decay + size + FixedBytes;
+        }
     }
 
     // A type is taken in steps: one reflection call each (its methods, its constructors, its nested types, its fields), then its members are queued and noted at most PerStep each step.
@@ -325,8 +352,8 @@ internal sealed class WarmUp : ISlicedWork
             _listing = null;
     }
 
-    // A generic type closed over a value type is compiled per instantiation, and Mono compiles each slowly and unpredictably, so the ones Lattice's own signatures and fields
-    // name (a dictionary keyed by an id, a list of cells) are not compiled: they are counted, their methods left to first call.
+    // A generic type closed over a value type is compiled per instantiation, so the ones Lattice's own signatures and fields
+    // name (a dictionary keyed by an id, a list of cells) are queued to be compiled as types, their methods one by one.
     private void Note(Type type)
     {
         if (type.IsByRef || type.IsPointer || type.IsArray)
@@ -345,18 +372,11 @@ internal sealed class WarmUp : ISlicedWork
             Note(argument);
         }
 
-        if (valued)
-        {
-            if (_closed.Add(type))
-                _counting.Enqueue(type);
-        }
-        else if (FromLatticeOrBase(type) && _shared.Add(type))
-        {
+        if (FromLatticeOrBase(type) && (valued ? _closed : _shared).Add(type))
             _types.Enqueue(type);
-        }
     }
 
-    // A generic type closed over reference types shares the compiled code of its definition, so only the definitions of Lattice and of the base library are worth warming; the game's, Unity's and other mods' are not Lattice's to compile.
+    // A generic type is warmed only when its definition is Lattice's or the base library's; the game's, Unity's and other mods' are not Lattice's to compile.
     private static bool FromLatticeOrBase(Type type)
     {
         try

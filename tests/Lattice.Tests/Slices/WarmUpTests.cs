@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Lattice.Api;
 using Lattice.Core.Slices;
 
@@ -74,7 +75,7 @@ public sealed class WarmUpTests
     }
 
     [Fact]
-    public void A_generic_type_closed_over_a_value_type_is_left_to_first_call_and_one_closed_over_a_reference_type_is_compiled()
+    public void Generic_types_closed_over_value_types_and_over_reference_types_are_compiled_when_compiling_is_cheap()
     {
         var compiled = new System.Collections.Generic.List<System.Reflection.MethodBase>();
         var logged = new System.Collections.Generic.List<string>();
@@ -87,10 +88,11 @@ public sealed class WarmUpTests
         Assert.Equal(JobState.Done, job.State);
         Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Box<string>));
         Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Holder));
-        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(Warm.Box<int>));
-        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(Warm.Box<Warm.Colour>));
-        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(int?));
-        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, string>>));        Assert.True(Work(job).ValueGenerics >= 3, $"left out {Work(job).ValueGenerics}");
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Box<int>));
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Box<Warm.Colour>));
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(int?));
+        Assert.Contains(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, string>>));
+        Assert.Equal(0, Work(job).Skipped);
         Assert.Single(logged);
         Assert.Contains("slices-generics", logged[0]);
     }
@@ -99,7 +101,7 @@ public sealed class WarmUpTests
     public void Compiles_that_cost_nothing_do_not_teach_warm_up_that_compiling_is_free()
     {
         var clock = new TickingClock(TimeSpan.Zero);
-        var cost = TimeSpan.FromMilliseconds(1.1);
+        var perByte = TimeSpan.FromTicks(200);
         var scheduler = new FrameScheduler(clock, new FrameBudgets(Create(), Create(), Create(), Create()));
         var dear = 0;
         var largestDear = 0;
@@ -109,7 +111,7 @@ public sealed class WarmUpTests
                 return;
             dear++;
             largestDear = Math.Max(largestDear, size);
-            clock.Advance(cost);
+            clock.Advance(perByte * size);
         }));
         var longest = TimeSpan.Zero;
         while (job.State == JobState.Running)
@@ -119,9 +121,53 @@ public sealed class WarmUpTests
             longest = TimeSpan.FromTicks(Math.Max(longest.Ticks, (clock.Now - start).Ticks));
         }
 
-        Assert.True(longest <= Budget + cost, $"the longest frame took {longest.TotalMilliseconds} ms");
+        Assert.True(longest <= Budget + TimeSpan.FromMilliseconds(3), $"the longest frame took {longest.TotalMilliseconds} ms");
         Assert.True(Work(job).Skipped >= 20, $"{Work(job).Skipped} dear methods were held back");
-        Assert.True(largestDear <= 300, $"a dear method of {largestDear} IL bytes was compiled");
+        Assert.True(largestDear <= 150, $"a dear method of {largestDear} IL bytes was compiled");
+    }
+
+    private (WarmUp Job, System.Collections.Generic.List<System.Reflection.MethodBase> Compiled, TimeSpan Longest) Run(string set, TimeSpan valuedCost, TimeSpan plainCost)
+    {
+        var clock = new TickingClock(TimeSpan.Zero);
+        var compiled = new System.Collections.Generic.List<System.Reflection.MethodBase>();
+        var scheduler = new FrameScheduler(clock, new FrameBudgets(Create(), Create(), Create(), Create()));
+        var job = Job(WarmUp.Schedule(sets, scheduler, set, typeof(Warm.Holder).Assembly, ["Lattice.Tests.Slices.Warm"], (method, _) =>
+        {
+            compiled.Add(method);
+            var valued = method.DeclaringType!.IsGenericType && method.DeclaringType.GetGenericArguments().Any(a => a.IsValueType);
+            clock.Advance(valued ? valuedCost : plainCost);
+        }));
+        var longest = TimeSpan.Zero;
+        for (var i = 0; i < 100_000 && job.State == JobState.Running; i++)
+        {
+            var start = clock.Now;
+            scheduler.RunFrame();
+            longest = TimeSpan.FromTicks(Math.Max(longest.Ticks, (clock.Now - start).Ticks));
+        }
+
+        Assert.Equal(JobState.Done, job.State);
+        return (Work(job), compiled, longest);
+    }
+
+    [Fact]
+    public void Methods_of_generics_over_value_types_that_compile_slowly_are_deferred_once_that_is_learned_and_the_others_are_still_compiled()
+    {
+        var (work, compiled, _) = Run("slices-slow-valued", TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(0.1));
+
+        Assert.Equal(40, compiled.Count(m => m.DeclaringType == typeof(Warm.Plain) && m.Name.StartsWith('P')));
+        Assert.True(compiled.Count(m => m.DeclaringType == typeof(Warm.Wide<int>) || m.DeclaringType == typeof(Warm.Wide<long>) || m.DeclaringType == typeof(Warm.Wide<Warm.Colour>)) <= 4);
+        Assert.True(work.SkippedValued >= 50, $"{work.SkippedValued} value-type generic methods were deferred");
+        Assert.Equal(work.SkippedValued, work.Skipped);
+    }
+
+    [Fact]
+    public void When_generics_over_value_types_compile_as_fast_as_the_rest_nothing_is_deferred()
+    {
+        var (work, compiled, _) = Run("slices-fast-valued", TimeSpan.FromMilliseconds(0.1), TimeSpan.FromMilliseconds(0.1));
+
+        Assert.Equal(0, work.Skipped);
+        Assert.True(compiled.Count(m => m.DeclaringType == typeof(Warm.Wide<int>)) >= 24);
+        Assert.Equal(40, compiled.Count(m => m.DeclaringType == typeof(Warm.Plain) && m.Name.StartsWith('P')));
     }
 
     [Fact]
