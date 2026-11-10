@@ -142,6 +142,7 @@ public sealed class LongLineTests(ITestOutputHelper output)
         {
             using var world = new SavedWorld();
             PlaceMany(world);
+            Perf.Collect();
             worst = 0;
             var n = 0;
             StepOutcome outcome;
