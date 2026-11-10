@@ -45,7 +45,6 @@ namespace Lattice.Game.Live;
 /// </summary>
 internal static class RenderRun
 {
-    private const string Station = "lattice-big";
     private const int PerfGhosts = 20000;
     private const int SmallGhosts = 5000;
     private const int Lift = 600;
@@ -119,7 +118,7 @@ internal static class RenderRun
     {
         line($"render: loading {what} from {save}");
         var watch = Stopwatch.StartNew();
-        LoadHelper.LoadGame(save, Station);
+        LoadHelper.LoadGame(save, Path.GetFileNameWithoutExtension(save));
         var deadline = Time.realtimeSinceStartup + 600f;
         var refusedBy = Time.realtimeSinceStartup + 30f;
         while ((LatticeTiming.Starts == starts || GameManager.GameState != GameState.Running || Object.FindObjectOfType<RenderHost>() == null)
