@@ -140,7 +140,7 @@ internal sealed class FrameScheduler(IClock clock, FrameBudgets budgets, Action<
                     if (outcome != StepOutcome.NextFrame && job.Priority != Priority.Lowest)
                         Work += after - now;
                     now = after;
-                    stepped |= outcome != StepOutcome.NextFrame;
+                    stepped = true;
                     if (outcome == StepOutcome.Done)
                         job.Finish();
                     nextFrame = outcome == StepOutcome.NextFrame;

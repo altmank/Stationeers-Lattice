@@ -162,7 +162,7 @@ if ($DeployOnly) {
 }
 
 Invoke-Step 'restore' { dotnet restore $solution }
-Invoke-Step 'build'   { dotnet build $solution --no-restore -c $Configuration -nodeReuse:false }
+Invoke-Step 'build'   { dotnet build $solution --no-restore -c $Configuration -nodeReuse:false "-p:SourceRevisionId=$(git -C $PSScriptRoot rev-parse HEAD)" }
 $filter = if ($Perf) { 'Category=Perf' } else { 'Category!=Perf' }
 $tiered = $env:DOTNET_TieredCompilation
 if ($Perf) { $env:DOTNET_TieredCompilation = '0' }
