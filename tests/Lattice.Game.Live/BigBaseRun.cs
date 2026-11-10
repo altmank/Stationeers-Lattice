@@ -142,6 +142,8 @@ internal static class BigBaseRun
             yield break;
         }
 
+        yield return ProbeLanding(stand, line);
+
         var (heldBack, rest, unknown) = Split(structures, held);
         line($"bigbase: {structures.Count} structures in the base file, {unknown} of prefabs the game lacks (modded), {heldBack.Count} held back, {rest.Count} to spawn; saved as {station}");
 
@@ -180,6 +182,7 @@ internal static class BigBaseRun
 
         // The floor exists once the spawn is done: the body stands on it now and is held there for the rest of the run.
         yield return StandBody(stand, line);
+        line("bigbase: probe at the stand spot (body there): " + ProbeStand(stand));
         var ground = GroundVerdict.Judge(GroundSamples(structures, stand), LowestPiece(structures));
         line("bigbase: " + ground.Describe());
         if (!ground.Ok)
@@ -302,6 +305,76 @@ internal static class BigBaseRun
             samples.Add(new GroundSample(x, z,
                 mask != 0 && Physics.Raycast(new Vector3(x, stand.Y + 100f, z), Vector3.down, out var hit, 400f, mask, QueryTriggerInteraction.Ignore) ? hit.point.y : null));
         return samples;
+    }
+
+    private static int TerrainMask()
+    {
+        var layer = LayerMask.NameToLayer("Terrain");
+        return layer >= 0 ? 1 << layer : 0;
+    }
+
+    private static string Ray(Vector3 from, Vector3 direction, float length, int mask, bool backfaces = false)
+    {
+        var before = Physics.queriesHitBackfaces;
+        Physics.queriesHitBackfaces = backfaces;
+        try
+        {
+            return Physics.Raycast(from, direction, out var hit, length, mask, QueryTriggerInteraction.Ignore)
+                ? $"hit y {hit.point.y.ToString("0.##", CultureInfo.InvariantCulture)} ({hit.collider.name})"
+                : "no hit";
+        }
+        finally
+        {
+            Physics.queriesHitBackfaces = before;
+        }
+    }
+
+    // Terrain colliders within the radius of a point: how many, and the heights their bounds span.
+    private static string Colliders(Vector3 at, float radius, int mask)
+    {
+        var found = Physics.OverlapSphere(at, radius, mask, QueryTriggerInteraction.Ignore);
+        if (found.Length == 0)
+            return $"no terrain colliders within {radius:F0} m";
+        var (low, high) = (float.MaxValue, float.MinValue);
+        foreach (var c in found)
+        {
+            low = Math.Min(low, c.bounds.min.y);
+            high = Math.Max(high, c.bounds.max.y);
+        }
+
+        return $"{found.Length} terrain colliders within {radius:F0} m, bounds y {low:0.##} to {high:0.##} (first {found[0].name}, {found[0].GetType().Name})";
+    }
+
+    private static string ProbeStand(StandSpot stand)
+    {
+        var mask = TerrainMask();
+        var at = new Vector3(stand.X, stand.Y, stand.Z);
+        return $"terrain mask {mask}; down from +1000 m: {Ray(at + Vector3.up * 1000f, Vector3.down, 2000f, mask)}; " +
+               $"up from the spot: {Ray(at, Vector3.up, 2000f, mask)}; up with backfaces: {Ray(at, Vector3.up, 2000f, mask, true)}; " +
+               $"inside terrain (sphere 0.5 m): {Physics.CheckSphere(at, 0.5f, mask, QueryTriggerInteraction.Ignore)}; {Colliders(at, 100f, mask)}";
+    }
+
+    // Where the landing put the body and the ground there, at once and after 10 s for terrain to build; then the stand spot
+    // seen from the landing.
+    private static IEnumerator ProbeLanding(StandSpot stand, Action<string> line)
+    {
+        for (var pass = 0; pass < 2; pass++)
+        {
+            if (Assets.Scripts.Inventory.InventoryManager.Parent is not { } body)
+            {
+                line("bigbase: probe at the landing: no body");
+                yield break;
+            }
+
+            var mask = TerrainMask();
+            var at = body.ThingTransformPosition;
+            line($"bigbase: probe at the landing ({(pass == 0 ? "at once" : "after 10 s")}): body at {WorldFile.Metres(at.x, at.y, at.z)}; " +
+                 $"down from +100 m: {Ray(at + Vector3.up * 100f, Vector3.down, 400f, mask)}; {Colliders(at, 100f, mask)}");
+            if (pass == 0)
+                yield return new WaitForSecondsRealtime(10f);
+        }
+
+        line("bigbase: probe at the stand spot (body at the landing): " + ProbeStand(stand));
     }
 
     // The body stood at the stand spot as the game's teleport does (Human.ForceSetPosition: position, transform, rigidbody and
