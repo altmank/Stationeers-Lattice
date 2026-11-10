@@ -2,7 +2,7 @@
 
 ## 0.22.20
 
-Fixed: preparing code after a load no longer causes a rare hitch.
+Changed: code prepared in idle frames after a load leaves base-library collections keyed by enums to their first use.
 
 ## 0.22.19
 
