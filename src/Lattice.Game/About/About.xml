@@ -46,7 +46,8 @@ Developed with the use of generative AI, and tokens aren't free. Buy me a coffee
   </Description>
   <ChangeLog>
 v0.22.19
-- Fixed: the first big plan placed or loaded in a session no longer causes a stutter.
+- Fixed: placing or loading a big plan stutters much less: its work is spread over frames, and the code it first runs is prepared in idle frames.
+- Fixed: saving a big plan no longer causes a hitch.
 
 v0.22.18
 - Fixed: a mod with a type that does not load no longer stops Lattice from starting.
