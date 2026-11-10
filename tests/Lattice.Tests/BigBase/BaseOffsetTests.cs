@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Lattice.Game.Live;
 
 namespace Lattice.Tests.BigBase;
@@ -142,4 +143,43 @@ public sealed class BaseOffsetTests
 
     [Fact]
     public void The_offset_is_written_as_three_metres() => Assert.Equal("12 -8 -4.5", new BaseOffset(12f, -8f, -4.5f).Text);
+}
+
+/// <summary>Where the ground is measured before the spawn, and from where.</summary>
+public sealed class GroundMeasureTests
+{
+    private static readonly Footprint Base = new(0f, 0f, 100f, 60f, 301f);
+
+    [Fact]
+    public void The_candidates_are_the_stand_the_corners_the_centre_and_a_ring_around_the_stand()
+    {
+        var points = GroundVerdict.Candidates(Base, 5f, 5f);
+
+        Assert.Equal(14, points.Count);
+        Assert.Equal((5f, 5f), points[0]);
+        Assert.Contains((100f, 60f), points);
+        Assert.Contains((50f, 30f), points);
+        Assert.Contains((45f, 5f), points);
+        Assert.All(points.GetRange(6, 8), p => Assert.Equal(GroundVerdict.Ring, (float)Math.Sqrt((p.X - 5f) * (p.X - 5f) + (p.Z - 5f) * (p.Z - 5f)), 3));
+    }
+
+    [Fact]
+    public void Each_point_is_measured_from_its_nearest_spot_and_idle_spots_are_left_out()
+    {
+        var visits = GroundPlacement.Visits([(0f, 0f), (100f, 0f), (500f, 500f)], [(1f, 1f), (90f, 3f), (40f, 0f), (60f, 0f)]);
+
+        Assert.Equal(2, visits.Count);
+        Assert.Equal((0f, 0f), visits[0].Spot);
+        Assert.Equal(new[] { (1f, 1f), (40f, 0f) }, visits[0].Points);
+        Assert.Equal(new[] { (90f, 3f), (60f, 0f) }, visits[1].Points);
+    }
+
+    [Fact]
+    public void Every_candidate_is_measured_once()
+    {
+        var points = GroundVerdict.Candidates(Base, 5f, 5f);
+        var visits = GroundPlacement.Visits([(5f, 5f), .. Base.Corners], points);
+
+        Assert.Equal(points.Count, visits.Sum(static v => v.Points.Count));
+    }
 }

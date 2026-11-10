@@ -75,6 +75,27 @@ internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, I
     /// <summary>Terrain colliders exist only near the body: only points this close (metres, on the ground plane) to the stand spot are sampled.</summary>
     public const float LoadedRadius = 60f;
 
+    /// <summary>How far the ring of points around the stand spot lies from it, in metres.</summary>
+    public const float Ring = 40f;
+
+    /// <summary>
+    /// Every point the ground is judged at: the stand spot, the footprint's corners and centre, and a ring of eight points
+    /// <see cref="Ring"/> metres around the stand spot. The build measures them all before it spawns; the verdict after
+    /// the spawn judges those <see cref="Within"/> the loaded radius.
+    /// </summary>
+    public static List<(float X, float Z)> Candidates(Footprint footprint, float standX, float standZ)
+    {
+        var points = new List<(float X, float Z)> { (standX, standZ) };
+        points.AddRange(footprint.Corners);
+        for (var i = 0; i < 8; i++)
+        {
+            var angle = i * Math.PI / 4;
+            points.Add((standX + (float)(Ring * Math.Cos(angle)), standZ + (float)(Ring * Math.Sin(angle))));
+        }
+
+        return points;
+    }
+
     /// <summary>The candidate points that lie within <see cref="LoadedRadius"/> of the stand spot.</summary>
     public static List<(float X, float Z)> Within(IEnumerable<(float X, float Z)> candidates, float standX, float standZ)
     {
@@ -227,6 +248,19 @@ internal readonly record struct BaseOffset(float Dx, float Dy, float Dz)
 /// </summary>
 internal readonly record struct GroundPlacement(BaseOffset? Offset, float? Highest, IReadOnlyList<string> Misses)
 {
+    /// <summary>
+    /// Where the body goes to measure: each spot in turn, with the points nearest it. Terrain colliders exist only near the
+    /// body, so each point is measured from the closest spot; a spot nearest to no point is left out.
+    /// </summary>
+    public static List<((float X, float Z) Spot, List<(float X, float Z)> Points)> Visits(
+        IReadOnlyList<(float X, float Z)> spots, IEnumerable<(float X, float Z)> points)
+    {
+        var visits = spots.Select(static s => (Spot: s, Points: new List<(float X, float Z)>())).ToList();
+        foreach (var p in points)
+            visits.OrderBy(v => (v.Spot.X - p.X) * (v.Spot.X - p.X) + (v.Spot.Z - p.Z) * (v.Spot.Z - p.Z)).First().Points.Add(p);
+        return visits.Where(static v => v.Points.Count > 0).ToList();
+    }
+
     /// <summary>The full offset: the ground-plane move already chosen, and the rise over the highest of the samples.</summary>
     public static GroundPlacement Over((float Dx, float Dz) beside, float lowestPiece, IReadOnlyList<GroundSample> samples)
     {
