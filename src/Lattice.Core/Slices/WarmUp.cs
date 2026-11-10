@@ -54,6 +54,7 @@ internal sealed class WarmUp : ISlicedWork
     private readonly IClock _clock;
     private readonly Action<MethodBase, int> _compile;
     private bool _retried;
+    private MethodBase? _last;
     private double _learnedTicks = 1000 * PriorTicksPerByte;
     private double _learnedBytes = 1000;
     private readonly HashSet<Type> _closed = new();
@@ -72,7 +73,7 @@ internal sealed class WarmUp : ISlicedWork
     }
 
     /// <summary>Where the warm-up is: types and methods still to go, methods compiled.</summary>
-    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} left out";
+    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} left out, last {_last?.DeclaringType?.FullName}.{_last?.Name}";
 
     /// <summary>Methods this warm-up has compiled so far.</summary>
     public int Compiled { get; private set; }
@@ -171,6 +172,7 @@ internal sealed class WarmUp : ISlicedWork
             }
 
             var before = _clock.Now;
+            _last = method;
             _compile(method, size);
             Learn(size, _clock.Now - before);
         }
