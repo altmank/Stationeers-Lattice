@@ -79,7 +79,7 @@ internal sealed class LiveRunner : MonoBehaviour
         Directory.CreateDirectory(outDir);
         _log = new StreamWriter(Path.Combine(outDir, $"live-bridge-{mode}.log"), append: false) { AutoFlush = true };
         _limit = mode == "render-look" ? LookLimitSeconds
-            : mode.StartsWith("bigbase", StringComparison.Ordinal) || mode.StartsWith("two-player", StringComparison.Ordinal) || mode.StartsWith("render-", StringComparison.Ordinal) || mode == "render" ? LongLimitSeconds
+            : mode.StartsWith("bigbase", StringComparison.Ordinal) || mode == "builder-turns" || mode.StartsWith("two-player", StringComparison.Ordinal) || mode.StartsWith("render-", StringComparison.Ordinal) || mode == "render" ? LongLimitSeconds
             : TimeLimitSeconds;
         _deadline = Time.realtimeSinceStartup + _limit;
         StartCoroutine(Guarded(Run()));
@@ -235,6 +235,14 @@ internal sealed class LiveRunner : MonoBehaviour
         {
             _step = _mode;
             yield return _mode == "bigbase-build" ? BigBaseRun.Build(_outDir, Line) : BigBaseRun.Load(_outDir, 10f, Line);
+            Finish();
+            yield break;
+        }
+
+        if (_mode == "builder-turns")
+        {
+            _step = _mode;
+            yield return BuilderTurnsRun.Run(_outDir, Line);
             Finish();
             yield break;
         }

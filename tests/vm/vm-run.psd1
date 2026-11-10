@@ -76,6 +76,22 @@
             Pass = @{ Require = @(@{ Regex = '^LIVE done$'; Min = 1; In = 'out\live-bridge-bigbase-build.log' })
                       Forbid = @(@{ Regex = '\bFAIL\b'; In = 'out\live-bridge-bigbase-build.log' }) }
         }
+        'builder-turns' = @{
+            Kind = 'proof'; WorldBuild = $true; NoPlans = $true; ExpectedMinutes = 10; StallSeconds = 600
+            GameArgs = '-lattice-live builder-turns -lattice-client-data {data} -lattice-out {out}'
+            Phases = [ordered]@{ bepinex = 'Chainloader startup complete'; mods = 'Loaded Entrypoints'; live = 'LIVECHECK plugin loaded'
+                                 started = 'LIVECHECK starting Lattice\.Game\.Live mode builder-turns'
+                                 menu = 'LIVE builder-turns: main menu up'; world = 'LIVE builder-turns: new world .* running'; landed = 'LIVE builder-turns: landed'
+                                 floor = 'LIVE builder-turns: floor \d+ frames'; reached = 'LIVE builder-turns: \S+ reaches \d+ turns'
+                                 placed = 'LIVE builder-turns: placed \d+, refused \d+'; saved = 'LIVE builder-turns: save .+: success'; finished = 'LIVE done$' }
+            PhaseLimit = @{ started = 300; menu = 600; world = 300; landed = 240; floor = 180; reached = 300; placed = 900; saved = 300 }
+            DoneGlob = '{out}\done.txt'; NoteRegex = '(LIVE|LIVECHECK) .*\bFAIL\b[^\r\n]*'
+            PreLaunch = 'tests\vm\hooks\prelaunch.ps1'; OnPoll = 'tests\vm\hooks\onpoll.ps1'; Judge = 'tests\vm\hooks\judge.ps1'
+            Pass = @{ Require = @(@{ Regex = '^LIVE done$'; Min = 1; In = 'out\live-bridge-builder-turns.log' }
+                                  @{ Regex = '^LIVE builder-turns: \S+ turn \d+ placed '; Min = 1; In = 'out\live-bridge-builder-turns.log' }
+                                  @{ Regex = '^LIVE builder-turns: save .+: success True'; Min = 1; In = 'out\live-bridge-builder-turns.log' })
+                      Forbid = @(@{ Regex = '\bFAIL\b'; In = 'out\live-bridge-builder-turns.log' }) }
+        }
         'bigbase-load' = @{
             Kind = 'proof'; World = 'lattice-gen-big-held'; ExpectedMinutes = 8; StallSeconds = 600; NoPlans = $true
             Params = @{ held = '5000'; bigbase = '' }

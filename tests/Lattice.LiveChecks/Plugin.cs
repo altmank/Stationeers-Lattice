@@ -55,7 +55,7 @@ public sealed class Plugin : BaseUnityPlugin
         // The two-player client, the render modes and a big-base run on a client start from the main menu; a server waits for its world.
         string[] clientArgs = Environment.GetCommandLineArgs();
         int clientArg = Array.IndexOf(clientArgs, "-lattice-live");
-        if (!_ran && clientArg >= 0 && clientArg + 1 < clientArgs.Length && (clientArgs[clientArg + 1] == "two-player-client" || clientArgs[clientArg + 1].StartsWith("render", StringComparison.Ordinal)
+        if (!_ran && clientArg >= 0 && clientArg + 1 < clientArgs.Length && (clientArgs[clientArg + 1] == "two-player-client" || clientArgs[clientArg + 1] == "builder-turns" || clientArgs[clientArg + 1].StartsWith("render", StringComparison.Ordinal)
             || (clientArgs[clientArg + 1].StartsWith("bigbase-", StringComparison.Ordinal) && !GameManager.IsBatchMode)))
         {
             _ran = true;
