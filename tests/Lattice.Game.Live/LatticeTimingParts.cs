@@ -223,6 +223,8 @@ internal static partial class LatticeTiming
         return label;
     }
 
+    private static string? _warmBefore;
+
     private static void StepObserved(ISlicedWork work, TimeSpan time)
     {
         var now = ThreadCpuMs();
@@ -241,6 +243,12 @@ internal static partial class LatticeTiming
             }
         }
 
+        if (work is WarmUp)
+        {
+            var after = work.ToString();
+            phase = $"{_warmBefore} -> {after}";
+            _warmBefore = after;
+        }
         _phaseWork = null;
         _phase = null;
         _phaseDraw = null;

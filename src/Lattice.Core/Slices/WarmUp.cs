@@ -72,7 +72,7 @@ internal sealed class WarmUp : ISlicedWork
     }
 
     /// <summary>Where the warm-up is: types and methods still to go, methods compiled.</summary>
-    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled";
+    public override string ToString() => $"{_set}: {_types.Count} types and {_methods.Count} methods to go, {Compiled} compiled, {Skipped} left out";
 
     /// <summary>Methods this warm-up has compiled so far.</summary>
     public int Compiled { get; private set; }
