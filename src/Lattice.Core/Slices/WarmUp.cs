@@ -56,7 +56,7 @@ internal sealed class WarmUp : ISlicedWork
     private readonly FrameScheduler _scheduler;
     private readonly Queue<Type> _types;
     private readonly Queue<MethodBase> _methods = new();
-    private readonly Queue<MethodBase> _deferred = new();
+    private readonly List<(MethodBase Method, int Size, bool Valued)> _deferred = new();
     private readonly IClock _clock;
     private readonly Action<MethodBase, int> _compile;
     private bool _retried;
@@ -154,8 +154,9 @@ internal sealed class WarmUp : ISlicedWork
         if (_deferred.Count > 0 && !_retried)
         {
             _retried = true;
-            while (_deferred.Count > 0)
-                _methods.Enqueue(_deferred.Dequeue());
+            foreach (var deferred in _deferred)
+                _methods.Enqueue(deferred.Method);
+            _deferred.Clear();
             return StepOutcome.More;
         }
 
@@ -184,28 +185,51 @@ internal sealed class WarmUp : ISlicedWork
             _methods.Dequeue();
             if (size < 0)
                 continue;
-            if (expected > MethodLimit && !model.ShouldProbe(expected))
+            if (expected <= MethodLimit)
             {
-                model.Deferred();
-                if (_retried)
-                {
-                    Skipped++;
-                    if (valued)
-                        SkippedValued++;
-                }
-                else
-                    _deferred.Enqueue(method);
+                CompileOne(method, size, model);
                 continue;
             }
 
-            if (expected <= MethodLimit)
-                model.Settled();
-            var before = _clock.Now;
-            _last = method;
-            _compile(method, size);
-            if (size <= LargestMethod)
-                model.Learn(size, _clock.Now - before);
+            model.Deferred();
+            if (_retried)
+            {
+                Skipped++;
+                if (valued)
+                    SkippedValued++;
+            }
+            else
+            {
+                _deferred.Add((method, size, valued));
+            }
+
+            if (model.ShouldProbe() && SmallestDeferred(valued) is var at && at >= 0 && model.Expected(_deferred[at].Size) <= MethodLimit)
+            {
+                var probe = _deferred[at];
+                _deferred.RemoveAt(at);
+                model.Probed();
+                CompileOne(probe.Method, probe.Size, model);
+            }
         }
+    }
+
+    private void CompileOne(MethodBase method, int size, CostModel model)
+    {
+        var before = _clock.Now;
+        _last = method;
+        _compile(method, size);
+        if (size <= LargestMethod)
+            model.Learn(size, _clock.Now - before);
+    }
+
+    // The deferred method of one kind with the smallest IL size, so the lowest cost expected; -1 when none.
+    private int SmallestDeferred(bool valued)
+    {
+        var at = -1;
+        for (var i = 0; i < _deferred.Count; i++)
+            if (_deferred[i].Valued == valued && (at < 0 || _deferred[i].Size < _deferred[at].Size))
+                at = i;
+        return at;
     }
 
     private static int SizeOf(MethodBase method)
@@ -243,13 +267,14 @@ internal sealed class WarmUp : ISlicedWork
         /// <summary>Deferrals in a row after which one method is compiled anyway: deferred methods teach nothing, so a model gone pessimistic would never recover.</summary>
         private const int ProbeAfter = 4;
 
+        /// <summary>The most deferrals in a row between probes once probes keep finding the kind slow (4, 8, then 16): a kind that is really slow is probed ever more rarely.</summary>
+        private const int MostProbeAfter = 16;
+
         /// <summary>The least spread of IL sizes (a standard deviation of 20 bytes, squared) at which a fitted slope means anything.</summary>
         private const double LeastVariance = 400;
 
-        /// <summary>A method expected to cost more than this (9 ms) is never compiled as a probe: a probe must not be the hitch it guards against.</summary>
-        private static readonly TimeSpan ProbeLimit = TimeSpan.FromTicks(3 * MethodLimit.Ticks);
-
         private int _streak;
+        private int _probeAfter = ProbeAfter;
         private double _n, _sx, _sy, _sxx, _sxy;
         private double _ticks = 1000 * PriorTicksPerByte;
         private double _bytes = 1000;
@@ -275,24 +300,29 @@ internal sealed class WarmUp : ISlicedWork
             return TimeSpan.FromTicks((long)proportional);
         }
 
-        /// <summary>Whether the next method that would be deferred is compiled instead, to learn from it; the count of deferrals in a row starts again.</summary>
-        public bool ShouldProbe(TimeSpan expected)
+        /// <summary>Whether enough methods of this kind have been deferred in a row for one of them to be compiled, to learn from it.</summary>
+        public bool ShouldProbe() => _streak >= _probeAfter;
+
+        /// <summary>A probe was taken: the deferrals in a row start again, and the next probe waits twice as long, up to <see cref="MostProbeAfter"/>.</summary>
+        public void Probed()
         {
-            if (_streak < ProbeAfter || expected > ProbeLimit)
-                return false;
             _streak = 0;
-            return true;
+            _probeAfter = Math.Min(2 * _probeAfter, MostProbeAfter);
         }
 
         public void Deferred() => _streak++;
-
-        public void Settled() => _streak = 0;
 
         public void Learn(int size, TimeSpan cost)
         {
             if (cost < Measurable)
                 return;
             const double decay = 0.98;
+            if (cost <= MethodLimit)
+            {
+                _streak = 0;
+                _probeAfter = ProbeAfter;
+            }
+
             var ticks = (double)Math.Min(cost.Ticks, MaxSample.Ticks);
             _n = _n * decay + 1;
             _sx = _sx * decay + size;

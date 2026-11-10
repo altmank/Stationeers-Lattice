@@ -121,7 +121,7 @@ public sealed class WarmUpTests
             longest = TimeSpan.FromTicks(Math.Max(longest.Ticks, (clock.Now - start).Ticks));
         }
 
-        Assert.True(longest <= Budget + TimeSpan.FromMilliseconds(6), $"the longest frame took {longest.TotalMilliseconds} ms");
+        Assert.True(longest <= Budget + TimeSpan.FromMilliseconds(3), $"the longest frame took {longest.TotalMilliseconds} ms");
         Assert.True(Work(job).Skipped >= 30, $"{Work(job).Skipped} dear methods were held back");
         Assert.True(largestDear <= 350, $"a dear method of {largestDear} IL bytes was compiled; dear {dear}, held back {Work(job).Skipped}");
     }
@@ -171,19 +171,22 @@ public sealed class WarmUpTests
     }
 
     [Fact]
-    public void A_model_made_pessimistic_by_one_slow_compile_recovers_through_probes()
+    public void A_model_made_pessimistic_by_one_slow_compile_recovers_through_probes_of_smaller_methods()
     {
         var limit = TimeSpan.FromMilliseconds(3);
         var model = new WarmUp.CostModel();
         model.Learn(100, TimeSpan.FromMilliseconds(30));
-        Assert.True(model.Expected(800) > limit, "the slow sample did not make a big method look dear");
-        Assert.True(model.Expected(800) < TimeSpan.FromMilliseconds(9), "one sample is capped, so it cannot make a probe too dear");
+        Assert.True(model.Expected(500) > limit, "the slow sample did not make a big method look dear");
+        Assert.True(model.Expected(150) <= limit, "a small method looks dear: a probe of it would be a hitch");
 
         var deferred = 0;
-        while (model.Expected(800) > limit && deferred < 1000)
+        while (model.Expected(500) > limit && deferred < 1000)
         {
-            if (model.ShouldProbe(model.Expected(800)))
-                model.Learn(800, TimeSpan.FromMilliseconds(0.3));
+            if (model.ShouldProbe())
+            {
+                model.Probed();
+                model.Learn(150, TimeSpan.FromMilliseconds(0.3));
+            }
             else
             {
                 model.Deferred();
@@ -192,21 +195,34 @@ public sealed class WarmUpTests
         }
 
         Assert.True(deferred < 1000, "the model never recovered");
-        Assert.True(model.Expected(800) <= limit);
     }
 
     [Fact]
-    public void A_probe_is_never_a_method_expected_to_cost_over_the_probe_limit()
+    public void Probes_come_after_four_then_eight_then_sixteen_deferrals_and_start_again_after_a_cheap_compile()
     {
         var model = new WarmUp.CostModel();
-        for (var i = 0; i < 10; i++)
+        var gaps = new System.Collections.Generic.List<int>();
+        for (var probes = 0; probes < 5; probes++)
+        {
+            var gap = 0;
+            while (!model.ShouldProbe())
+            {
+                model.Deferred();
+                gap++;
+            }
+
+            model.Probed();
+            gaps.Add(gap);
+        }
+
+        Assert.Equal([4, 8, 16, 16, 16], gaps);
+        model.Learn(100, TimeSpan.FromMilliseconds(0.1));
+        for (var i = 0; i < 3; i++)
             model.Deferred();
-
-        Assert.False(model.ShouldProbe(TimeSpan.FromMilliseconds(50)));
-        Assert.True(model.ShouldProbe(TimeSpan.FromMilliseconds(5)));
-        Assert.False(model.ShouldProbe(TimeSpan.FromMilliseconds(5)));
+        Assert.False(model.ShouldProbe());
+        model.Deferred();
+        Assert.True(model.ShouldProbe());
     }
-
     [Fact]
     public void A_window_of_near_identical_sizes_does_not_extrapolate_a_slope_to_a_big_method()
     {
