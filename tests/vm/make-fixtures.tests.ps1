@@ -14,12 +14,12 @@ function Make([string[]] $MakeArgs) {
 }
 $empty = Join-Path ([IO.Path]::GetTempPath()) "make-fixtures-test-$PID"
 try {
-    New-Item -ItemType Directory -Force "$empty\saves", "$empty\worlds" | Out-Null
+    New-Item -ItemType Directory -Force "$empty\worlds" | Out-Null
     foreach ($name in 'Vulcan2_4.save', 'vulcan24', 'VULCAN 2_4.save', 'Vulcan2_4') {
-        $r = Make @('-SaveDir', "$empty\saves", '-WorldDir', "$empty\worlds", '-Saves', $name)
+        $r = Make @('-WorldDir', "$empty\worlds", '-Saves', $name)
         Check "refuses '$name'" ($r.Code -ne 0 -and $r.Text -match 'refused' -and $r.Text -match 'world library') $r.Text
     }
-    $r = Make @('-SaveDir', "$empty\saves", '-WorldDir', "$empty\worlds", '-Saves', 'some-other-world')
+    $r = Make @('-WorldDir', "$empty\worlds", '-Saves', 'some-other-world')
     Check 'a library world name is not refused' ($r.Code -ne 0 -and $r.Text -notmatch 'refused') $r.Text
 }
 finally { Remove-Item -Recurse -Force $empty -ErrorAction SilentlyContinue }
