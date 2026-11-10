@@ -8,7 +8,7 @@ namespace Lattice.Tests.RealSave;
 
 /// <summary>
 /// What the big-base live runs recorded on the test instance (Lattice.Game.Live <c>bigbase-build</c> and
-/// <c>bigbase-load</c>; logs copied from <c>LatticeFixturesridge</c> by make-fixtures.ps1): the generated big base built in a
+/// <c>bigbase-load</c>; the fixtures script copies the logs from the bridge folder of the fixtures): the generated big base built in a
 /// new world on the VM client with 5,000 structures held back as a plan, then that world loaded, the plan completed, saved
 /// and reloaded with Lattice running. Counts come from the logs.
 /// </summary>
@@ -30,6 +30,7 @@ public sealed class LiveBigBaseTests
     {
         var log = Lines("live-bridge-bigbase-load.log");
         Assert.DoesNotContain(log, static l => l.StartsWith("LIVE FAIL", StringComparison.Ordinal));
+        Assert.DoesNotContain(log, static l => l.Contains("NOT settled", StringComparison.Ordinal));
         Assert.Contains(log, static l => l.StartsWith("LIVE bigbase: load match MatchReport { Judged = ", StringComparison.Ordinal));
         Assert.Contains(log, static l => l.StartsWith("LIVE PASS plans after the autosave reload equal the plans before", StringComparison.Ordinal));
         Assert.Contains(log, static l => l.StartsWith("LIVE PASS the older save loads its plans as at the head save, the new plan hidden and not offered", StringComparison.Ordinal));
@@ -52,7 +53,12 @@ public sealed class LiveBigBaseTests
     [SaveFact("live-bridge-bigbase-load.log")]
     public void Steady_frames_hold_the_budget_and_allocate_nothing()
     {
-        var steady = Lines("live-bridge-bigbase-load.log").Single(static l => l.StartsWith("LIVE bigbase: steady:", StringComparison.Ordinal));
+        var log = Lines("live-bridge-bigbase-load.log");
+        Assert.DoesNotContain(log, static l => l.Contains("NOT settled", StringComparison.Ordinal));
+        Assert.Contains(log, static l => l.StartsWith("LIVE bigbase: validation of the new plan: settled after ", StringComparison.Ordinal));
+        var steady = log.Single(static l => l.StartsWith("LIVE bigbase: steady:", StringComparison.Ordinal));
+        var rate = Regex.Match(steady, @"cpu rate ([\d.]+) GHz");
+        Assert.True(rate.Success && double.Parse(rate.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) > 0, "the CPU time was not measured");
         var cpu = steady.Substring(steady.IndexOf("Lattice frames (cpu)", StringComparison.Ordinal));
         Assert.Contains("over 6 ms 0;", cpu);
         Assert.EndsWith("one Lattice frame now allocates 0 bytes", steady);

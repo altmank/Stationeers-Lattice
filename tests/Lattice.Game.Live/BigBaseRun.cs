@@ -834,6 +834,11 @@ internal static class BigBaseRun
         line($"bigbase: {what}: {(idle >= 3 ? "settled" : "NOT settled")} after {Time.realtimeSinceStartup - start:F1} s; game frames {Stats(game)}; Lattice frames {Stats(LatticeTiming.FrameMs)}");
         foreach (var slow in LatticeTiming.Describe(what, 5, 0, int.MaxValue))
             line(slow);
+        if (idle < 3)
+        {
+            var validating = world.ValidationModule is { Busy: true };
+            line($"FAIL bigbase: {what} NOT settled after {Time.realtimeSinceStartup - start:F0} s (limit {limit:F0} s): validation busy {validating}, frame scheduler idle {world.Scheduler.Idle}");
+        }
     }
 
     private static IEnumerator Frames(LatticeWorld world, Action<string> line, string what, int count)
