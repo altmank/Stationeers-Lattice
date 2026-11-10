@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using Lattice.Game.Live;
@@ -151,16 +152,74 @@ public sealed class GroundMeasureTests
     private static readonly Footprint Base = new(0f, 0f, 100f, 60f, 301f);
 
     [Fact]
-    public void The_candidates_are_the_stand_the_corners_the_centre_and_a_ring_around_the_stand()
+    public void The_candidates_are_the_stand_the_corners_the_centre_the_footprint_grid_and_a_ring_around_the_stand_each_once()
     {
         var points = GroundVerdict.Candidates(Base, 5f, 5f);
+        var ring = points.Where(static p => Math.Abs(Math.Sqrt((p.X - 5f) * (p.X - 5f) + (p.Z - 5f) * (p.Z - 5f)) - GroundVerdict.Ring) < 1e-3).ToList();
 
-        Assert.Equal(14, points.Count);
         Assert.Equal((5f, 5f), points[0]);
         Assert.Contains((100f, 60f), points);
         Assert.Contains((50f, 30f), points);
-        Assert.Contains((45f, 5f), points);
-        Assert.All(points.GetRange(6, 8), p => Assert.Equal(GroundVerdict.Ring, (float)Math.Sqrt((p.X - 5f) * (p.X - 5f) + (p.Z - 5f) * (p.Z - 5f)), 3));
+        Assert.Equal(8, ring.Count);
+        Assert.All(Base.Grid(GroundVerdict.Spacing), p => Assert.Contains(p, points));
+        Assert.Equal(points.Count, points.Distinct().Count());
+        Assert.Equal(126 + 1 + 1 + 8, points.Count);
+    }
+
+    [Fact]
+    public void The_grid_covers_the_footprint_edge_to_edge_at_most_the_spacing_apart()
+    {
+        var grid = Base.Grid(8f);
+        var xs = grid.Select(static p => p.X).Distinct().OrderBy(static x => x).ToList();
+        var zs = grid.Select(static p => p.Z).Distinct().OrderBy(static z => z).ToList();
+
+        Assert.Equal(xs.Count * zs.Count, grid.Count);
+        Assert.Equal((0f, 100f), (xs[0], xs[^1]));
+        Assert.Equal((0f, 60f), (zs[0], zs[^1]));
+        Assert.All(xs.Zip(xs.Skip(1)), g => Assert.InRange(g.Second - g.First, 0.01f, 8f));
+        Assert.All(zs.Zip(zs.Skip(1)), g => Assert.InRange(g.Second - g.First, 0.01f, 8f));
+        Assert.Equal(new[] { (3f, 4f) }, new Footprint(3f, 4f, 3f, 4f, 0f).Grid(8f));
+    }
+
+    // Flat ground at 10 m with one hill 12 m high and 40 m across its foot, between the corners of a base the held file's
+    // size: no corner, the centre or the stand spot is on the hill.
+    private static readonly Footprint Big = new(0f, 0f, 165.5f, 94f, 301f);
+
+    private static float Hill(float x, float z)
+    {
+        var d = (float)Math.Sqrt((x - 37f) * (x - 37f) + (z - 29f) * (z - 29f));
+        return 10f + 12f * Math.Max(0f, 1f - d / 40f);
+    }
+
+    private static GroundSample[] Measure(IEnumerable<(float X, float Z)> points) =>
+        points.Select(static p => new GroundSample(p.X, p.Z, Hill(p.X, p.Z))).ToArray();
+
+    [Fact]
+    public void A_hill_between_the_corners_lifts_the_base_over_its_top()
+    {
+        var placement = GroundPlacement.Over((0f, 0f), Big.Lowest, Measure(GroundVerdict.Candidates(Big, 5.5f, 6f)));
+        var underside = Big.Lowest + placement.Offset!.Value.Dy - BaseOffset.HalfGrid;
+
+        Assert.True(underside > 22f, $"underside {underside} under the hill's top 22");
+    }
+
+    [Fact]
+    public void Corners_and_centre_alone_miss_the_hill_and_the_whole_footprint_verdict_catches_it()
+    {
+        var cornersOnly = GroundPlacement.Over((0f, 0f), Big.Lowest, Measure(Big.Corners));
+        var lowered = Big.Lowest + cornersOnly.Offset!.Value.Dy;
+
+        Assert.True(lowered - BaseOffset.HalfGrid < 22f);
+        Assert.False(GroundVerdict.Judge(Measure(GroundVerdict.Candidates(Big, 5.5f, 6f)), lowered).Ok);
+    }
+
+    [Fact]
+    public void The_base_placed_over_the_whole_footprint_passes_the_whole_footprint_verdict()
+    {
+        var samples = Measure(GroundVerdict.Candidates(Big, 5.5f, 6f));
+        var placement = GroundPlacement.Over((0f, 0f), Big.Lowest, samples);
+
+        Assert.True(GroundVerdict.Judge(samples, Big.Lowest + placement.Offset!.Value.Dy).Ok);
     }
 
     [Fact]
@@ -181,5 +240,15 @@ public sealed class GroundMeasureTests
         var visits = GroundPlacement.Visits([(5f, 5f), .. Base.Corners], points);
 
         Assert.Equal(points.Count, visits.Sum(static v => v.Points.Count));
+    }
+
+    [Fact]
+    public void Over_the_held_base_every_point_lies_within_the_loaded_radius_of_the_spot_it_is_measured_from()
+    {
+        var held = new Footprint(595.5f, 599f, 761f, 693f, 301f);
+        var visits = GroundPlacement.Visits([(601f, 605f), .. held.Corners], GroundVerdict.Candidates(held, 601f, 605f));
+
+        Assert.All(visits, v => Assert.All(v.Points, p =>
+            Assert.True(Math.Sqrt((p.X - v.Spot.X) * (p.X - v.Spot.X) + (p.Z - v.Spot.Z) * (p.Z - v.Spot.Z)) <= GroundVerdict.LoadedRadius, $"{p} from {v.Spot}")));
     }
 }

@@ -66,34 +66,43 @@ internal readonly record struct GroundSample(float X, float Z, float? Y)
     public string Where => $"x {X.ToString("0.##", CultureInfo.InvariantCulture)} z {Z.ToString("0.##", CultureInfo.InvariantCulture)}";
 }
 
-/// <summary>The ground check under a base: raycast heights near the stand spot against the base's lowest piece.</summary>
+/// <summary>The ground check under a base: raycast heights over its footprint and near the stand spot against its lowest piece.</summary>
 internal readonly record struct GroundVerdict(bool Ok, float? Min, float? Max, IReadOnlyList<string> Misses, float Lowest)
 {
     /// <summary>A hit above the lowest piece's y minus this many metres means the base would cut into the terrain.</summary>
     public const float Clearance = 1f;
 
-    /// <summary>Terrain colliders exist only near the body: only points this close (metres, on the ground plane) to the stand spot are sampled.</summary>
+    /// <summary>
+    /// Terrain colliders exist only near the body: a ray cast now reaches ground only at points this close (metres, on the
+    /// ground plane) to where the body stands. Only LOD level 0 has colliders (TerrainSystem.Lods\LodManager.cs:162) and the
+    /// LODs are centred on each requester (LodManager.cs:713).
+    /// </summary>
     public const float LoadedRadius = 60f;
+
+    /// <summary>How far apart the ground is measured across the footprint, in metres: four large cells.</summary>
+    public const float Spacing = 8f;
 
     /// <summary>How far the ring of points around the stand spot lies from it, in metres.</summary>
     public const float Ring = 40f;
 
     /// <summary>
-    /// Every point the ground is judged at: the stand spot, the footprint's corners and centre, and a ring of eight points
-    /// <see cref="Ring"/> metres around the stand spot. The build measures them all before it spawns; the verdict after
-    /// the spawn judges those <see cref="Within"/> the loaded radius.
+    /// Every point the ground is judged at, each once: the stand spot, the footprint's corners and centre, a grid over the
+    /// whole footprint every <see cref="Spacing"/> metres, and a ring of eight points <see cref="Ring"/> metres around the
+    /// stand spot. The build measures them all before it spawns and the verdict judges them all; after the spawn it also
+    /// casts again at those <see cref="Within"/> the loaded radius of the stand spot.
     /// </summary>
     public static List<(float X, float Z)> Candidates(Footprint footprint, float standX, float standZ)
     {
         var points = new List<(float X, float Z)> { (standX, standZ) };
         points.AddRange(footprint.Corners);
+        points.AddRange(footprint.Grid(Spacing));
         for (var i = 0; i < 8; i++)
         {
             var angle = i * Math.PI / 4;
             points.Add((standX + (float)(Ring * Math.Cos(angle)), standZ + (float)(Ring * Math.Sin(angle))));
         }
 
-        return points;
+        return points.Distinct().ToList();
     }
 
     /// <summary>The candidate points that lie within <see cref="LoadedRadius"/> of the stand spot.</summary>
@@ -163,8 +172,23 @@ internal readonly record struct Footprint(float MinX, float MinZ, float MaxX, fl
 
     public (float X, float Z) Centre => ((MinX + MaxX) / 2f, (MinZ + MaxZ) / 2f);
 
-    /// <summary>The four corners and the centre: where the ground under the base is measured.</summary>
+    /// <summary>The four corners and the centre.</summary>
     public IReadOnlyList<(float X, float Z)> Corners => [(MinX, MinZ), (MinX, MaxZ), (MaxX, MinZ), (MaxX, MaxZ), Centre];
+
+    /// <summary>Points over the whole footprint at most <paramref name="spacing"/> metres apart along each axis, edges included.</summary>
+    public IReadOnlyList<(float X, float Z)> Grid(float spacing)
+    {
+        var zs = Steps(MinZ, MaxZ, spacing).ToList();
+        return [.. Steps(MinX, MaxX, spacing).SelectMany(x => zs.Select(z => (x, z)))];
+    }
+
+    private static IEnumerable<float> Steps(float min, float max, float spacing)
+    {
+        var inner = (int)Math.Ceiling((max - min) / spacing);
+        for (var i = 0; i < inner; i++)
+            yield return min + i * spacing;
+        yield return max;
+    }
 
     public Footprint Moved(BaseOffset by) => new(MinX + by.Dx, MinZ + by.Dz, MaxX + by.Dx, MaxZ + by.Dz, Lowest + by.Dy);
 
