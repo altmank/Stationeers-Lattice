@@ -8,13 +8,18 @@
 .PARAMETER SaveDir
     Where the saves are read from (default: the nearest LatticeFixtures\saves in a folder above the repo).
 .PARAMETER Saves
-    The save files to copy (default: Vulcan2_4.save).
+    The saves to copy (default: lattice-gen-big). A name without .save is a library world: its save is copied from
+    <WorldDir>\<name>\<name>\<name>.save as generated\<name>.save, with <WorldDir>\<name>\world.txt as
+    generated\<name>.world.txt. A name ending .save is read from SaveDir. Vulcan2_4.save is copied only when named.
+.PARAMETER WorldDir
+    The library of test worlds (default: $env:STATIONEERS_WORLDS).
 .PARAMETER Catalogue
     A catalogue data file written by the Catalogue reader; copied as catalogue.lcat when given.
 #>
 param(
     [string] $SaveDir = '',
-    [string[]] $Saves = @('Vulcan2_4.save'),
+    [string[]] $Saves = @('lattice-gen-big'),
+    [string] $WorldDir = $env:STATIONEERS_WORLDS,
     [string] $Catalogue = ''
 )
 
@@ -29,15 +34,35 @@ if (-not $SaveDir) {
 $generated = Join-Path $PSScriptRoot 'generated'
 New-Item -ItemType Directory -Force -Path $generated | Out-Null
 
-foreach ($save in $Saves) {
-    $source = Join-Path $SaveDir $save
-    if (-not (Test-Path $source)) { throw "No save at $source" }
-    $target = Join-Path $generated $save
+function Copy-Checked([string] $source, [string] $target) {
     Copy-Item -LiteralPath $source -Destination $target -Force
     $want = (Get-FileHash -Algorithm SHA1 -LiteralPath $source).Hash
     $got = (Get-FileHash -Algorithm SHA1 -LiteralPath $target).Hash
-    if ($want -ne $got) { throw "Copy of $save differs from its source ($got, expected $want)" }
-    Write-Host "save      $save  SHA1 $got"
+    if ($want -ne $got) { throw "Copy of $(Split-Path $source -Leaf) differs from its source ($got, expected $want)" }
+    $got
+}
+
+# Library layout (<WorldDir>\lattice-gen-big): README.md, md5.txt, world.txt, and the save folder
+# lattice-gen-big\ holding lattice-gen-big.save (with autosave\, manualsave\, quicksave\).
+$copied = @()
+foreach ($save in $Saves) {
+    if ($save.EndsWith('.save')) {
+        $source = Join-Path $SaveDir $save
+        if (-not (Test-Path $source)) { throw "No save at $source" }
+        $name = $save
+    } else {
+        if (-not $WorldDir -or -not (Test-Path -LiteralPath $WorldDir -PathType Container)) { throw 'no world library: pass -WorldDir or set STATIONEERS_WORLDS' }
+        $world = Join-Path $WorldDir $save
+        $source = Join-Path $world "$save\$save.save"
+        if (-not (Test-Path $source)) { throw "No world $save in $WorldDir" }
+        $name = "$save.save"
+        $worldFile = Join-Path $world 'world.txt'
+        if (-not (Test-Path $worldFile)) { throw "World $save has no world.txt in $world" }
+        $null = Copy-Checked $worldFile (Join-Path $generated "$save.world.txt")
+        Write-Host "world     $save.world.txt"
+    }
+    $copied += $name
+    Write-Host "save      $name  SHA1 $(Copy-Checked $source (Join-Path $generated $name))"
 }
 
 # The world bridge's known save and the bridge's reads of it (written by Lattice.Game.Live on the test instance), when
@@ -45,7 +70,7 @@ foreach ($save in $Saves) {
 # run logs LatticeFixtures\bridge\live-bridge-*.log.
 $bridgeDir = Join-Path (Split-Path $SaveDir -Parent) 'bridge'
 $known = Join-Path $SaveDir 'lattice-known.save'
-if ((Test-Path $known) -and ($Saves -notcontains 'lattice-known.save')) {
+if ((Test-Path $known) -and ($copied -notcontains 'lattice-known.save')) {
     $bridgeFiles = @(Get-Item -LiteralPath $known)
     if (Test-Path $bridgeDir) {
         $bridgeFiles += @(Get-ChildItem -LiteralPath $bridgeDir -Filter 'world-dump-*.txt')

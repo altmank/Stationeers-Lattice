@@ -6,6 +6,7 @@ using System.Linq;
 using Lattice.Api;
 using Lattice.Core.Saving;
 using Lattice.TestKit.Fixtures;
+using Lattice.Tests.Validation.RealBase;
 using Lattice.TestKit.World;
 using Lattice.Tests.EntryPoint;
 using Xunit.Abstractions;
@@ -13,7 +14,7 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.RealSave;
 
 /// <summary>
-/// Lattice on a large real base, read offline (the modded Vulcan2_4 save does not load on a vanilla server):
+/// Lattice on a large generated base (lattice-gen-big), read offline:
 /// the save loaded into a fake world, Lattice started over it with the game's runtime, a 5,000-ghost plan on built
 /// structures matched at a reload, a 5,000-ghost new plan checked, and the frame costs of the steady state. Every
 /// number is wall time on .NET 8, written to <c>generated/real-save-offline.txt</c> for the report; the
@@ -22,7 +23,7 @@ namespace Lattice.Tests.RealSave;
 [Collection(LatticeSystemCollection.Name)]
 public sealed class RealSaveTests(ITestOutputHelper output)
 {
-    private const string Save = "Vulcan2_4.save";
+    private const string Save = RealBaseBench.BigBase;
     private const int PlanSize = 5000;
 
     [RealSaveFact(Save)]
@@ -45,6 +46,9 @@ public sealed class RealSaveTests(ITestOutputHelper output)
     private static void Run(RealSaveBench b)
     {
         var built = b.Built();
+        Assert.Empty(b.Save.UnknownPieces);
+        Assert.True(b.Save.Structures >= WorldTxtCount("structures"), $"the save holds {b.Save.Structures} structures, world.txt {WorldTxtCount("structures")}");
+        RealBaseBench.RequirePlanHolds(b.Catalogue, built.Take(PlanSize));
         var onBuilt = built.Take(PlanSize).Select(s => RealSaveBench.Draft(new Placement(s.Ref.Piece, s.Ref.At, s.Turn))).ToList();
 
         // The base planned before it was built: the plan is placed in an empty world and saved; the save's world then
@@ -94,6 +98,14 @@ public sealed class RealSaveTests(ITestOutputHelper output)
         b.Lines.Add($"budget: Lattice's slices total {total:F1} ms a frame (16.7 ms at 60 fps); frames over it while checking: {checking.Milliseconds.Count(m => m > total)} of {checking.Milliseconds.Count}");
 
     }
+
+    // A count world.txt records for the library world (generated/lattice-gen-big.world.txt, copied by make-fixtures.ps1).
+    private static long WorldTxtCount(string key) =>
+        File.ReadLines(Path.Combine(Fixtures.Generated, Path.ChangeExtension(Save, ".world.txt")))
+            .Select(static line => line.Split(' '))
+            .Where(parts => parts.Length == 2 && parts[0] == key)
+            .Select(static parts => long.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture))
+            .Single();
 
     private static long IdleFrameBytes(RealSaveBench b)
     {

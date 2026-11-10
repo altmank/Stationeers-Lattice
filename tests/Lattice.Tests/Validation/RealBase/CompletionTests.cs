@@ -14,7 +14,7 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.Validation.RealBase;
 
 /// <summary>
-/// The live big-base run's load half over a large real base (Vulcan2_4) read offline: a 5,000-ghost plan over the first built
+/// The live big-base run's load half over a large generated base (lattice-gen-big) read offline: a 5,000-ghost plan over the first built
 /// structures of the base while they are held back, the rest standing, saved and loaded again (the load's matching
 /// pass); the held-back structures then register, <see cref="SpawnPerFrame"/> a frame, and validation settles within a
 /// few frames of the last; a game save; a 5,000-ghost new plan beside the base settles; then steady frames, long
@@ -33,14 +33,15 @@ public sealed class CompletionTests(ITestOutputHelper output)
     private static readonly TimeSpan CheckCost = TimeSpan.FromMilliseconds(double.TryParse(Environment.GetEnvironmentVariable("LATTICE_CHECK_MS"), System.Globalization.CultureInfo.InvariantCulture, out var ms) ? ms : 0.05);
     private static readonly TimeSpan FrameGap = TimeSpan.FromMilliseconds(40);
 
-    [RealBaseFact("Vulcan2_4.save")]
+    [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
     public void Held_back_structures_complete_their_plan_within_a_few_frames_and_steady_frames_cost_near_nothing()
     {
-        using var bench = RealBaseBench.Load("Vulcan2_4.save");
+        using var bench = RealBaseBench.Load(RealBaseBench.BigBase);
         bench.Check.Rule(_ => Spin(CheckCost));
         var built = bench.Built();
         var held = built.Take(PlanSize).ToList();
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, held);
         var heldIds = held.Select(s => s.Ref.Id).ToHashSet();
         var world = new FakeWorld(bench.Catalogue);
         foreach (var s in new FakeScan(bench.Save.World).Structures().Where(s => !heldIds.Contains(s.Ref.Id)))

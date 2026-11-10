@@ -17,7 +17,7 @@ namespace Lattice.Tests.Validation.RealBase;
 
 /// <summary>
 /// Build safety as plan state steps it (<see cref="SafetyRun.StepUnits"/> units and <see cref="SafetyRun.StepReads"/>
-/// cell reads a step), over a large real base (Vulcan2_4) read offline with a 5,000-ghost plan of the base's own pieces over the
+/// cell reads a step), over a large generated base (lattice-gen-big) read offline with a 5,000-ghost plan of the base's own pieces over the
 /// standing base. A first run (each check's code compiled on its first call, as the game's runtime does) is reported;
 /// then warm runs alternate between steps without a read budget (as before the budget) and with it, five each, and per
 /// check the least of each run's worst step is kept, so a scheduler quantum or a collection in one run does not count.
@@ -33,12 +33,13 @@ public sealed class SafetyStepTests(ITestOutputHelper output)
     private const int Vents = 3;
     private const int Controls = 4;
 
-    [RealBaseFact("Vulcan2_4.save")]
+    [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
     public void A_safety_step_on_a_real_base_keeps_its_cell_reads_within_the_budget_and_its_warnings()
     {
-        using var bench = RealBaseBench.Load("Vulcan2_4.save");
+        using var bench = RealBaseBench.Load(RealBaseBench.BigBase);
         var built = bench.Built();
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, built.Skip(PlanSize).Take(PlanSize), ventAndControl: true);
         bench.Start(Option<Lattice.Core.Saving.SaveKey>.None);
         var drafts = ValueList.From(built.Skip(PlanSize).Take(PlanSize)
             .Select(s => RealBaseBench.Draft(new Placement(s.Ref.Piece, s.Ref.At, s.Turn))).ToList());

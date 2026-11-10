@@ -18,7 +18,7 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.Validation.RealBase;
 
 /// <summary>
-/// Where a frame's time goes over a large real base (Vulcan2_4) read offline, by window: the first spawned batch (the first calls,
+/// Where a frame's time goes over a large generated base (lattice-gen-big) read offline, by window: the first spawned batch (the first calls,
 /// reported and not judged, as the first spawn of a session in game), the rest of the held-back spawn of a 5,000-ghost
 /// plan, its completion, a 5,000-ghost new plan's validation, then <see cref="SteadyFrames"/> steady frames. Each frame
 /// records the checking and saving the scheduler spent, whether validation was sweeping, whether plan state was working
@@ -38,13 +38,13 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
     private const int SteadyFrames = 600;
     private const int SweepFrames = 20;
     private const double SavingFrame = 3.0;
-    // Saving's cost per line written, in microseconds. Measured with v0.6.0 and 0.22.12 run in turn on one machine: v0.6.0
-    // 6.4 to 8.4, 0.22.12 7.0 to 7.8 (mean 7.3). 10 leaves about 30% over the worst run and still fails on growth that size.
-    private const double SavingPerLine = 10.0;
+    // Saving's cost per line written, in microseconds. Five runs under the perf lock over lattice-gen-big with 0.22.17
+    // on 2026-11-09: 5.07, 5.54, 5.50, 5.78, 5.79. The pin is the worst run plus 30%, rounded up (7.53 to 8), so it fails on growth that size.
+    private const double SavingPerLine = 8.0;
     private static readonly TimeSpan CheckCost = TimeSpan.FromMilliseconds(0.05);
     private static readonly TimeSpan FrameGap = TimeSpan.FromMilliseconds(40);
 
-    [RealBaseFact("Vulcan2_4.save")]
+    [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
     public void Steady_frames_neither_work_out_plan_state_nor_save_and_a_sweep_and_a_saving_step_stay_short()
     {
@@ -62,10 +62,11 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
 
     private void Measure()
     {
-        using var bench = RealBaseBench.Load("Vulcan2_4.save");
+        using var bench = RealBaseBench.Load(RealBaseBench.BigBase);
         bench.Check.Rule(_ => Spin(CheckCost));
         var built = bench.Built();
         var held = built.Take(PlanSize).ToList();
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, held);
         var heldIds = held.Select(s => s.Ref.Id).ToHashSet();
         var world = new FakeWorld(bench.Catalogue);
         foreach (var s in new FakeScan(bench.Save.World).Structures().Where(s => !heldIds.Contains(s.Ref.Id)))

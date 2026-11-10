@@ -15,7 +15,7 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.Validation.RealBase;
 
 /// <summary>
-/// Steady frames over a large real base (Vulcan2_4) read offline: a 5,000-ghost plan of the base's own pieces settles, then
+/// Steady frames over a large generated base (lattice-gen-big) read offline: a 5,000-ghost plan of the base's own pieces settles, then
 /// Lattice runs frames with nothing new to do for long enough to hold two of validation's re-check sweeps. A frame
 /// with nothing to do costs near nothing: the 99th percentile of Lattice frames, judged on the main thread's CPU time
 /// plus collector pauses (the test machine is shared, so wall time carries other processes' turns), stays under <see cref="SteadyP99"/>. Each game check costs <see cref="CheckCost"/> of spinning, standing in for the game's own
@@ -30,14 +30,15 @@ public sealed class SteadyFrameTests(ITestOutputHelper output)
     private static readonly TimeSpan Steady = TimeSpan.FromSeconds(25);
     private static readonly TimeSpan FrameGap = TimeSpan.FromMilliseconds(16);
 
-    [RealBaseFact("Vulcan2_4.save")]
+    [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
     public void Steady_frames_on_a_settled_real_base_cost_near_nothing()
     {
-        using var bench = RealBaseBench.Load("Vulcan2_4.save");
+        using var bench = RealBaseBench.Load(RealBaseBench.BigBase);
         bench.Check.Rule(_ => Spin(CheckCost));
         var built = bench.Built();
         bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, built.Take(PlanSize));
         var drafts = ValueList.From(built.Take(PlanSize).Select(s => RealBaseBench.Draft(new Placement(s.Ref.Piece, s.Ref.At, s.Turn))).ToList());
         Assert.IsType<Outcome.Applied>(bench.Submit(new Command.CreatePlan(RealBaseBench.Plan("The base")) { Ghosts = drafts }));
         var settled = bench.Settle(TimeSpan.FromSeconds(120));
