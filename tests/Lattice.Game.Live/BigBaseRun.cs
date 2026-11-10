@@ -812,7 +812,7 @@ internal static class BigBaseRun
         line($"bigbase: {what}: {(result is { } r ? $"success {r.Success}" : "no result")} in {watch.Elapsed.TotalSeconds:F1} s");
     }
 
-    // Frames until validation has been idle for 3 frames, recording game and Lattice frame costs.
+    // Frames until validation is idle and every slice queue is drained (FrameScheduler.Idle) for 3 frames in a row, recording game and Lattice frame costs.
     private static IEnumerator Settle(LatticeWorld world, Action<string> line, string what, float limit, Action? tick = null)
     {
         LatticeTiming.Watching = world;
@@ -826,9 +826,9 @@ internal static class BigBaseRun
             yield return null;
             tick?.Invoke();
             if (progress.Due(Time.realtimeSinceStartup - start))
-                line($"bigbase: {what}: still validating after {Time.realtimeSinceStartup - start:F0} s of {limit:F0}");
+                line($"bigbase: {what}: still validating or draining after {Time.realtimeSinceStartup - start:F0} s of {limit:F0}");
             game.Add(Time.unscaledDeltaTime * 1000.0);
-            idle = world.ValidationModule is { Busy: true } ? 0 : idle + 1;
+            idle = world.ValidationModule is { Busy: true } || !world.Scheduler.Idle ? 0 : idle + 1;
         }
 
         line($"bigbase: {what}: {(idle >= 3 ? "settled" : "NOT settled")} after {Time.realtimeSinceStartup - start:F1} s; game frames {Stats(game)}; Lattice frames {Stats(LatticeTiming.FrameMs)}");
