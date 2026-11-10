@@ -158,6 +158,10 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     private readonly LineChecksum.Running _checksum = new();
     private WorldFolder.CheckpointWrite? _checkpoint;
     private long _queuedChars;
+    private bool _longBuilt;
+
+    // Characters of the line at the head of _pending already on disk.
+    private int _lineWritten;
     private readonly List<SavePoint> _records = new();
     private readonly List<RecoveryOffer> _offers = new();
     private readonly Dictionary<PlanId, PlanReplay> _newest = new();
@@ -420,19 +424,20 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
 
     /// <summary>
     /// Works up to <see cref="OpsPerStep"/> changes of the queued sets into plan parts or operations into lines, then
-    /// writes one thing: the next plan's queued lines in one append (up to <see cref="AppendChars"/>), a part of a
+    /// writes one thing (not in the step that finished a line longer than one part): the next plan's queued lines in one append (up to <see cref="AppendChars"/>), a part of a
     /// checkpoint (<see cref="CheckpointUnits"/> ghosts), or an archive move. Linear in those units plus the characters
     /// appended.
     /// </summary>
     public StepOutcome Step()
     {
+        _longBuilt = false;
         Build(OpsPerStep);
         if (_checkpoint is { } checkpoint)
         {
             if (checkpoint.Step(CheckpointUnits))
                 _checkpoint = null;
         }
-        else if (_pending.Count > 0 && !Holding())
+        else if (_pending.Count > 0 && !_longBuilt && !Holding())
         {
             WriteSome();
         }
@@ -450,6 +455,13 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
             _checkpoint = null;
         }
 
+        if (_pending.Count > 0 && _pending.Peek() is Queued.Line started && _lineWritten > 0)
+        {
+            var from = _lineWritten;
+            Dequeue();
+            _folder.Append(started.Plan, started.Text, from, started.Text.Length - from, lineBreak: true);
+        }
+
         var batch = new System.Text.StringBuilder();
         var plan = default(PlanId);
         while (_pending.Count > 0)
@@ -458,7 +470,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
             if (next is Queued.Line line && (batch.Length == 0 || line.Plan == plan))
             {
                 plan = line.Plan;
-                batch.Append(line.Text);
+                batch.Append(line.Text).Append('\n');
                 continue;
             }
 
@@ -471,7 +483,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
             if (next is Queued.Line first)
             {
                 plan = first.Plan;
-                batch.Append(first.Text);
+                batch.Append(first.Text).Append('\n');
             }
             else
             {
@@ -588,13 +600,15 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         var number = parts.Line.Number.Value;
         var follows = parts.Line.Follows.Map(static f => f.Value).Reduce(0);
         var text = parts.End();
-        TreeFor(plan).Add(new TreeLine(number, follows, text.Substring(0, text.Length - 1)));
+        TreeFor(plan).Add(new TreeLine(number, follows, text));
         _heads[plan] = number;
         var reopened = wasFinished && !state.Finished;
         if (reopened)
             _pending.Enqueue(new Queued.Unarchive(plan));
-        _pending.Enqueue(new Queued.Line(plan, text));
-        _queuedChars += text.Length;
+        var queued = new Queued.Line(plan, text);
+        _pending.Enqueue(queued);
+        _queuedChars += queued.Length;
+        _longBuilt |= queued.Length > AppendChars;
         if (reopened)
             _pending.Enqueue(new Queued.Unindex(plan));
         if (!wasFinished && state.Finished)
@@ -897,24 +911,18 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         PlanReplay.From(state.Plan, state.At, state.Record, state.Finished, new List<Ghost>(state.Ghosts), state.Built, state.Bounds, state.Done, state.DoneBy);
 
     // The next queued item: a line with the lines after it of the same plan, up to AppendChars, in one append; a
-    // checkpoint's first part; anything else whole.
+    // part of a longer line; a checkpoint's first part; anything else whole.
     private void WriteSome()
     {
+        if (_pending.Peek() is Queued.Line line)
+        {
+            WriteLines(line);
+            return;
+        }
+
         var next = Dequeue();
         switch (next)
         {
-            case Queued.Line line:
-                if (_pending.Count == 0 || _pending.Peek() is not Queued.Line { } after || after.Plan != line.Plan || line.Text.Length + after.Text.Length > AppendChars)
-                {
-                    _folder.Append(line.Plan, line.Text);
-                    return;
-                }
-
-                var batch = new System.Text.StringBuilder(line.Text, AppendChars);
-                while (_pending.Count > 0 && _pending.Peek() is Queued.Line { } more && more.Plan == line.Plan && batch.Length + more.Text.Length <= AppendChars)
-                    batch.Append(((Queued.Line)Dequeue()).Text);
-                _folder.Append(line.Plan, batch.ToString());
-                return;
             case Queued.Checkpoint checkpoint:
                 var write = _folder.BeginCheckpoint(checkpoint.State);
                 if (!write.Step(CheckpointUnits))
@@ -926,16 +934,67 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         }
     }
 
+    private void WriteLines(Queued.Line line)
+    {
+        if (_lineWritten > 0 || line.Length > AppendChars)
+        {
+            WritePart(line);
+            return;
+        }
+
+        Dequeue();
+        if (_pending.Count == 0 || _pending.Peek() is not Queued.Line { } after || after.Plan != line.Plan || line.Length + after.Length > AppendChars)
+        {
+            _folder.Append(line.Plan, line.Text, 0, line.Text.Length, lineBreak: true);
+            return;
+        }
+
+        var batch = new System.Text.StringBuilder(line.Text, AppendChars).Append('\n');
+        while (_pending.Count > 0 && _pending.Peek() is Queued.Line { } more && more.Plan == line.Plan && batch.Length + more.Length <= AppendChars)
+            batch.Append(((Queued.Line)Dequeue()).Text).Append('\n');
+        _folder.Append(line.Plan, batch.ToString());
+    }
+
+    // Up to AppendChars characters of a line, its line break counted as the last character; the line leaves the queue
+    // with its last part. A plan with no file yet gets its file in a step of its own first. A part never ends inside a surrogate pair.
+    private void WritePart(Queued.Line line)
+    {
+        if (_lineWritten == 0 && !_folder.HasPlanFile(line.Plan))
+        {
+            _folder.Append(line.Plan, line.Text, 0, 0);
+            return;
+        }
+
+        var count = Math.Min(AppendChars, line.Length - _lineWritten);
+        var last = _lineWritten + count == line.Length;
+        var chars = last ? count - 1 : count;
+        if (!last && chars > 1 && char.IsHighSurrogate(line.Text[_lineWritten + chars - 1]))
+        {
+            chars--;
+            count--;
+        }
+
+        _folder.Append(line.Plan, line.Text, _lineWritten, chars, lineBreak: last);
+        _lineWritten += count;
+        _queuedChars -= count;
+        if (last)
+            Dequeue();
+    }
+
     // Lines wait while sets are still being worked into lines and less than AppendChars of them is queued, so one
     // append takes many: opening the file is most of what an append costs.
     private bool Holding() =>
-        _pending.Peek() is Queued.Line && (_set is not null || _incoming.Count > 0) && _queuedChars < AppendChars;
+        _pending.Peek() is Queued.Line && _lineWritten == 0 && (_set is not null || _incoming.Count > 0) && _queuedChars < AppendChars;
 
     private Queued Dequeue()
     {
         var next = _pending.Dequeue();
         if (next is Queued.Line line)
-            _queuedChars -= line.Text.Length;
+        {
+            _queuedChars -= line.Length - _lineWritten;
+            _lineWritten = 0;
+        }
+
         return next;
     }
 
@@ -944,7 +1003,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         switch (pending)
         {
             case Queued.Line line:
-                _folder.Append(line.Plan, line.Text);
+                _folder.Append(line.Plan, line.Text, 0, line.Text.Length, lineBreak: true);
                 break;
             case Queued.Checkpoint checkpoint:
                 _folder.WriteCheckpoint(checkpoint.State);
@@ -975,6 +1034,7 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
         _sinceCheckpoint.Clear();
         _pending.Clear();
         _queuedChars = 0;
+        _lineWritten = 0;
         _incoming.Clear();
         _parts.Clear();
         _set = null;
@@ -995,7 +1055,11 @@ internal sealed class PlanSaving : ISlicedWork, ISavedPlans
     {
         private Queued() { }
 
-        public sealed record Line(PlanId Plan, string Text) : Queued;
+        /// <summary>A line's text without its line break; the break counts as its last character in <see cref="Length"/>.</summary>
+        public sealed record Line(PlanId Plan, string Text) : Queued
+        {
+            public int Length => Text.Length + 1;
+        }
 
         public sealed record Checkpoint(PlanReplay State) : Queued;
 
