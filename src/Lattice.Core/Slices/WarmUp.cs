@@ -30,25 +30,45 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>The most methods one step takes on, listing or compiling.</summary>
     private const int PerStep = 8;
 
-    /// <summary>A compiling step ends once it has taken this long (0.25 ms), even before <see cref="PerStep"/> methods.</summary>
-    private static readonly long StepTicks = System.Diagnostics.Stopwatch.Frequency / 4000;
+    /// <summary>A step ends once it has taken this long (0.25 ms), even before <see cref="PerStep"/> methods.</summary>
+    private static readonly TimeSpan StepLimit = TimeSpan.FromTicks(2500);
+
+    /// <summary>A method expected to take longer than this (0.5 ms) to compile is not compiled: nothing could keep it from overrunning the frame.</summary>
+    private static readonly TimeSpan MethodLimit = TimeSpan.FromTicks(5000);
+
+    /// <summary>Compile cost expected per IL byte before any has been measured (2 µs, in ticks of 100 ns): the runtime's real cost is learned from the methods compiled.</summary>
+    private const double PriorTicksPerByte = 20;
+
+    /// <summary>The margin on the learned cost per byte: size predicts cost only roughly, and one overrun is a hitch.</summary>
+    private const double Margin = 2;
+
+    /// <summary>IL bytes added to every method's size when predicting: a compile has a cost of its own.</summary>
+    private const int FixedBytes = 16;
 
     private readonly WarmedSets _sets;
     private readonly string _set;
     private readonly FrameScheduler _scheduler;
     private readonly Queue<Type> _types;
     private readonly Queue<MethodBase> _methods = new();
+    private readonly Queue<MethodBase> _deferred = new();
+    private readonly IClock _clock;
+    private readonly Action<MethodBase, int> _compile;
+    private bool _retried;
+    private double _learnedTicks = 1000 * PriorTicksPerByte;
+    private double _learnedBytes = 1000;
     private readonly HashSet<Type> _closed = new();
     private Type? _listing;
     private MethodBase[] _members = [];
     private int _member;
 
-    private WarmUp(WarmedSets sets, string set, FrameScheduler scheduler, Queue<Type> types)
+    private WarmUp(WarmedSets sets, string set, FrameScheduler scheduler, Queue<Type> types, Action<MethodBase, int>? compile)
     {
         _sets = sets;
         _set = set;
         _scheduler = scheduler;
         _types = types;
+        _clock = scheduler.Clock;
+        _compile = compile ?? Compile;
     }
 
     /// <summary>Where the warm-up is: types and methods still to go, methods compiled.</summary>
@@ -57,11 +77,18 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>Methods this warm-up has compiled so far.</summary>
     public int Compiled { get; private set; }
 
+    /// <summary>Methods left to compile when first called, because compiling them was expected to take longer than a frame can spare.</summary>
+    public int Skipped { get; private set; }
+
     /// <summary>
     /// Queues the warm-up of the types of <paramref name="assembly"/> whose namespace is one of
     /// <paramref name="namespaces"/>, unless the set is done. Returns the job, none when the set was done, the kind is unknown or the types could not be listed; it never throws.
     /// </summary>
-    public static Option<SlicedJob> Schedule(WarmedSets sets, FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces)
+    public static Option<SlicedJob> Schedule(WarmedSets sets, FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces) =>
+        Schedule(sets, scheduler, set, assembly, namespaces, null);
+
+    /// <summary>As above, compiling each method (given with its IL size) by <paramref name="compile"/> instead of by the runtime.</summary>
+    internal static Option<SlicedJob> Schedule(WarmedSets sets, FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces, Action<MethodBase, int>? compile)
     {
         try
         {
@@ -71,7 +98,7 @@ internal sealed class WarmUp : ISlicedWork
             foreach (var type in LoadableTypes(assembly))
                 if (type.DeclaringType is null && InNamespaces(type, namespaces))
                     types.Enqueue(type);
-            return scheduler.Schedule(WorkKind.Drawing, new WarmUp(sets, set, scheduler, types), Priority.Lowest).TryGet(out var job)
+            return scheduler.Schedule(WorkKind.Drawing, new WarmUp(sets, set, scheduler, types, compile), Priority.Lowest).TryGet(out var job)
                 ? Option.Some(job)
                 : Option<SlicedJob>.None;
         }
@@ -94,9 +121,7 @@ internal sealed class WarmUp : ISlicedWork
 
         if (_methods.Count > 0)
         {
-            var start = System.Diagnostics.Stopwatch.GetTimestamp();
-            for (var taken = 0; taken < PerStep && _methods.Count > 0 && System.Diagnostics.Stopwatch.GetTimestamp() - start < StepTicks; taken++)
-                Compile(_methods.Dequeue());
+            CompileSome();
             return StepOutcome.More;
         }
 
@@ -106,8 +131,70 @@ internal sealed class WarmUp : ISlicedWork
             return StepOutcome.More;
         }
 
+        if (_deferred.Count > 0 && !_retried)
+        {
+            _retried = true;
+            while (_deferred.Count > 0)
+                _methods.Enqueue(_deferred.Dequeue());
+            return StepOutcome.More;
+        }
+
         _sets.Add(_set);
         return StepOutcome.Done;
+    }
+
+    // A step compiles methods while the time it has taken, plus the cost expected of the next, fits the step limit. A method
+    // expected to cost more than a frame can spare is deferred once, judged again at the end by what has been learned, then left out.
+    private void CompileSome()
+    {
+        var start = _clock.Now;
+        for (var taken = 0; taken < PerStep && _methods.Count > 0; taken++)
+        {
+            var spent = _clock.Now - start;
+            if (spent >= StepLimit)
+                return;
+            var method = _methods.Peek();
+            var size = SizeOf(method);
+            var expected = Expected(size);
+            if (taken > 0 && spent + expected > StepLimit)
+                return;
+            _methods.Dequeue();
+            if (size < 0)
+                continue;
+            if (expected > MethodLimit)
+            {
+                if (_retried)
+                    Skipped++;
+                else
+                    _deferred.Enqueue(method);
+                continue;
+            }
+
+            var before = _clock.Now;
+            _compile(method, size);
+            Learn(size, _clock.Now - before);
+        }
+    }
+
+    private static int SizeOf(MethodBase method)
+    {
+        try
+        {
+            return method.GetMethodBody()?.GetILAsByteArray()?.Length ?? 0;
+        }
+        catch (Exception)
+        {
+            return -1;
+        }
+    }
+
+    private TimeSpan Expected(int size) =>
+        TimeSpan.FromTicks((long)((size + FixedBytes) * _learnedTicks / _learnedBytes * Margin));
+
+    private void Learn(int size, TimeSpan cost)
+    {
+        _learnedTicks = _learnedTicks * 0.98 + cost.Ticks;
+        _learnedBytes = _learnedBytes * 0.98 + size + FixedBytes;
     }
 
     // A type is taken in steps: its members are listed in one, then at most PerStep of them are queued and noted each step.
@@ -142,7 +229,8 @@ internal sealed class WarmUp : ISlicedWork
     private void List()
     {
         var own = !_listing!.IsGenericType;
-        for (var taken = 0; taken < PerStep && _member < _members.Length; taken++)
+        var start = _clock.Now;
+        for (var taken = 0; taken < PerStep && _member < _members.Length && (taken == 0 || _clock.Now - start < StepLimit); taken++)
         {
             var member = _members[_member++];
             _methods.Enqueue(member);
@@ -192,11 +280,11 @@ internal sealed class WarmUp : ISlicedWork
             _types.Enqueue(type);
     }
 
-    private void Compile(MethodBase method)
+    private void Compile(MethodBase method, int size)
     {
         try
         {
-            if (method.GetMethodBody()?.GetILAsByteArray()?.Length > LargestMethod)
+            if (size > LargestMethod)
                 return;
             var handle = method.MethodHandle;
             RuntimeHelpers.PrepareMethod(handle);

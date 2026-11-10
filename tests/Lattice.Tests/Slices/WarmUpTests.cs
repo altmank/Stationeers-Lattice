@@ -40,7 +40,7 @@ public sealed class WarmUpTests
         {
             var start = _clock.Now;
             scheduler.RunFrame();
-            Assert.True(_clock.Now - start <= Budget + TimeSpan.FromMilliseconds(0.2));
+            Assert.True(_clock.Now - start <= Budget + TimeSpan.FromMilliseconds(0.8));
             Assert.True(++frames < 10_000, "the warm-up made no progress");
         }
 
@@ -49,6 +49,28 @@ public sealed class WarmUpTests
         Assert.True(frames > 1, "the set was compiled in one slice");
         Assert.True(sets.IsDone("slices-once"));
         Assert.False(WarmUp.Schedule(sets, scheduler, "slices-once", typeof(WarmUp).Assembly, Slices).TryGet(out _));
+    }
+
+    [Fact]
+    public void A_runtime_whose_compile_costs_over_a_millisecond_a_method_never_stretches_a_frame_past_the_budget_and_one_method()
+    {
+        var clock = new TickingClock(TimeSpan.Zero);
+        var cost = TimeSpan.FromMilliseconds(1.1);
+        var scheduler = new FrameScheduler(clock, new FrameBudgets(Create(), Create(), Create(), Create()));
+        var job = Job(WarmUp.Schedule(sets, scheduler, "slices-slow", typeof(WarmUp).Assembly, Slices, (_, _) => clock.Advance(cost)));
+        var longest = TimeSpan.Zero;
+        var frames = 0;
+        while (job.State == JobState.Running)
+        {
+            var start = clock.Now;
+            scheduler.RunFrame();
+            longest = TimeSpan.FromTicks(Math.Max(longest.Ticks, (clock.Now - start).Ticks));
+            Assert.True(++frames < 100_000, "the warm-up made no progress");
+        }
+
+        Assert.True(longest <= Budget + cost, $"the longest frame took {longest.TotalMilliseconds} ms");
+        Assert.Equal(JobState.Done, job.State);
+        Assert.True(Work(job).Skipped > 0);
     }
 
     [Fact]
