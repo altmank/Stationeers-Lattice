@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Slices;
 
@@ -40,6 +41,16 @@ internal sealed class CpuNotingClock(ThreadCpu cpu) : IClock
     {
         _main = Environment.CurrentManagedThreadId;
         _count = 0;
+    }
+
+    /// <summary>The CPU time between each two consecutive main-thread reads of this frame, in milliseconds.</summary>
+    public List<double> Gaps()
+    {
+        var gaps = new List<double>(Math.Max(0, _count - 1));
+        if (cpu.Measures)
+            for (var i = 1; i < _count; i++)
+                gaps.Add(cpu.Between(_cycles[i - 1], _cycles[i]).TotalMilliseconds);
+        return gaps;
     }
 
     /// <summary>
