@@ -39,6 +39,9 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>Compile cost expected per IL byte before any has been measured (2 µs, in ticks of 100 ns): the runtime's real cost is learned from the methods compiled.</summary>
     private const double PriorTicksPerByte = 20;
 
+    /// <summary>A compile shorter than this (5 Âµs) says nothing about the cost of compiling by size.</summary>
+    private static readonly TimeSpan Measurable = TimeSpan.FromTicks(50);
+
     /// <summary>The margin on the learned cost per byte: size predicts cost only roughly, and one overrun is a hitch.</summary>
     private const double Margin = 2;
 
@@ -61,6 +64,9 @@ internal sealed class WarmUp : ISlicedWork
     private readonly Queue<Type> _counting = new();
     private readonly HashSet<Type> _shared = new();
     private Type? _listing;
+    private Type? _expanding;
+    private int _stage;
+    private List<MethodBase> _building = new();
     private MethodBase[] _members = [];
     private int _member;
 
@@ -119,6 +125,12 @@ internal sealed class WarmUp : ISlicedWork
     {
         if (_scheduler.WorkThisFrame > Quiet)
             return StepOutcome.NextFrame;
+        if (_expanding is not null)
+        {
+            ExpandStage();
+            return StepOutcome.More;
+        }
+
         if (_listing is not null)
         {
             List();
@@ -139,8 +151,7 @@ internal sealed class WarmUp : ISlicedWork
 
         if (_counting.Count > 0)
         {
-            for (var taken = 0; taken < PerStep && _counting.Count > 0; taken++)
-                ValueGenerics += CountMethods(_counting.Dequeue());
+            ValueGenerics += CountMethods(_counting.Dequeue());
             return StepOutcome.More;
         }
 
@@ -206,7 +217,8 @@ internal sealed class WarmUp : ISlicedWork
             var before = _clock.Now;
             _last = method;
             _compile(method, size);
-            Learn(size, _clock.Now - before);
+            if (size <= LargestMethod)
+                Learn(size, _clock.Now - before);
         }
     }
 
@@ -225,37 +237,60 @@ internal sealed class WarmUp : ISlicedWork
     private TimeSpan Expected(int size) =>
         TimeSpan.FromTicks((long)((size + FixedBytes) * _learnedTicks / _learnedBytes * Margin));
 
+    // Only a compile that took measurable time teaches the cost per byte: a method already compiled, or left uncompiled for its size, costs next to nothing and would pull the learned cost to zero.
     private void Learn(int size, TimeSpan cost)
     {
+        if (cost < Measurable)
+            return;
         _learnedTicks = _learnedTicks * 0.98 + cost.Ticks;
         _learnedBytes = _learnedBytes * 0.98 + size + FixedBytes;
     }
 
-    // A type is taken in steps: its members are listed in one, then at most PerStep of them are queued and noted each step.
+    // A type is taken in steps: one reflection call each (its methods, its constructors, its nested types, its fields), then its members are queued and noted at most PerStep each step.
     private void Expand(Type type)
     {
         if (type.ContainsGenericParameters || type.IsInterface || type.IsEnum || typeof(Delegate).IsAssignableFrom(type))
             return;
+        _expanding = type;
+        _stage = 0;
+        _building = new List<MethodBase>();
+    }
+
+    private void ExpandStage()
+    {
+        var type = _expanding!;
         try
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-            var members = new List<MethodBase>();
-            foreach (var method in type.GetMethods(all))
-                if (!method.IsAbstract && !method.ContainsGenericParameters && (method.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) == 0)
-                    members.Add(method);
-            members.AddRange(type.GetConstructors(all));
-            _members = members.ToArray();
-            _member = 0;
-            _listing = type;
-            foreach (var nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
-                _types.Enqueue(nested);
-            if (!type.IsGenericType)
-                foreach (var field in type.GetFields(all))
-                    Note(field.FieldType);
+            switch (_stage++)
+            {
+                case 0:
+                    foreach (var method in type.GetMethods(all))
+                        if (!method.IsAbstract && !method.ContainsGenericParameters && (method.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) == 0)
+                            _building.Add(method);
+                    return;
+                case 1:
+                    _building.AddRange(type.GetConstructors(all));
+                    return;
+                case 2:
+                    foreach (var nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+                        _types.Enqueue(nested);
+                    return;
+                default:
+                    if (!type.IsGenericType)
+                        foreach (var field in type.GetFields(all))
+                            Note(field.FieldType);
+                    _members = _building.ToArray();
+                    _member = 0;
+                    _listing = type;
+                    _expanding = null;
+                    return;
+            }
         }
         catch (Exception)
         {
             // One type that cannot be listed (a missing dependency, a load failure) is skipped; the rest of the set goes on.
+            _expanding = null;
             _listing = null;
         }
     }
@@ -315,9 +350,24 @@ internal sealed class WarmUp : ISlicedWork
             if (_closed.Add(type))
                 _counting.Enqueue(type);
         }
-        else if (_shared.Add(type))
+        else if (FromLatticeOrBase(type) && _shared.Add(type))
         {
             _types.Enqueue(type);
+        }
+    }
+
+    // A generic type closed over reference types shares the compiled code of its definition, so only the definitions of Lattice and of the base library are worth warming; the game's, Unity's and other mods' are not Lattice's to compile.
+    private static bool FromLatticeOrBase(Type type)
+    {
+        try
+        {
+            var name = type.GetGenericTypeDefinition().Assembly.GetName().Name ?? "";
+            return name.StartsWith("Lattice", StringComparison.Ordinal) || name.StartsWith("System", StringComparison.Ordinal)
+                || name is "mscorlib" or "netstandard";
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 

@@ -88,9 +88,38 @@ public sealed class WarmUpTests
         Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Box<string>));
         Assert.Contains(compiled, m => m.DeclaringType == typeof(Warm.Holder));
         Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(Warm.Box<int>));
-        Assert.True(Work(job).ValueGenerics >= 3, $"left out {Work(job).ValueGenerics}");
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(Warm.Box<Warm.Colour>));
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(int?));
+        Assert.DoesNotContain(compiled, m => m.DeclaringType == typeof(System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, string>>));        Assert.True(Work(job).ValueGenerics >= 3, $"left out {Work(job).ValueGenerics}");
         Assert.Single(logged);
         Assert.Contains("slices-generics", logged[0]);
+    }
+
+    [Fact]
+    public void Compiles_that_cost_nothing_do_not_teach_warm_up_that_compiling_is_free()
+    {
+        var clock = new TickingClock(TimeSpan.Zero);
+        var cost = TimeSpan.FromMilliseconds(1.1);
+        var scheduler = new FrameScheduler(clock, new FrameBudgets(Create(), Create(), Create(), Create()));
+        var dear = 0;
+        var job = Job(WarmUp.Schedule(sets, scheduler, "slices-mixed", typeof(WarmUp).Assembly, Slices, (_, size) =>
+        {
+            if (size <= 60)
+                return;
+            dear++;
+            clock.Advance(cost);
+        }));
+        var longest = TimeSpan.Zero;
+        while (job.State == JobState.Running)
+        {
+            var start = clock.Now;
+            scheduler.RunFrame();
+            longest = TimeSpan.FromTicks(Math.Max(longest.Ticks, (clock.Now - start).Ticks));
+        }
+
+        Assert.True(longest <= Budget + cost, $"the longest frame took {longest.TotalMilliseconds} ms");
+        Assert.True(Work(job).Skipped > 0, "no dear method was held back");
+        Assert.True(dear < 40, $"{dear} dear methods were compiled");
     }
 
     [Fact]
