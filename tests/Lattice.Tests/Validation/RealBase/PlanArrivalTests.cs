@@ -39,7 +39,7 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
 {
     private const int PlanSize = 5000;
     private const double Frame = 10.0;
-    private const double IdleFrame = 10.0;
+    private const double IdleFrame = 6.0;
     private const long Compiled = 500;
     private readonly List<string> _lines = new();
     private Renderer? _renderer;
@@ -49,19 +49,20 @@ public sealed class PlanArrivalTests(ITestOutputHelper output)
     [Trait(Perf.Trait, Perf.Value)]
     public void A_big_plan_arriving_costs_no_frame_past_the_budgets()
     {
+        Assert.True(RealBaseBench.Cpu.Measures, "the main thread's CPU time is not measured here, so the frames cannot be judged on it");
         var warmUp = Environment.GetEnvironmentVariable("LATTICE_PLAN_WARMUP") != "0";
         var latency = GCSettings.LatencyMode;
         GCSettings.LatencyMode = GCLatencyMode.Batch;
         try
         {
-            var first = default((List<double> Idle, List<double> Arrival));
+            var first = (Idle: new List<double>(), Arrival: new List<double>());
             long firstCompiled = 0;
             foreach (var run in new[] { "first", "second", "third" })
             {
                 _lines.Add($"=== {run}, warm-up {(warmUp ? "on" : "off")} ===");
                 _compiledInArrival = 0;
                 var costs = Arrive(warmUp);
-                _lines.Add($"{run}: worst arrival frame {costs.Arrival.Max():F1} ms of thread CPU without pauses; worst idle frame {costs.Idle.DefaultIfEmpty().Max():F1} ms; " +
+                _lines.Add($"{run}: worst arrival frame {costs.Arrival.Max():F1} ms of thread CPU without pauses; worst idle frame {costs.Idle.DefaultIfEmpty().Max():F1} ms (after the first ten, which are the world's own start: {costs.Idle.Skip(10).DefaultIfEmpty().Max():F1} ms); " +
                            $"methods compiled by the main thread over the arrival and reload {_compiledInArrival}");
                 if (run == "first")
                     (first, firstCompiled) = (costs, _compiledInArrival);

@@ -22,7 +22,7 @@ internal sealed class SlicedJob
     internal bool Consumer { get; }
 
     /// <summary>
-    /// Expected cost of the next step: the median of the last three steps' costs, so steps that are steadily dear
+    /// Expected cost of the next step: the median of the last three steps' costs (steps that only asked for the next frame, and steps with no measurable cost, are not counted), so steps that are steadily dear
     /// keep a slice from starting one it cannot finish, while one step stretched by something outside the job (a
     /// collection, the thread descheduled) does not hold the job back in the frames after it.
     /// </summary>
@@ -44,6 +44,8 @@ internal sealed class SlicedJob
     internal void Observe(TimeSpan stepCost, StepOutcome outcome)
     {
         LastOutcome = outcome;
+        if (outcome == StepOutcome.NextFrame || stepCost <= TimeSpan.Zero)
+            return;
         var (a, b, c) = (stepCost.Ticks, _last, _beforeLast);
         StepEstimate = TimeSpan.FromTicks(Math.Max(Math.Min(a, b), Math.Min(Math.Max(a, b), c)));
         (_last, _beforeLast) = (a, b);

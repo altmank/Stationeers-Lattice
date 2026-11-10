@@ -165,6 +165,11 @@ $filter = if ($Perf) { 'Category=Perf' } else { 'Category!=Perf' }
 $tiered = $env:DOTNET_TieredCompilation
 if ($Perf) { $env:DOTNET_TieredCompilation = '0' }
 try {
+    if ($Perf) {
+        # The cold pin needs a process in which nothing compiled the code before it: its own step, first.
+        Invoke-Step 'test (cold arrival, own process)' { dotnet test $solution --no-build -c $Configuration --filter 'FullyQualifiedName~PlanArrivalTests' }
+        $filter = 'Category=Perf&FullyQualifiedName!~PlanArrivalTests'
+    }
     Invoke-Step 'test'    { dotnet test $solution --no-build -c $Configuration --filter $filter }
 }
 finally {

@@ -128,7 +128,7 @@ internal sealed class FrameScheduler(IClock clock, FrameBudgets budgets, Action<
             {
                 var job = _jobs[i];
                 var nextFrame = false;
-                while (job.State == JobState.Running && !nextFrame && (!stepped || now + job.StepEstimate <= deadline))
+                while (job.State == JobState.Running && !nextFrame && (!stepped || now < deadline && now + job.StepEstimate <= deadline))
                 {
                     var outcome = job.Consumer || faulted is null ? job.Work.Step() : Guarded(job, faulted);
                     var after = clock.Now;

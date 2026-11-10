@@ -20,11 +20,21 @@ public sealed class WarmUpTests
 
     private static WarmUp Work(SlicedJob job) => (WarmUp)job.Work;
 
+    private static SlicedJob Job(Option<SlicedJob> scheduled) =>
+        scheduled.TryGet(out var job) ? job : throw new InvalidOperationException("the warm-up was not scheduled");
+
+    [Fact]
+    public void Scheduling_never_throws_whatever_the_assembly_does()
+    {
+        Assert.False(WarmUp.Schedule(sets, Scheduler(), "no-assembly", null!, Slices).TryGet(out _));
+        Assert.False(sets.IsDone("no-assembly"));
+    }
+
     [Fact]
     public void A_set_is_compiled_in_slices_within_the_budget_once_and_then_it_is_done()
     {
         var scheduler = Scheduler();
-        var job = WarmUp.Schedule(sets, scheduler, "slices-once", typeof(WarmUp).Assembly, Slices)!;
+        var job = Job(WarmUp.Schedule(sets, scheduler, "slices-once", typeof(WarmUp).Assembly, Slices));
         var frames = 0;
         while (job.State == JobState.Running)
         {
@@ -38,7 +48,7 @@ public sealed class WarmUpTests
         Assert.True(Work(job).Compiled > 50, $"compiled {Work(job).Compiled}");
         Assert.True(frames > 1, "the set was compiled in one slice");
         Assert.True(sets.IsDone("slices-once"));
-        Assert.Null(WarmUp.Schedule(sets, scheduler, "slices-once", typeof(WarmUp).Assembly, Slices));
+        Assert.False(WarmUp.Schedule(sets, scheduler, "slices-once", typeof(WarmUp).Assembly, Slices).TryGet(out _));
     }
 
     [Fact]
@@ -47,7 +57,7 @@ public sealed class WarmUpTests
         var scheduler = Scheduler();
         var worker = new ForeverJob(_clock);
         scheduler.Schedule(WorkKind.Checking, worker, Priority.Low);
-        var job = WarmUp.Schedule(sets, scheduler, "slices-waits", typeof(WarmUp).Assembly, Slices)!;
+        var job = Job(WarmUp.Schedule(sets, scheduler, "slices-waits", typeof(WarmUp).Assembly, Slices));
 
         for (var i = 0; i < 5; i++)
             scheduler.RunFrame();
@@ -69,7 +79,7 @@ public sealed class WarmUpTests
     {
         var scheduler = Scheduler();
         var order = new System.Collections.Generic.List<string>();
-        var warm = WarmUp.Schedule(sets, scheduler, "slices-order", typeof(WarmUp).Assembly, Slices)!;
+        var warm = Job(WarmUp.Schedule(sets, scheduler, "slices-order", typeof(WarmUp).Assembly, Slices));
         var low = new RecordingJob("low", order, _clock);
         scheduler.Schedule(WorkKind.Drawing, low, Priority.Low);
 

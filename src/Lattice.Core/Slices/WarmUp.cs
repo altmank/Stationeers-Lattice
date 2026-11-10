@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Lattice.Api;
 
 namespace Lattice.Core.Slices;
 
@@ -25,7 +25,13 @@ internal sealed class WarmUp : ISlicedWork
     private static readonly TimeSpan Quiet = TimeSpan.FromTicks(2500);
 
     /// <summary>Methods with more IL bytes than this are left to compile when first called: one step would pass its slice.</summary>
-    private const int LargestMethod = 3000;
+    private const int LargestMethod = 1000;
+
+    /// <summary>The most methods one step takes on, listing or compiling.</summary>
+    private const int PerStep = 16;
+
+    /// <summary>A compiling step ends once it has taken this long (0.4 ms), even before <see cref="PerStep"/> methods.</summary>
+    private static readonly long StepTicks = System.Diagnostics.Stopwatch.Frequency / 2500;
 
     private readonly WarmedSets _sets;
     private readonly string _set;
@@ -33,6 +39,9 @@ internal sealed class WarmUp : ISlicedWork
     private readonly Queue<Type> _types;
     private readonly Queue<MethodBase> _methods = new();
     private readonly HashSet<Type> _closed = new();
+    private Type? _listing;
+    private MethodBase[] _members = [];
+    private int _member;
 
     private WarmUp(WarmedSets sets, string set, FrameScheduler scheduler, Queue<Type> types)
     {
@@ -50,26 +59,44 @@ internal sealed class WarmUp : ISlicedWork
 
     /// <summary>
     /// Queues the warm-up of the types of <paramref name="assembly"/> whose namespace is one of
-    /// <paramref name="namespaces"/>, unless the set is done. Returns the job, none when the set was done or the kind is unknown.
+    /// <paramref name="namespaces"/>, unless the set is done. Returns the job, none when the set was done, the kind is unknown or the types could not be listed; it never throws.
     /// </summary>
-    public static SlicedJob? Schedule(WarmedSets sets, FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces)
+    public static Option<SlicedJob> Schedule(WarmedSets sets, FrameScheduler scheduler, string set, Assembly assembly, string[]? namespaces)
     {
-        if (sets.IsDone(set))
-            return null;
-        var types = new Queue<Type>();
-        foreach (var type in LoadableTypes(assembly))
-            if (type.DeclaringType is null && InNamespaces(type, namespaces))
-                types.Enqueue(type);
-        return scheduler.Schedule(WorkKind.Drawing, new WarmUp(sets, set, scheduler, types), Priority.Lowest).TryGet(out var job) ? job : null;
+        try
+        {
+            if (sets.IsDone(set))
+                return Option<SlicedJob>.None;
+            var types = new Queue<Type>();
+            foreach (var type in LoadableTypes(assembly))
+                if (type.DeclaringType is null && InNamespaces(type, namespaces))
+                    types.Enqueue(type);
+            return scheduler.Schedule(WorkKind.Drawing, new WarmUp(sets, set, scheduler, types), Priority.Lowest).TryGet(out var job)
+                ? Option.Some(job)
+                : Option<SlicedJob>.None;
+        }
+        catch (Exception)
+        {
+            // Warm-up is an optimisation: whatever reflection or the runtime throws here (a missing file, a bad image, a runtime quirk), the world must still start and publish, so it is not scheduled.
+            return Option<SlicedJob>.None;
+        }
     }
 
     public StepOutcome Step()
     {
         if (_scheduler.WorkThisFrame > Quiet)
             return StepOutcome.NextFrame;
+        if (_listing is not null)
+        {
+            List();
+            return StepOutcome.More;
+        }
+
         if (_methods.Count > 0)
         {
-            Compile(_methods.Dequeue());
+            var start = System.Diagnostics.Stopwatch.GetTimestamp();
+            for (var taken = 0; taken < PerStep && _methods.Count > 0 && System.Diagnostics.Stopwatch.GetTimestamp() - start < StepTicks; taken++)
+                Compile(_methods.Dequeue());
             return StepOutcome.More;
         }
 
@@ -83,42 +110,59 @@ internal sealed class WarmUp : ISlicedWork
         return StepOutcome.Done;
     }
 
+    // A type is taken in steps: its members are listed in one, then at most PerStep of them are queued and noted each step.
     private void Expand(Type type)
     {
         if (type.ContainsGenericParameters || type.IsInterface || type.IsEnum || typeof(Delegate).IsAssignableFrom(type))
             return;
-        var own = !type.IsGenericType;
         try
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            var members = new List<MethodBase>();
             foreach (var method in type.GetMethods(all))
                 if (!method.IsAbstract && !method.ContainsGenericParameters && (method.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) == 0)
-                {
-                    _methods.Enqueue(method);
-                    if (own)
-                        Note(method.ReturnType);
-                    if (own)
-                        foreach (var parameter in method.GetParameters())
-                            Note(parameter.ParameterType);
-                }
-
-            foreach (var constructor in type.GetConstructors(all))
-            {
-                _methods.Enqueue(constructor);
-                if (own)
-                    foreach (var parameter in constructor.GetParameters())
-                        Note(parameter.ParameterType);
-            }
-
-            if (own)
-                foreach (var field in type.GetFields(all))
-                    Note(field.FieldType);
+                    members.Add(method);
+            members.AddRange(type.GetConstructors(all));
+            _members = members.ToArray();
+            _member = 0;
+            _listing = type;
             foreach (var nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
                 _types.Enqueue(nested);
+            if (!type.IsGenericType)
+                foreach (var field in type.GetFields(all))
+                    Note(field.FieldType);
         }
-        catch (Exception error) when (error is TypeLoadException or FileNotFoundException or FileLoadException or NotSupportedException or ReflectionTypeLoadException)
+        catch (Exception)
         {
+            // One type that cannot be listed (a missing dependency, a load failure) is skipped; the rest of the set goes on.
+            _listing = null;
         }
+    }
+
+    private void List()
+    {
+        var own = !_listing!.IsGenericType;
+        for (var taken = 0; taken < PerStep && _member < _members.Length; taken++)
+        {
+            var member = _members[_member++];
+            _methods.Enqueue(member);
+            if (!own)
+                continue;
+            try
+            {
+                if (member is MethodInfo info)
+                    Note(info.ReturnType);
+                foreach (var parameter in member.GetParameters())
+                    Note(parameter.ParameterType);
+            }
+            catch (Exception)
+            {
+                // A signature that cannot be read (a missing dependency) only costs its generic instantiations; the method itself is still queued.
+            }
+        }
+
+        if (_member >= _members.Length)
+            _listing = null;
     }
 
     // A generic type closed over a value type is compiled per instantiation, so the ones Lattice's own signatures and fields
@@ -156,8 +200,9 @@ internal sealed class WarmUp : ISlicedWork
             handle.GetFunctionPointer();
             Compiled++;
         }
-        catch (Exception error) when (error is TypeLoadException or FileNotFoundException or FileLoadException or NotSupportedException or ArgumentException or InvalidOperationException or BadImageFormatException)
+        catch (Exception)
         {
+            // One method that cannot be compiled (invalid program, missing method, access or type-initialisation failure) is skipped; the rest of the set goes on.
         }
     }
 

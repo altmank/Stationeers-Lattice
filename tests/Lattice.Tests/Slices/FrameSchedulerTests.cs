@@ -444,6 +444,25 @@ public sealed class FrameSchedulerTests
         Assert.False(scheduler.Idle);
     }
 
+    [Fact]
+    public void A_job_waiting_in_the_queue_that_has_never_stepped_is_not_idle()
+    {
+        var scheduler = Scheduler();
+        scheduler.Schedule(WorkKind.Checking, new SteppedJob(() =>
+        {
+            _clock.Advance(TimeSpan.FromMilliseconds(2));
+            return StepOutcome.Done;
+        }), Priority.High);
+        var waiting = new SteppedJob(() => Step(StepOutcome.NextFrame));
+        scheduler.Schedule(WorkKind.Checking, waiting, Priority.Low);
+
+        scheduler.RunFrame();
+
+        Assert.False(scheduler.Idle);
+        scheduler.RunFrame();
+        Assert.True(scheduler.Idle);
+    }
+
     private sealed class SteppedJob(Func<StepOutcome> step) : ISlicedWork
     {
         public StepOutcome Step() => step();
