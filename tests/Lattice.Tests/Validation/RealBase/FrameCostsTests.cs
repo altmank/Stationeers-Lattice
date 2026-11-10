@@ -38,9 +38,9 @@ public sealed class FrameCostsTests(ITestOutputHelper output)
     private const int SteadyFrames = 600;
     private const int SweepFrames = 20;
     private const double SavingFrame = 3.0;
-    // Saving's cost per line written, in microseconds. Measured with v0.6.0 and 0.22.12 run in turn on one machine: v0.6.0
-    // 6.4 to 8.4, 0.22.12 7.0 to 7.8 (mean 7.3). 10 leaves about 30% over the worst run and still fails on growth that size.
-    private const double SavingPerLine = 10.0;
+    // Saving's cost per line written, in microseconds. Five runs under the perf lock over lattice-gen-big with 0.22.17
+    // on 2026-11-09: 5.07, 5.54, 5.50, 5.78, 5.79. The pin is the worst run plus 30%, rounded up (7.53 to 8), so it fails on growth that size.
+    private const double SavingPerLine = 8.0;
     private static readonly TimeSpan CheckCost = TimeSpan.FromMilliseconds(0.05);
     private static readonly TimeSpan FrameGap = TimeSpan.FromMilliseconds(40);
 
