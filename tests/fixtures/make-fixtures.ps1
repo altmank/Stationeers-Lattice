@@ -10,7 +10,7 @@
 .PARAMETER Saves
     The saves to copy (default: lattice-gen-big). A name without .save is a library world: its save is copied from
     <WorldDir>\<name>\<name>\<name>.save as generated\<name>.save, with <WorldDir>\<name>\world.txt as
-    generated\<name>.world.txt. A name ending .save is read from SaveDir. A player-built base save is copied only when named.
+    generated\<name>.world.txt. A name ending .save is read from SaveDir.
 .PARAMETER WorldDir
     The library of test worlds (default: $env:STATIONEERS_WORLDS).
 .PARAMETER Catalogue
@@ -24,6 +24,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+foreach ($save in $Saves) {
+    if ($save -match '(?i)vulcan\s*2_?4') {
+        [Console]::Error.WriteLine("make-fixtures: refused '$save': test worlds come from the world library, not a player's save.")
+        exit 1
+    }
+}
 if (-not $SaveDir) {
     for ($dir = Get-Item $PSScriptRoot; $dir; $dir = $dir.Parent) {
         $candidate = Join-Path $dir.FullName 'LatticeFixtures\saves'
