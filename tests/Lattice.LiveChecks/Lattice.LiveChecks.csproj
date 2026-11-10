@@ -13,12 +13,12 @@
     <AssetTargetFallback>$(AssetTargetFallback);netstandard2.1</AssetTargetFallback>
     <NoWarn>$(NoWarn);NU1701;NU1702</NoWarn>
     <StationeersDir Condition="'$(StationeersDir)' == ''">$(STATIONEERS_DIR)</StationeersDir>
-    <ManagedDir>$(StationeersDir)\rocketstation_Data\Managed</ManagedDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">$(StationeersDir)\rocketstation_Data\Managed</GameManagedDir>
     <BepInExDir>$(StationeersDir)\BepInEx\core</BepInExDir>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="$(ManagedDir)\*.dll" Exclude="$(ManagedDir)\System.Runtime.CompilerServices.Unsafe.dll">
+    <Reference Include="$(GameManagedDir)\*.dll" Exclude="$(GameManagedDir)\System.Runtime.CompilerServices.Unsafe.dll">
       <Private>false</Private>
     </Reference>
     <Reference Include="$(BepInExDir)\BepInEx.dll">

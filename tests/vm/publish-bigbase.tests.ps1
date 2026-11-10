@@ -44,12 +44,12 @@ try {
 
     # (b) save-success False
     $r = Publish @('-Run', (New-Run 'nosave' 'False'), '-LibraryRoot', $lib)
-    Check '(b) save-success False: exit 1' ($r.Code -eq 1) "exit $($r.Code)"
+    Check '(b) save-success False: exit 1' ($r.Code -eq 1 -and $r.Text -match 'save-success') "exit $($r.Code)"
     Check '(b) nothing written' (-not (Test-Path "$lib\test-station"))
 
     # (c) no HumanSaveData
     $r = Publish @('-Run', (New-Run 'nohuman' 'True' $false), '-LibraryRoot', $lib)
-    Check '(c) no HumanSaveData: exit 1' ($r.Code -eq 1) "exit $($r.Code)"
+    Check '(c) no HumanSaveData: exit 1' ($r.Code -eq 1 -and $r.Text -match 'HumanSaveData') "exit $($r.Code)"
     Check '(c) nothing written' (-not (Test-Path "$lib\test-station"))
 
     # (d) a good run; the library comes from STATIONEERS_WORLDS this time
@@ -67,7 +67,7 @@ try {
     $marker = "$lib\test-station\marker.txt"
     [IO.File]::WriteAllText($marker, 'keep')
     $r = Publish @('-Run', $run)
-    Check '(e) exists without -Replace: exit 1' ($r.Code -eq 1) "exit $($r.Code)"
+    Check '(e) exists without -Replace: exit 1' ($r.Code -eq 1 -and $r.Text -match 'exists; pass -Replace') "exit $($r.Code)"
     Check '(e) nothing changed' (Test-Path $marker)
 }
 finally {

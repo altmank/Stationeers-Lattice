@@ -120,7 +120,7 @@ $what = if ($heldN -gt 0) {
 $kitSha = if ($result.info.kit -and $result.info.kit.sha) { $result.info.kit.sha } else { 'unknown' }
 $buildCmd = "vm-run.ps1 start -Mod Lattice -Kind proof -Proof bigbase-build -Ref $kitSha -Param bigbase=<$($world['tsv'])>,held=$heldN"
 $vmCommit = if ($result.info.kit -and $result.info.kit.rigvmExtract) { $result.info.kit.rigvmExtract } elseif ($result.info.rigVM) { $result.info.rigVM } elseif ($result.info.rigvm) { $result.info.rigvm } else { 'unknown' }
-$publisher = (& git -C $PSScriptRoot rev-parse --short HEAD 2>$null)
+$publisher = try { (& git -C $PSScriptRoot rev-parse --short HEAD 2>$null) } catch { $null }   # 5.1 turns git's stderr into an error under Stop
 if (-not $publisher) { $publisher = 'unknown' }
 $readme = @"
 # $station
