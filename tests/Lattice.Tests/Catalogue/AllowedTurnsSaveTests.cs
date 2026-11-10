@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using Lattice.Api;
 using Lattice.Core.Grid;
@@ -18,6 +21,7 @@ namespace Lattice.Tests.Catalogue;
 public sealed class AllowedTurnsSaveTests(ITestOutputHelper output)
 {
     private const string Save = "lattice-builder-turns.save";
+    private const string WorldFacts = "lattice-builder-turns.world.txt";
 
     [GameCatalogueFact(save: Save)]
     public void Every_structure_in_a_real_base_stands_in_an_allowed_turn_or_has_no_direction()
@@ -26,20 +30,29 @@ public sealed class AllowedTurnsSaveTests(ITestOutputHelper output)
         var save = TestKitIds.MustRead(SaveLoader.Load(Fixtures.Save(Save).Reduce(""), catalogue));
         var free = new TurnFreePieces(catalogue, new CubeGrid(), new Lattice.Core.Board.Shapes(catalogue, new CubeGrid()));
         var limited = 0;
+        var twinOnly = 0;
         var outside = new List<string>();
         foreach (var structure in new Lattice.Tests.Validation.FakeScan(save.World).Structures())
         {
             if (!catalogue.Piece(structure.Ref.Piece).TryGet(out var piece) || piece.AllowedTurns.IsAll)
                 continue;
             limited++;
-            if (!piece.AllowedTurns.Contains(structure.Turn) && !free.AllowedTwin(piece, structure.Turn).IsSome)
+            if (piece.AllowedTurns.Contains(structure.Turn))
+                continue;
+            if (free.AllowedTwin(piece, structure.Turn).IsSome)
+                twinOnly++;
+            else
                 outside.Add($"{catalogue.NameOf(piece.Key)} turn {structure.Turn.Index} allowed {piece.AllowedTurns} at {structure.Ref.At}");
         }
 
         foreach (var line in outside.GroupBy(l => l.Split(' ')[0]).Select(g => $"x{g.Count()}: {g.First()}"))
             output.WriteLine(line);
-        output.WriteLine($"{limited} structures of limited pieces, {outside.Count} outside");
-        Assert.True(limited > 0);
+        output.WriteLine($"{limited} structures of limited pieces, {twinOnly} allowed only through a twin, {outside.Count} outside");
+        var facts = File.ReadAllLines(Fixtures.Save(WorldFacts).Reduce(""))
+            .Select(l => l.Split(' ', 2)).Where(p => p.Length == 2 && int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            .ToDictionary(p => p[0], p => int.Parse(p[1], CultureInfo.InvariantCulture), StringComparer.Ordinal);
+        // The world holds the turns the run placed and its frame floor (frames are limited pieces too).
+        Assert.Equal(facts["turns-placed"] + facts["floor"], limited);
         Assert.Empty(outside);
     }
 }

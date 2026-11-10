@@ -244,7 +244,7 @@ internal static class BuilderTurnsRun
                 {
                     placed++;
                     var seen = TurnIndex(structure.ThingTransform.rotation);
-                    var allowed = piece.AllowedTurns.Contains(Turn.Create(seen < 0 ? 0 : seen).Match(static t => t, static r => throw new InvalidOperationException(r.ToString())));
+                    var allowed = seen >= 0 && piece.AllowedTurns.Contains(Turn.Create(seen).Match(static t => t, static r => throw new InvalidOperationException(r.ToString())));
                     if (!allowed)
                         outside++;
                     line(BuilderTurnsFacts.PlacementLine(prefab.name, seen, true, $"at {WorldFile.Metres(structure.ThingTransformPosition.x, structure.ThingTransformPosition.y, structure.ThingTransformPosition.z)} cursor turn {turn} allowed {(allowed ? "yes" : "no")}"));
