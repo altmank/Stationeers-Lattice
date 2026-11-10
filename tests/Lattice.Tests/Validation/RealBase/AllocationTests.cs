@@ -12,7 +12,7 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.Validation.RealBase;
 
 /// <summary>
-/// The bytes a 5,000-ghost plan allocates over a large real base (Vulcan2_4), in the flow of <see cref="RealBaseTests"/>:
+/// The bytes a 5,000-ghost plan allocates over a large generated base (lattice-gen-big), in the flow of <see cref="RealBaseTests"/>:
 /// the base's pieces planned over an empty world, saved, loaded again, and 5,000 more planned over the standing base.
 /// Each phase's bytes are split between the main thread (the test thread, which runs Lattice's frames) and every other
 /// thread (Lattice's worker and rule threads). The main thread's worst phase is the first plan (board, styles, build
@@ -29,16 +29,18 @@ public sealed class AllocationTests(ITestOutputHelper output)
     private const double WorkerPerGhost = 9_500;
     private static readonly TimeSpan Limit = TimeSpan.FromSeconds(120);
 
-    [RealBaseFact("Vulcan2_4.save")]
+    [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
     public void A_five_thousand_ghost_plan_on_a_real_base_allocates_within_its_bytes_per_ghost_on_each_thread()
     {
-        using var bench = RealBaseBench.Load("Vulcan2_4.save");
+        using var bench = RealBaseBench.Load(RealBaseBench.BigBase);
         var built = bench.Built();
         bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
         Plan(bench, "Warm", built.Skip(3 * PlanSize).Take(500));
 
         bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, built.Take(PlanSize));
+        RealBaseBench.RequirePlanHolds(bench.Catalogue, built.Skip(PlanSize).Take(PlanSize));
         var first = Measure(() => Plan(bench, "The base", built.Take(PlanSize)));
         var key = bench.GameSave();
         bench.Start(Option.Some(key));

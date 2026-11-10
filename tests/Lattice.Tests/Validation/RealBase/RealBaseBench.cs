@@ -33,6 +33,9 @@ namespace Lattice.Tests.Validation.RealBase;
 /// </summary>
 internal sealed class RealBaseBench : IDisposable
 {
+    /// <summary>The save file of the library world every offline real-base suite reads.</summary>
+    public const string BigBase = "lattice-gen-big.save";
+
     private static readonly Lazy<ThreadCpu> CpuClock = new(ThreadCpu.Calibrate);
     private readonly CpuNotingClock _clock = new(Cpu);
     private readonly FakePlacementCheck _check = new();
@@ -77,6 +80,23 @@ internal sealed class RealBaseBench : IDisposable
         var save = TestKitIds.MustRead(SaveLoader.Load(Fixtures.Save(saveName).Reduce(""), catalogue));
         watch.Stop();
         return new RealBaseBench(catalogue, save, watch.Elapsed);
+    }
+
+    /// <summary>
+    /// A suite's plan measures what it says only if it holds every family a base is made of: frames, walls, pipes, cables
+    /// and devices, and with <paramref name="ventAndControl"/> a vent and a control piece. Fails when the generator's
+    /// build order no longer puts them in the plan's window.
+    /// </summary>
+    public static void RequirePlanHolds(FakeCatalogue catalogue, IEnumerable<StructureInfo> plan, bool ventAndControl = false)
+    {
+        var facts = plan.Select(s => TestKitIds.Must(catalogue.Piece(s.Ref.Piece))).ToList();
+        var missing = new[] { PieceFamilies.Frame, PieceFamilies.Wall, PieceFamilies.Pipe, PieceFamilies.Cable, PieceFamilies.Device }
+            .Where(family => !facts.Any(f => f.Family == family))
+            .Select(family => family.Value)
+            .Concat(ventAndControl && !facts.Any(f => f.Vents) ? ["vent"] : [])
+            .Concat(ventAndControl && !facts.Any(f => f.ControlFace.IsSome) ? ["control"] : [])
+            .ToList();
+        Assert.True(missing.Count == 0, $"the plan of {facts.Count} pieces holds no {string.Join(", ", missing)}");
     }
 
     /// <summary>Starts the world's Lattice as the host, opening saving at <paramref name="save"/>; returns the start time.</summary>

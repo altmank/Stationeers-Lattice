@@ -11,6 +11,7 @@ using Lattice.Core.Selectors;
 using Lattice.TestKit;
 using Lattice.TestKit.Catalogue;
 using Lattice.TestKit.Fixtures;
+using Lattice.Tests.Validation.RealBase;
 using Lattice.TestKit.Saves;
 using Lattice.TestKit.World;
 using Lattice.Tests.Board;
@@ -25,7 +26,7 @@ namespace Lattice.Tests.Selectors;
 /// </summary>
 public sealed class BoxIndexTests(ITestOutputHelper output)
 {
-    private const string RealSave = "Vulcan2_4.save";
+    private const string RealSave = RealBaseBench.BigBase;
 
     /// <summary>The mirror and selection over a world, started.</summary>
     private sealed class Over

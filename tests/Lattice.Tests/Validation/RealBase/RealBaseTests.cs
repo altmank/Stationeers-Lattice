@@ -13,7 +13,7 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.Validation.RealBase;
 
 /// <summary>
-/// Validation and plan state over a large real base (Vulcan2_4, 36,306 structures) read offline, in the flow of the live big-base run: the
+/// Validation and plan state over a large generated base (lattice-gen-big) read offline, in the flow of the live big-base run: the
 /// base's own pieces planned as 5,000 ghosts over an empty world, the world loaded again from the save, 5,000 ghosts
 /// planned over the standing base, and a new wing of 5,000 frames. Every plan's answers become ready, and the checking
 /// work the scheduler runs in a frame stays within the checking budget plus one step's allowance (as the 10,000-ghost
@@ -46,16 +46,17 @@ public sealed class RealBaseTests(ITestOutputHelper output)
     private static readonly TimeSpan Limit = TimeSpan.FromSeconds(120);
     private static readonly double Allowance = (FrameBudgets.Default.Checking.Length + TimeSpan.FromMilliseconds(2)).TotalMilliseconds;
 
-    [RealBaseFact("Vulcan2_4.save")]
+    [RealBaseFact(RealBaseBench.BigBase)]
     [Trait(Perf.Trait, Perf.Value)]
     public void Five_thousand_ghost_plans_on_a_real_base_get_their_answers_with_checking_inside_the_budget()
     {
-        using var bench = RealBaseBench.Load("Vulcan2_4.save");
+        using var bench = RealBaseBench.Load(RealBaseBench.BigBase);
         var lines = new List<string>(bench.Lines);
         var phases = new List<(string Name, BaseFrameTimes Times)>();
         try
         {
             var built = bench.Built();
+            RealBaseBench.RequirePlanHolds(bench.Catalogue, built.Take(PlanSize));
             var onBuilt = Drafts(built.Take(PlanSize));
             bench.Start(Option<SaveKey>.None, new FakeWorld(bench.Catalogue));
             lines.Add($"warm-up, the base phase's pieces in a world of its own: {Phase(bench, new Command.CreatePlan(RealBaseBench.Plan("Warm")) { Ghosts = onBuilt })}");

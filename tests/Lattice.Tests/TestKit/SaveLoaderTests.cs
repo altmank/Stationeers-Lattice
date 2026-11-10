@@ -5,6 +5,7 @@ using Lattice.Api;
 using Lattice.TestKit;
 using Lattice.TestKit.Catalogue;
 using Lattice.TestKit.Fixtures;
+using Lattice.Tests.Validation.RealBase;
 using Lattice.TestKit.Grid;
 using Lattice.TestKit.Saves;
 
@@ -13,7 +14,7 @@ namespace Lattice.Tests.TestKit;
 /// <summary>The save loader reads a world.xml's structures into a world, read only.</summary>
 public sealed class SaveLoaderTests
 {
-    private const string Save = "Vulcan2_4.save";
+    private const string Save = RealBaseBench.BigBase;
 
     // A hand-written world.xml in the save's shape: a painted frame, a cable turned a quarter, an item (not a
     // structure), a broken structure, an unknown piece.
