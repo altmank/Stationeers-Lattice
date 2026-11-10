@@ -12,12 +12,12 @@ using Xunit.Abstractions;
 namespace Lattice.Tests.Catalogue;
 
 /// <summary>
-/// The allowed turns against a base a player built with the game's builder (Vulcan2_4): every built structure stands
+/// The allowed turns against a world built by driving the game's own builder (lattice-builder-turns): every built structure stands
 /// in a turn its piece allows, or its piece has no direction, so the turn it stands in looks like an allowed one.
 /// </summary>
 public sealed class AllowedTurnsSaveTests(ITestOutputHelper output)
 {
-    private const string Save = "Vulcan2_4.save";
+    private const string Save = "lattice-builder-turns.save";
 
     [GameCatalogueFact(save: Save)]
     public void Every_structure_in_a_real_base_stands_in_an_allowed_turn_or_has_no_direction()
