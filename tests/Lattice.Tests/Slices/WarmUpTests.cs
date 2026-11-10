@@ -121,9 +121,9 @@ public sealed class WarmUpTests
             longest = TimeSpan.FromTicks(Math.Max(longest.Ticks, (clock.Now - start).Ticks));
         }
 
-        Assert.True(longest <= Budget + TimeSpan.FromMilliseconds(3), $"the longest frame took {longest.TotalMilliseconds} ms");
-        Assert.True(Work(job).Skipped >= 20, $"{Work(job).Skipped} dear methods were held back");
-        Assert.True(largestDear <= 150, $"a dear method of {largestDear} IL bytes was compiled");
+        Assert.True(longest <= Budget + TimeSpan.FromMilliseconds(6), $"the longest frame took {longest.TotalMilliseconds} ms");
+        Assert.True(Work(job).Skipped >= 30, $"{Work(job).Skipped} dear methods were held back");
+        Assert.True(largestDear <= 350, $"a dear method of {largestDear} IL bytes was compiled; dear {dear}, held back {Work(job).Skipped}");
     }
 
     private (WarmUp Job, System.Collections.Generic.List<System.Reflection.MethodBase> Compiled, TimeSpan Longest) Run(string set, TimeSpan valuedCost, TimeSpan plainCost)
@@ -154,9 +154,9 @@ public sealed class WarmUpTests
     {
         var (work, compiled, _) = Run("slices-slow-valued", TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(0.1));
 
-        Assert.Equal(40, compiled.Count(m => m.DeclaringType == typeof(Warm.Plain) && m.Name.StartsWith('P')));
-        Assert.True(compiled.Count(m => m.DeclaringType == typeof(Warm.Wide<int>) || m.DeclaringType == typeof(Warm.Wide<long>) || m.DeclaringType == typeof(Warm.Wide<Warm.Colour>)) <= 4);
-        Assert.True(work.SkippedValued >= 50, $"{work.SkippedValued} value-type generic methods were deferred");
+        var plain = compiled.Count(m => m.DeclaringType == typeof(Warm.Plain) && m.Name.StartsWith('P'));
+        var wide = compiled.Count(m => m.DeclaringType == typeof(Warm.Wide<int>) || m.DeclaringType == typeof(Warm.Wide<long>) || m.DeclaringType == typeof(Warm.Wide<Warm.Colour>));
+        Assert.True(plain == 40 && wide <= 40 && work.SkippedValued >= 80, $"plain {plain}, wide {wide}, deferred {work.SkippedValued}, skipped {work.Skipped}");
         Assert.Equal(work.SkippedValued, work.Skipped);
     }
 
@@ -170,6 +170,52 @@ public sealed class WarmUpTests
         Assert.Equal(40, compiled.Count(m => m.DeclaringType == typeof(Warm.Plain) && m.Name.StartsWith('P')));
     }
 
+    [Fact]
+    public void A_model_made_pessimistic_by_one_slow_compile_recovers_through_probes()
+    {
+        var limit = TimeSpan.FromMilliseconds(3);
+        var model = new WarmUp.CostModel();
+        model.Learn(100, TimeSpan.FromMilliseconds(30));
+        Assert.True(model.Expected(800) > limit, "the slow sample did not make a big method look dear");
+        Assert.True(model.Expected(800) < TimeSpan.FromMilliseconds(9), "one sample is capped, so it cannot make a probe too dear");
+
+        var deferred = 0;
+        while (model.Expected(800) > limit && deferred < 1000)
+        {
+            if (model.ShouldProbe(model.Expected(800)))
+                model.Learn(800, TimeSpan.FromMilliseconds(0.3));
+            else
+            {
+                model.Deferred();
+                deferred++;
+            }
+        }
+
+        Assert.True(deferred < 1000, "the model never recovered");
+        Assert.True(model.Expected(800) <= limit);
+    }
+
+    [Fact]
+    public void A_probe_is_never_a_method_expected_to_cost_over_the_probe_limit()
+    {
+        var model = new WarmUp.CostModel();
+        for (var i = 0; i < 10; i++)
+            model.Deferred();
+
+        Assert.False(model.ShouldProbe(TimeSpan.FromMilliseconds(50)));
+        Assert.True(model.ShouldProbe(TimeSpan.FromMilliseconds(5)));
+        Assert.False(model.ShouldProbe(TimeSpan.FromMilliseconds(5)));
+    }
+
+    [Fact]
+    public void A_window_of_near_identical_sizes_does_not_extrapolate_a_slope_to_a_big_method()
+    {
+        var model = new WarmUp.CostModel();
+        for (var i = 0; i < 20; i++)
+            model.Learn(100 + i % 4, TimeSpan.FromTicks(1000 + i % 4 * 2000));
+
+        Assert.True(model.Expected(1000).Ticks <= 10 * model.Expected(100).Ticks, $"{model.Expected(100)} for 100 bytes, {model.Expected(1000)} for 1000");
+    }
     [Fact]
     public void A_frame_in_which_other_work_took_time_compiles_nothing()
     {

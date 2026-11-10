@@ -36,6 +36,9 @@ internal sealed class WarmUp : ISlicedWork
     /// <summary>A method expected to take longer than this (3 ms, margin included) to compile is left to first call: a deferred method compiles inside the plan's arrival, which costs more than an idle frame up to the frame budgets' sum.</summary>
     private static readonly TimeSpan MethodLimit = TimeSpan.FromTicks(30000);
 
+    /// <summary>The most one compile teaches the cost model: a cold start or a collection can stretch a compile far past its cost, and one such sample must not make every method look too dear.</summary>
+    private static readonly TimeSpan MaxSample = MethodLimit;
+
     /// <summary>Compile cost expected per IL byte before any has been measured (2 µs, in ticks of 100 ns): the runtime's real cost is learned from the methods compiled.</summary>
     private const double PriorTicksPerByte = 20;
 
@@ -181,8 +184,9 @@ internal sealed class WarmUp : ISlicedWork
             _methods.Dequeue();
             if (size < 0)
                 continue;
-            if (expected > MethodLimit)
+            if (expected > MethodLimit && !model.ShouldProbe(expected))
             {
+                model.Deferred();
                 if (_retried)
                 {
                     Skipped++;
@@ -194,6 +198,8 @@ internal sealed class WarmUp : ISlicedWork
                 continue;
             }
 
+            if (expected <= MethodLimit)
+                model.Settled();
             var before = _clock.Now;
             _last = method;
             _compile(method, size);
@@ -230,9 +236,20 @@ internal sealed class WarmUp : ISlicedWork
     /// or left uncompiled for its size, costs next to nothing and would pull the cost to zero): a decayed fit of the cost by IL size
     /// (a fixed cost per method plus a cost per byte), by cost per byte alone until enough have been seen or when the fit is not sound.
     /// </summary>
-    private sealed class CostModel
+    internal sealed class CostModel
     {
         private const int Enough = 8;
+
+        /// <summary>Deferrals in a row after which one method is compiled anyway: deferred methods teach nothing, so a model gone pessimistic would never recover.</summary>
+        private const int ProbeAfter = 4;
+
+        /// <summary>The least spread of IL sizes (a standard deviation of 20 bytes, squared) at which a fitted slope means anything.</summary>
+        private const double LeastVariance = 400;
+
+        /// <summary>A method expected to cost more than this (9 ms) is never compiled as a probe: a probe must not be the hitch it guards against.</summary>
+        private static readonly TimeSpan ProbeLimit = TimeSpan.FromTicks(3 * MethodLimit.Ticks);
+
+        private int _streak;
         private double _n, _sx, _sy, _sxx, _sxy;
         private double _ticks = 1000 * PriorTicksPerByte;
         private double _bytes = 1000;
@@ -240,29 +257,43 @@ internal sealed class WarmUp : ISlicedWork
         /// <summary>The cost expected of a method of this IL size, the margin included.</summary>
         public TimeSpan Expected(int size)
         {
+            var proportional = (size + FixedBytes) * _ticks / _bytes * Margin;
             if (_n >= Enough)
             {
                 var mx = _sx / _n;
                 var my = _sy / _n;
                 var variance = _sxx / _n - mx * mx;
-                if (variance > 1)
+                if (variance >= LeastVariance)
                 {
                     var perByte = (_sxy / _n - mx * my) / variance;
                     var fixedCost = my - perByte * mx;
                     if (perByte > 0 && fixedCost >= 0)
-                        return TimeSpan.FromTicks((long)((fixedCost + perByte * size) * Margin));
+                        return TimeSpan.FromTicks((long)Math.Min((fixedCost + perByte * size) * Margin, 2 * proportional));
                 }
             }
 
-            return TimeSpan.FromTicks((long)((size + FixedBytes) * _ticks / _bytes * Margin));
+            return TimeSpan.FromTicks((long)proportional);
         }
+
+        /// <summary>Whether the next method that would be deferred is compiled instead, to learn from it; the count of deferrals in a row starts again.</summary>
+        public bool ShouldProbe(TimeSpan expected)
+        {
+            if (_streak < ProbeAfter || expected > ProbeLimit)
+                return false;
+            _streak = 0;
+            return true;
+        }
+
+        public void Deferred() => _streak++;
+
+        public void Settled() => _streak = 0;
 
         public void Learn(int size, TimeSpan cost)
         {
             if (cost < Measurable)
                 return;
             const double decay = 0.98;
-            var ticks = (double)cost.Ticks;
+            var ticks = (double)Math.Min(cost.Ticks, MaxSample.Ticks);
             _n = _n * decay + 1;
             _sx = _sx * decay + size;
             _sy = _sy * decay + ticks;
