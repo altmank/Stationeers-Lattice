@@ -161,6 +161,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         if (_networking && modules.IsOn(LatticeModules.Sync))
             ports = ports with { Link = Option.Some<Lattice.Core.Sync.ISyncLink>(new LaunchPadLink()) };
 
+        Warmed.Log = _log;
         if (!LatticeWorld.Start(ports, WorldRuntime.Threads(_log) with { WarmUp = Warmed }).TryGet(out var world))
         {
             EndWorld();

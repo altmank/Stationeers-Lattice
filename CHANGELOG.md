@@ -2,7 +2,7 @@
 
 ## 0.22.19
 
-Fixed: the first big plan placed or loaded in a session no longer causes a stutter.
+Fixed: placing or loading a big plan stutters much less: its work is spread over frames, and the code it first runs is prepared in idle frames.
 
 Fixed: saving a big plan no longer causes a hitch.
 

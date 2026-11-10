@@ -24,6 +24,9 @@ internal sealed class FrameScheduler(IClock clock, FrameBudgets budgets, Action<
     private readonly SliceQueue _saving = new(budgets.Saving, faulted);
     private readonly SliceQueue _drawing = new(budgets.Drawing, faulted);
 
+    /// <summary>The clock the budgets are measured against, for work that times its own steps by the same time.</summary>
+    internal IClock Clock => clock;
+
     /// <summary>Queues work of a kind; refused for a kind this version does not know. Linear in the kind's queue.</summary>
     public Result<SlicedJob, Reason> Schedule(WorkKind kind, ISlicedWork work, Priority priority) =>
         Add(kind, new SlicedJob(work, priority));

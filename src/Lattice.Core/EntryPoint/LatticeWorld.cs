@@ -118,11 +118,12 @@ internal sealed class LatticeWorld : IGhostSystem
     /// <summary>The sets this world compiles ahead in idle frames, none when it does not: <see cref="Publish"/> queues Core's, the renderer's host queues Render's.</summary>
     internal WarmedSets? WarmSets { get; }
 
-    /// <summary>The namespaces of Core whose methods a big plan runs: saving and its written form, styles, the board, matching and plan state.</summary>
+    /// <summary>The namespaces of Core whose methods a big plan runs: saving and its written form, styles, the board, matching and plan state, and the catalogue, build safety, openings, consequences, steps and selectors its first steps compile.</summary>
     internal static string[] WarmNamespaces =>
     [
         "Lattice.Core.Saving", "Lattice.Core.Written", "Lattice.Core.Styles", "Lattice.Core.Styles.Library", "Lattice.Core.Board",
         "Lattice.Core.Matching", "Lattice.Core.Plans", "Lattice.Core.Ports", "Lattice.Core.Grid", "Lattice.Core.World", "Lattice.Core.Validation", "Lattice.Core.Support",
+        "Lattice.Core.Catalogue", "Lattice.Core.Safety", "Lattice.Core.Openings", "Lattice.Core.Consequences", "Lattice.Core.Steps", "Lattice.Core.Selectors",
     ];
 
     internal GhostBoard Ghosts { get; private set; } = null!;
