@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Assets.Scripts;
@@ -24,13 +25,51 @@ namespace Lattice.Game.Live;
 
 /// <summary>
 /// Lattice's own timings in the game, read by Harmony around <see cref="LatticeWorld.Start"/> and
-/// <see cref="LatticeWorld.Frame"/> (test instance only): the last start's wall time and, while recording, each frame's.
+/// <see cref="LatticeWorld.Frame"/> (test instance only): the last start's wall time and, while recording, each frame's wall
+/// time and the main thread's CPU time over it (<c>QueryThreadCycleTime</c>, whose cycles are turned into milliseconds by the
+/// rate measured while the thread spins at install: <c>GetThreadTimes</c> advances only in 15.6 ms scheduler ticks). A
+/// process the host pauses, or a stall off the thread, shows in wall time only.
 /// </summary>
-internal static class LatticeTiming
+internal static partial class LatticeTiming
 {
     private static readonly Stopwatch StartWatch = new();
     private static readonly Stopwatch FrameWatch = new();
     private static bool _installed;
+    private static double _frameCpuStart;
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentThread();
+
+    [DllImport("kernel32.dll")]
+    private static extern bool QueryThreadCycleTime(IntPtr thread, out ulong cycles);
+
+    private static double _cyclesPerMs;
+
+    public static double CyclesPerMs => _cyclesPerMs;
+
+    /// <summary>The calling thread's CPU time in milliseconds, from its cycle count; -1 when the rate is not measured.</summary>
+    public static double ThreadCpuMs() =>
+        _cyclesPerMs > 0 && QueryThreadCycleTime(GetCurrentThread(), out var cycles) ? cycles / _cyclesPerMs : -1;
+
+    // The most cycles per millisecond over three 40 ms spins of this thread: a spin the host pauses counts fewer cycles, so
+    // the largest rate is the true one.
+    private static double MeasureCyclesPerMs()
+    {
+        var best = 0.0;
+        for (var i = 0; i < 3; i++)
+        {
+            QueryThreadCycleTime(GetCurrentThread(), out var from);
+            var watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalMilliseconds < 40)
+            {
+            }
+
+            QueryThreadCycleTime(GetCurrentThread(), out var to);
+            best = Math.Max(best, (to - from) / watch.Elapsed.TotalMilliseconds);
+        }
+
+        return best;
+    }
 
     public static double LastStartMs { get; private set; } = -1;
 
@@ -40,16 +79,28 @@ internal static class LatticeTiming
 
     public static List<double> FrameMs { get; } = new(4096);
 
+    public static List<double> FrameCpuMs { get; } = new(4096);
+
+    /// <summary>Clears every recorded frame, with each frame's module and step entries.</summary>
+    public static void ClearFrames()
+    {
+        FrameMs.Clear();
+        FrameCpuMs.Clear();
+        ClearParts();
+    }
+
     public static void Install()
     {
         if (_installed)
             return;
         _installed = true;
+        _cyclesPerMs = MeasureCyclesPerMs();
         var harmony = new Harmony("lattice.live.timing");
         harmony.Patch(AccessTools.Method(typeof(LatticeWorld), nameof(LatticeWorld.Start)),
             prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(StartBegins)), postfix: new HarmonyMethod(typeof(LatticeTiming), nameof(StartEnds)));
         harmony.Patch(AccessTools.Method(typeof(LatticeWorld), nameof(LatticeWorld.Frame)),
             prefix: new HarmonyMethod(typeof(LatticeTiming), nameof(FrameBegins)), postfix: new HarmonyMethod(typeof(LatticeTiming), nameof(FrameEnds)));
+        InstallParts(harmony);
     }
 
     private static void StartBegins() => StartWatch.Restart();
@@ -61,13 +112,22 @@ internal static class LatticeTiming
         Starts++;
     }
 
-    private static void FrameBegins() => FrameWatch.Restart();
+    private static void FrameBegins()
+    {
+        _frameCpuStart = ThreadCpuMs();
+        FrameWatch.Restart();
+        if (Recording)
+            BeginParts();
+    }
 
     private static void FrameEnds()
     {
         FrameWatch.Stop();
-        if (Recording)
-            FrameMs.Add(FrameWatch.Elapsed.TotalMilliseconds);
+        if (!Recording)
+            return;
+        FrameMs.Add(FrameWatch.Elapsed.TotalMilliseconds);
+        FrameCpuMs.Add(ThreadCpuMs() - _frameCpuStart);
+        EndParts();
     }
 }
 
@@ -97,8 +157,9 @@ internal sealed class BaseStructure(string prefab, Vector3 position, Quaternion 
 /// steady frames, an autosave, the autosave loaded (plans equal), then the older head save loaded while the world runs
 /// (plans as at the head save; the new plan hidden, not offered, since the autosave holds its lines). The base file
 /// (<c>-lattice-bigbase &lt;tsv&gt;</c>) is the generated big base (LatticeFixtures\bigbase\lattice-gen-big.tsv, whose
-/// <c># station</c> line names the save, <c>lattice-gen-big</c>) or
-/// the structures of a Vulcan2_4 save copy; both outside the repo. A server builds in the new world it starts with; a
+/// <c># station</c> line names the save, <c>lattice-gen-big</c>), outside the repo. Its optional <c># offset dx dy dz</c>
+/// line is where the build shifted the base in the world loaded: <c>bigbase-load</c> moves every held-back structure by it
+/// (no line, no move). A server builds in the new world it starts with; a
 /// client, started from the main menu, loads the world <c>-lattice-save &lt;file&gt;</c> names, or makes a new one.
 /// </summary>
 internal static class BigBaseRun
@@ -635,18 +696,40 @@ internal static class BigBaseRun
             yield break;
         }
 
+        // The build shifted the base onto this world's ground; the file's own coordinates are 2 km off in the world.
+        var offset = header.Offset;
+        line($"bigbase: offset {offset.Text} ({(offset == BaseOffset.Zero ? "none in the base file: its own coordinates" : "from the base file's # offset line")})");
+        var by = new Vector3(offset.Dx, offset.Dy, offset.Dz);
+        structures = structures.ConvertAll(s => s.Moved(by));
+        var footprint = FootprintOf(structures);
+
         var (held, _, _) = Split(structures, heldCount);
 
         LatticeTiming.Recording = true;
         var watch = Stopwatch.StartNew();
+        var spawned = 0;
+        Vector3? firstAt = null;
         for (var i = 0; i < held.Count; i++)
         {
-            Scene.Spawn(held[i].Prefab, held[i].Position, held[i].Rotation, held[i].State);
+            if (Scene.Spawn(held[i].Prefab, held[i].Position, held[i].Rotation, held[i].State) is { } made)
+            {
+                spawned++;
+                firstAt ??= made.ThingTransformPosition;
+            }
+
             if (i % SpawnPerFrame == SpawnPerFrame - 1)
                 yield return null;
         }
 
-        line($"bigbase: held-back structures spawned in {watch.Elapsed.TotalSeconds:F1} s");
+        line($"bigbase: held-back structures spawned in {watch.Elapsed.TotalSeconds:F1} s: {spawned} of {held.Count}");
+        if (firstAt is { } first)
+        {
+            var inside = footprint.DistanceTo(first.x, first.z) == 0f && first.y >= footprint.Lowest - BaseOffset.HalfGrid;
+            line($"{(inside ? "PASS" : "FAIL")} the first held-back structure spawned at {WorldFile.Metres(first.x, first.y, first.z)}, " +
+                 $"{(inside ? "inside" : "outside")} the base's footprint x {footprint.MinX:0.##} to {footprint.MaxX:0.##}, z {footprint.MinZ:0.##} to {footprint.MaxZ:0.##}");
+        }
+        else
+            line("FAIL no held-back structure spawned");
         yield return Settle(world, line, "completion of the held-back plan", 300f);
         line($"bigbase: board {Board(world)}");
 
@@ -729,10 +812,11 @@ internal static class BigBaseRun
         line($"bigbase: {what}: {(result is { } r ? $"success {r.Success}" : "no result")} in {watch.Elapsed.TotalSeconds:F1} s");
     }
 
-    // Frames until validation has been idle for 3 frames, recording game and Lattice frame costs.
+    // Frames until validation is idle and every slice queue is drained (FrameScheduler.Idle) for 3 frames in a row, recording game and Lattice frame costs.
     private static IEnumerator Settle(LatticeWorld world, Action<string> line, string what, float limit, Action? tick = null)
     {
-        LatticeTiming.FrameMs.Clear();
+        LatticeTiming.Watching = world;
+        LatticeTiming.ClearFrames();
         var game = new List<double>(4096);
         var start = Time.realtimeSinceStartup;
         var idle = 0;
@@ -742,17 +826,26 @@ internal static class BigBaseRun
             yield return null;
             tick?.Invoke();
             if (progress.Due(Time.realtimeSinceStartup - start))
-                line($"bigbase: {what}: still validating after {Time.realtimeSinceStartup - start:F0} s of {limit:F0}");
+                line($"bigbase: {what}: still validating or draining after {Time.realtimeSinceStartup - start:F0} s of {limit:F0}");
             game.Add(Time.unscaledDeltaTime * 1000.0);
-            idle = world.ValidationModule is { Busy: true } ? 0 : idle + 1;
+            idle = world.ValidationModule is { Busy: true } || !world.Scheduler.Idle ? 0 : idle + 1;
         }
 
         line($"bigbase: {what}: {(idle >= 3 ? "settled" : "NOT settled")} after {Time.realtimeSinceStartup - start:F1} s; game frames {Stats(game)}; Lattice frames {Stats(LatticeTiming.FrameMs)}");
+        foreach (var slow in LatticeTiming.Describe(what, 5, 0, int.MaxValue))
+            line(slow);
+        if (idle < 3)
+        {
+            var validating = world.ValidationModule is { Busy: true };
+            line($"FAIL bigbase: {what} NOT settled after {Time.realtimeSinceStartup - start:F0} s (limit {limit:F0} s): validation busy {validating}, frame scheduler idle {world.Scheduler.Idle}");
+        }
     }
 
     private static IEnumerator Frames(LatticeWorld world, Action<string> line, string what, int count)
     {
-        LatticeTiming.FrameMs.Clear();
+        LatticeTiming.Watching = world;
+        LatticeTiming.ClearFrames();
+        var (gc0, gc1, gc2) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2));
         var game = new List<double>(count);
         for (var i = 0; i < count; i++)
         {
@@ -763,7 +856,10 @@ internal static class BigBaseRun
         var before = GC.GetAllocatedBytesForCurrentThread();
         world.Frame();
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        line($"bigbase: {what}: game frames {Stats(game)}; Lattice frames {Stats(LatticeTiming.FrameMs)}; one Lattice frame now allocates {allocated} bytes");
+        line($"bigbase: {what}: game frames {Stats(game)}; Lattice frames (wall) {Stats(LatticeTiming.FrameMs)}; Lattice frames (cpu) {Stats(LatticeTiming.FrameCpuMs)}; " +
+             $"gc gen0/1/2 {GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}; cpu rate {LatticeTiming.CyclesPerMs / 1e6:F2} GHz; one Lattice frame now allocates {allocated} bytes");
+        foreach (var slow in LatticeTiming.Describe(what, 50, 6.0, count))
+            line(slow);
     }
 
     private static string Stats(List<double> ms)
