@@ -94,7 +94,7 @@ public sealed class WarmUpTests
         public StepOutcome Step()
         {
             order.Add(name);
-            clock.Advance(TimeSpan.FromMilliseconds(0.5));
+            clock.Advance(TimeSpan.FromMilliseconds(1.5));
             return StepOutcome.Done;
         }
     }
