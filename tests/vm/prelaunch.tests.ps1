@@ -1,5 +1,6 @@
+#Requires -Version 7.5
 # Tests for prelaunch.ps1's Get-BigBaseHostArg: the host base file named in -GameArgs.
-# Run: powershell -NoProfile -File prelaunch.tests.ps1   Exit 0 when every case holds, 1 otherwise.
+# Run: pwsh -NoProfile -File prelaunch.tests.ps1   Exit 0 when every case holds, 1 otherwise.
 $ErrorActionPreference = 'Stop'
 $PreLaunchFunctionsOnly = $true
 . "$PSScriptRoot\hooks\prelaunch.ps1"

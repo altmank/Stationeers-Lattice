@@ -1,3 +1,4 @@
+#Requires -Version 7.5
 # publish-bigbase.ps1: files a finished bigbase-build VM run in the shared worlds library.
 #
 #   publish-bigbase.ps1 -Run <run folder> [-Replace] [-LibraryRoot <dir>]
@@ -42,7 +43,7 @@ if ($world['landed'] -ne 'yes') { Refuse "world.txt landed is '$($world['landed'
 $station = $world['station']
 if ($station -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { Refuse "station name '$station' is not a plain folder name" }
 
-$result = Get-Content -LiteralPath $resultJson -Raw | ConvertFrom-Json
+$result = Get-Content -LiteralPath $resultJson -Raw | ConvertFrom-Json -DateKind String
 if ($result.status -ne 'pass') { Refuse "result.json status is '$($result.status)', not pass" }
 
 $saveDir = Join-Path $Run "data\saves\$station"

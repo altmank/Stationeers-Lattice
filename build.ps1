@@ -1,3 +1,4 @@
+#Requires -Version 7.5
 <#
 .SYNOPSIS
     Restores, builds and tests the Lattice solution. Exits non-zero on any failure.
@@ -191,7 +192,7 @@ finally {
 # They touch no game and no VM, and take a few seconds.
 if (-not $Perf) {
     foreach ($t in Get-ChildItem (Join-Path $PSScriptRoot 'tests\vm') -Filter *.tests.ps1) {
-        Invoke-Step "script test $($t.Name)" { powershell.exe -NoProfile -ExecutionPolicy Bypass -File $t.FullName }
+        Invoke-Step "script test $($t.Name)" { pwsh -NoProfile -ExecutionPolicy Bypass -File $t.FullName }
     }
 }
 

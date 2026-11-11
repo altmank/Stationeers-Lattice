@@ -1,5 +1,6 @@
+#Requires -Version 7.5
 # Tests for publish-bigbase.ps1 against a temp run folder and a temp worlds library. Touches no game or VM.
-# Run: powershell -NoProfile -File publish-bigbase.tests.ps1   Exit 0 when every case holds, 1 otherwise.
+# Run: pwsh -NoProfile -File publish-bigbase.tests.ps1   Exit 0 when every case holds, 1 otherwise.
 $ErrorActionPreference = 'Stop'
 $script = "$PSScriptRoot\publish-bigbase.ps1"
 $root = Join-Path ([IO.Path]::GetTempPath()) "publish-bigbase-test-$PID"
@@ -10,8 +11,7 @@ function Check([string] $name, [bool] $ok, [string] $detail = '') {
 }
 # Runs publish-bigbase.ps1 in a child shell of the same edition; returns exit code and stderr+stdout text.
 function Publish([string[]] $PublishArgs) {
-    $exe = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell.exe' }
-    $ErrorActionPreference = 'Continue'   # Windows PowerShell 5.1 turns a native command's stderr into an error under Stop
+    $exe = 'pwsh'
     $out = & $exe -NoProfile -ExecutionPolicy Bypass -File $script @PublishArgs 2>&1 | Out-String
     @{ Code = $LASTEXITCODE; Text = $out }
 }

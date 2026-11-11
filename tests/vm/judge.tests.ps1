@@ -1,5 +1,6 @@
+#Requires -Version 7.5
 # Tests for judge.ps1's bigbase verdict (Get-BigBaseVerdict) against the logs in fixtures\.
-# Run: powershell -NoProfile -File judge.tests.ps1   Exit 0 when every case holds, 1 otherwise.
+# Run: pwsh -NoProfile -File judge.tests.ps1   Exit 0 when every case holds, 1 otherwise.
 $ErrorActionPreference = 'Stop'
 $JudgeFunctionsOnly = $true
 . "$PSScriptRoot\hooks\judge.ps1"

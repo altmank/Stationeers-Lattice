@@ -1,5 +1,6 @@
+#Requires -Version 7.5
 # Tests for make-fixtures.ps1's refusal of a player's base save. Touches no game or VM.
-# Run: powershell -NoProfile -File make-fixtures.tests.ps1   Exit 0 when every case holds, 1 otherwise.
+# Run: pwsh -NoProfile -File make-fixtures.tests.ps1   Exit 0 when every case holds, 1 otherwise.
 $ErrorActionPreference = 'Stop'
 $script = Join-Path $PSScriptRoot '..\fixtures\make-fixtures.ps1'
 $bad = 0
@@ -7,8 +8,7 @@ function Check([string] $name, [bool] $ok, [string] $detail = '') {
     if ($ok) { Write-Host "ok   $name" } else { $script:bad++; Write-Host "FAIL $name $detail" }
 }
 function Make([string[]] $MakeArgs) {
-    $exe = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell.exe' }
-    $ErrorActionPreference = 'Continue'   # Windows PowerShell 5.1 turns a native command's stderr into an error under Stop
+    $exe = 'pwsh'
     $out = & $exe -NoProfile -ExecutionPolicy Bypass -File $script @MakeArgs 2>&1 | Out-String
     @{ Code = $LASTEXITCODE; Text = $out }
 }

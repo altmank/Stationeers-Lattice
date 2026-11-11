@@ -1,5 +1,6 @@
+#Requires -Version 7.5
 # Static checks of vm-run.psd1 (the file the shared VM-run kit reads). Touches no game, VM or build.
-# Run: powershell -NoProfile -File vm-run.tests.ps1   Exit 0 when every check holds, 1 otherwise.
+# Run: pwsh -NoProfile -File vm-run.tests.ps1   Exit 0 when every check holds, 1 otherwise.
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path "$PSScriptRoot\..\..").Path
 $file = "$PSScriptRoot\vm-run.psd1"
