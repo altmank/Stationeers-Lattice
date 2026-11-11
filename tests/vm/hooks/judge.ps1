@@ -71,7 +71,8 @@ function Get-BigBaseVerdict([string] $Mode, [string[]] $Lines, [string[]] $World
 if ($JudgeFunctionsOnly) { return }
 
 $latticeMode = if ($GameArgs -match '-lattice-live (\S+)') { $Matches[1] } else { '' }
-$bridge = @(Invoke-Rig -ArgumentList "$gOut\live-bridge-$latticeMode.log" { param($f) if (Test-Path $f) { Get-Content $f } })
+# Plain strings: Get-Content's lines carry PSPath, PSDrive and other note properties, which result.json would serialize.
+$bridge = @(Invoke-Rig -ArgumentList "$gOut\live-bridge-$latticeMode.log" { param($f) if (Test-Path $f) { Get-Content $f } } | % { [string]$_ })
 if ($latticeMode -like 'bigbase-*') {
     if ($r.Status -ne 'pass') { return }
     if (-not $bridge) { Complete-Rig fail "done, but no live-bridge-$latticeMode.log"; return }
@@ -79,7 +80,7 @@ if ($latticeMode -like 'bigbase-*') {
     if ($latticeMode -eq 'bigbase-build') {
         $worldLines = Invoke-Rig -ArgumentList "$gOut\world.txt" { param($f) if (Test-Path $f) { Get-Content $f } }
         if ($worldLines) {
-            $worldLines = @($worldLines)
+            $worldLines = @($worldLines | % { [string]$_ })
             $station = (ConvertFrom-WorldText $worldLines)['station']
             if ($station) {
                 $saveBytes = Invoke-Rig -ArgumentList "$gData\saves\$station\$station.save" { param($f) if (Test-Path -LiteralPath $f) { (Get-Item -LiteralPath $f).Length } else { [long]-1 } }

@@ -49,5 +49,36 @@ foreach ($c in $cases) {
     if ($ok) { Write-Host "ok   $($c.Name)" }
     else { $bad++; Write-Host "FAIL $($c.Name): got [$got], expected [$($c.Expect)]" }
 }
-Write-Host "$($cases.Count - $bad) of $($cases.Count) cases hold"
+$total = $cases.Count
+
+# The run's Info fields are plain strings: lines read with Get-Content carry PSPath, PSDrive and other note properties,
+# which result.json would serialize as objects for every line. Runs the judge's main body on a fake guest folder.
+$judgeFile = if ($env:LATTICE_JUDGE_UNDER_TEST) { $env:LATTICE_JUDGE_UNDER_TEST } else { "$PSScriptRoot\hooks\judge.ps1" }
+$tmp = Join-Path ([IO.Path]::GetTempPath()) "judge-test-$PID"
+New-Item -ItemType Directory -Force $tmp | Out-Null
+try {
+    Set-Content "$tmp\live-bridge-render-timing.log" @(
+        'LIVE TIMING calls 100 instances 10: submit median 0.10 ms p90 0.20 ms, frame median 5.0 ms p90 6.0 ms'
+    )
+    $info = & {
+        $JudgeFunctionsOnly = $false
+        $r = [pscustomobject]@{ Info = @{ rendererSeen = $true; renderer = 'NVIDIA test' }; Res = $tmp; Status = 'pass' }
+        $gOut = $tmp; $gData = $tmp; $GameArgs = '-lattice-live render-timing'
+        function Invoke-Rig { param([Parameter(Position = 0)][scriptblock] $ScriptBlock, [object[]] $ArgumentList) & $ScriptBlock @ArgumentList }
+        function Complete-Rig { param($Status, $Text) }
+        function Rig-Log { param($Text) }
+        . $judgeFile
+        $r.Info
+    }
+    $total++
+    $lines = @($info.timingLines)
+    # RigVM writes result.json under Windows PowerShell 5.1, whose ConvertTo-Json serializes a string's note properties
+    # (pwsh 7's drops them), so check for the properties themselves.
+    $noted = @($lines | ? { $_.PSObject.Properties['PSPath'] })
+    if ($lines.Count -eq 1 -and $lines[0] -is [string] -and -not $noted.Count) { Write-Host 'ok   timingLines are plain strings in result.json' }
+    else { $bad++; Write-Host "FAIL timingLines are plain strings in result.json: $($lines.Count) line(s), $($noted.Count) with PSPath" }
+}
+finally { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }
+
+Write-Host "$($total - $bad) of $total cases hold"
 exit $(if ($bad) { 1 } else { 0 })
