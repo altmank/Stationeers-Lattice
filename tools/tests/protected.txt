@@ -1,0 +1,3 @@
+# Suites lane.ps1 land runs on the merged tree before every landing: one `name | command` per line, run under pwsh from the tree root.
+# build: restore, build, the three .NET test projects (perf tests left out) and the tests/vm script tests. About 70 s.
+build | ./build.ps1
