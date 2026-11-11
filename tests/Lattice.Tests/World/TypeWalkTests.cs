@@ -73,6 +73,10 @@ public sealed class TypeWalkTests
         new System.IO.FileLoadException(),
         new BadImageFormatException(),
         new NotSupportedException(),
+        new MissingMemberException(),
+        new MissingMethodException(),
+        new MissingFieldException(),
+        new ReflectionTypeLoadException([], []),
     ];
 
     [Fact]
@@ -80,6 +84,13 @@ public sealed class TypeWalkTests
     {
         Assert.Throws<InvalidOperationException>(() =>
             TypeWalk.Run([typeof(First), typeof(Second)], Throwing(typeof(Second), new InvalidOperationException())));
+    }
+
+    [Fact]
+    public void An_access_failure_is_not_a_load_failure_and_surfaces()
+    {
+        Assert.Throws<MethodAccessException>(() =>
+            TypeWalk.Run([typeof(First), typeof(Second)], Throwing(typeof(Second), new MethodAccessException())));
     }
 
     [Fact]

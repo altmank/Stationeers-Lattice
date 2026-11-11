@@ -62,5 +62,6 @@ internal static class TypeWalk
 
     /// <summary>The exceptions the runtime throws while loading a type or resolving its members.</summary>
     public static bool DoesNotLoad(Exception e) =>
-        e is TypeLoadException or FileNotFoundException or FileLoadException or BadImageFormatException or NotSupportedException;
+        e is TypeLoadException or FileNotFoundException or FileLoadException or BadImageFormatException or NotSupportedException
+            or MissingMemberException or ReflectionTypeLoadException;
 }

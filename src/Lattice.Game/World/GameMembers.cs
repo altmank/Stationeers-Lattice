@@ -107,11 +107,24 @@ internal static class GameMembers
         }
     }
 
+    /// <summary>The type the default type lookup finds, or null when it cannot resolve it (another mod's broken dependency).</summary>
+    private static Type? TypeByName(string fullName)
+    {
+        try
+        {
+            return Type.GetType(fullName);
+        }
+        catch (Exception e) when (TypeWalk.DoesNotLoad(e))
+        {
+            return null;
+        }
+    }
+
     private static Type? TypeNamed(string fullName, Dictionary<string, Type?> types)
     {
         if (types.TryGetValue(fullName, out var known))
             return known;
-        var found = Type.GetType(fullName);
+        var found = TypeByName(fullName);
         if (found == null)
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
                 if (TypeIn(assembly, fullName) is { } type)
