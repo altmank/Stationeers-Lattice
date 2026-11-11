@@ -1,3 +1,4 @@
+#Requires -Version 7.5
 # publish-builder-turns.ps1: files a finished builder-turns VM run in the shared worlds library.
 #
 #   publish-builder-turns.ps1 -Run <run folder> [-Replace] [-LibraryRoot <dir>]
@@ -37,7 +38,7 @@ if ([int]$world['turns-placed'] -lt 1) { Refuse 'world.txt turns-placed is 0: no
 $station = $world['station']
 if ($station -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { Refuse "station name '$station' is not a plain folder name" }
 
-$result = Get-Content -LiteralPath $resultJson -Raw | ConvertFrom-Json
+$result = Get-Content -LiteralPath $resultJson -Raw | ConvertFrom-Json -DateKind String
 if ($result.status -ne 'pass') { Refuse "result.json status is '$($result.status)', not pass" }
 
 $saveDir = Join-Path $Run "data\saves\$station"
