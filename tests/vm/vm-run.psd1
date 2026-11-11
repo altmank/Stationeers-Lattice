@@ -6,6 +6,8 @@
     Build = @{
         Command = 'build.ps1'
         Package = 'artifacts\Release\Lattice'
+        # build.ps1 builds against the game assemblies in STATIONEERS_DIR when it is set.
+        Inputs = @{ Env = @('STATIONEERS_DIR') }
         Extra = @(
             @{ Name = 'LatticeLiveChecks'
                Command = 'dotnet build tests\Lattice.LiveChecks\Lattice.LiveChecks.csproj -c Release --no-restore'

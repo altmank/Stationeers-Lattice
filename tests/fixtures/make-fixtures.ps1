@@ -1,3 +1,4 @@
+#Requires -Version 7.5
 <#
 .SYNOPSIS
     Fills tests/fixtures/generated/ (git-ignored): verbatim copies of the named saves and the catalogue data file.
