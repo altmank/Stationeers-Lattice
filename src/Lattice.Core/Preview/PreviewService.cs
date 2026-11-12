@@ -64,6 +64,7 @@ internal sealed record PreviewParts(
 internal sealed class PreviewService(PreviewParts parts) : IPreview
 {
     private readonly Dictionary<(Command Command, Actor Actor), Entry> _kept = [];
+    private readonly List<(Command Command, Actor Actor)> _overtaken = [];
     private (Revision Board, long Mirror) _at;
 
     public PreviewAnswer Of(Command command, Actor actor)
@@ -71,7 +72,11 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         Moved();
         var key = (command, actor);
         if (!_kept.TryGetValue(key, out var entry))
+        {
+            CancelOvertaken(command, actor);
             _kept[key] = entry = new Entry(command, actor, new PreviewAnswer.Pending(_at.Board));
+        }
+
         if (entry.Answer is { } answer)
             return answer;
         if (entry.Trial is null && Start(entry) is { } settled)
@@ -209,15 +214,33 @@ internal sealed class PreviewService(PreviewParts parts) : IPreview
         _at = now;
     }
 
+    // The actor's unfinished previews that a newer drag position replaces: cancelled and forgotten, so asking one again starts it again.
+    private void CancelOvertaken(Command command, Actor actor)
+    {
+        foreach (var (key, entry) in _kept)
+        {
+            if (key.Actor != actor || entry.Answer is not null || !DragStart.Overtakes(command, key.Command))
+                continue;
+            Cancel(entry);
+            _overtaken.Add(key);
+        }
+
+        foreach (var key in _overtaken)
+            _kept.Remove(key);
+        _overtaken.Clear();
+    }
+
+    private void Cancel(Entry entry)
+    {
+        entry.Job?.Cancel();
+        if (entry.Checking is { } checking)
+            parts.Validation?.Drop(checking);
+    }
+
     private void Drop()
     {
         foreach (var entry in _kept.Values)
-        {
-            entry.Job?.Cancel();
-            if (entry.Checking is { } checking)
-                parts.Validation?.Drop(checking);
-        }
-
+            Cancel(entry);
         _kept.Clear();
     }
 

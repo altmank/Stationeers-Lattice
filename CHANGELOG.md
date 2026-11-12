@@ -6,6 +6,8 @@ Changed: code prepared in idle frames after a load leaves base-library collectio
 
 Fixed: a mod type that is missing a member, or a mod whose types only partly load, is skipped instead of stopping Lattice from starting.
 
+Fixed: a cable, pipe or chute run's preview no longer gets stuck while you drag its end: a newer preview replaces the ones it overtook.
+
 ## 0.22.19
 
 Fixed: placing or loading a big plan stutters much less: its work is spread over frames, and the code it first runs is prepared in idle frames.

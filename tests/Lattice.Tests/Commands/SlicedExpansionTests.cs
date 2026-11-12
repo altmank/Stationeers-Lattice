@@ -20,8 +20,11 @@ public sealed class SlicedExpansionTests
     private static Command.PlanRun Run(Cell from, Cell to) =>
         new(new RunRequest(default, from, ValueList<Cell>.Empty, to, Option<PlanId>.None, TestMaker));
 
+    private static Command.PlanRoute Route(Cell from, Cell to, Maker? by = null) =>
+        new(new RouteRequest(default, from, to, new RouteToggles(false, false, false, false, false), Option<PlanId>.None, by ?? TestMaker));
+
     /// <summary>A search of a fixed number of steps on the fake clock that finds a straight at each end.</summary>
-    private sealed class FakeSearch(TestCommands c, Command.PlanRun run, int steps, Option<Reason> refuse) : IExpansionWork
+    private sealed class FakeSearch(TestCommands c, Cell from, Cell to, int steps, Option<Reason> refuse) : IExpansionWork
     {
         public int Stepped { get; private set; }
 
@@ -35,8 +38,8 @@ public sealed class SlicedExpansionTests
             Found = refuse.TryGet(out var why)
                 ? Result<Command, Reason>.Error(why)
                 : Result<Command, Reason>.Ok(new Command.Batch(ValueList.From<Command>([
-                    new Command.Place(ValueList.Of(c.T.Draft("StructureCableStraight", run.Request.From))),
-                    new Command.Place(ValueList.Of(c.T.Draft("StructureCableStraight", run.Request.To))),
+                    new Command.Place(ValueList.Of(c.T.Draft("StructureCableStraight", from))),
+                    new Command.Place(ValueList.Of(c.T.Draft("StructureCableStraight", to))),
                 ])));
             return StepOutcome.Done;
         }
@@ -47,7 +50,13 @@ public sealed class SlicedExpansionTests
         var started = new List<FakeSearch>();
         Assert.True(c.Expanders.RegisterSliced(new SlicedExpander<Command.PlanRun>(Routes, input =>
         {
-            var search = new FakeSearch(c, input.Command, steps, refuse is null ? Option<Reason>.None : Option.Some(refuse));
+            var search = new FakeSearch(c, input.Command.Request.From, input.Command.Request.To, steps, refuse is null ? Option<Reason>.None : Option.Some(refuse));
+            started.Add(search);
+            return search;
+        })).IsOk);
+        Assert.True(c.Expanders.RegisterSliced(new SlicedExpander<Command.PlanRoute>(Routes, input =>
+        {
+            var search = new FakeSearch(c, input.Command.Request.From, input.Command.Request.To, steps, refuse is null ? Option<Reason>.None : Option.Some(refuse));
             started.Add(search);
             return search;
         })).IsOk);
@@ -223,6 +232,119 @@ public sealed class SlicedExpansionTests
 
         Assert.Equal(new Answer<Result<Command, ValueList<Refusal>>>.Pending(new Revision(1)), after);
         Assert.Equal(3, started.Count);
+    }
+
+    private static bool IsReady(TestCommands c, Command command, Actor actor) =>
+        c.Service.Expansion(command, actor) is Answer<Result<Command, ValueList<Refusal>>>.Ready;
+
+    /// <summary>Asks the command, then asks again after each frame; the frames it took to be ready.</summary>
+    private static int FramesToReady(TestCommands c, Command command, Actor actor)
+    {
+        var frames = 0;
+        while (!IsReady(c, command, actor))
+        {
+            Assert.True(frames < 1000, "not ready within the frames given");
+            c.Frame();
+            frames++;
+        }
+
+        return frames;
+    }
+
+    private static int FramesToReadyAlone(Command command)
+    {
+        var c = new TestCommands();
+        Register(c);
+        return FramesToReady(c, command, Alice);
+    }
+
+    private static readonly Cell Start = new(100, 100, 100);
+    private static readonly Cell EndA = new(200, 100, 100);
+    private static readonly Cell EndB = new(200, 100, 200);
+
+    [Fact]
+    public void A_newer_run_preview_from_the_same_start_cancels_the_older_unfinished_one()
+    {
+        var alone = FramesToReadyAlone(Route(Start, EndB));
+        var c = new TestCommands();
+        Register(c);
+        Assert.False(IsReady(c, Route(Start, EndA), Alice));
+
+        var frames = FramesToReady(c, Route(Start, EndB), Alice);
+
+        Assert.True(frames <= alone, $"{frames} frames, alone {alone}");
+    }
+
+    [Fact]
+    public void A_cancelled_preview_is_forgotten_and_searches_again_when_asked_again()
+    {
+        var c = new TestCommands();
+        Register(c);
+        Assert.False(IsReady(c, Route(Start, EndA), Alice));
+        FramesToReady(c, Route(Start, EndB), Alice);
+
+        Assert.False(IsReady(c, Route(Start, EndA), Alice));
+        Assert.True(FramesToReady(c, Route(Start, EndA), Alice) > 0);
+    }
+
+    [Fact]
+    public void A_newer_drawn_run_from_the_same_start_cancels_the_older_unfinished_one()
+    {
+        var alone = FramesToReadyAlone(Run(Start, EndB));
+        var c = new TestCommands();
+        Register(c);
+        Assert.False(IsReady(c, Run(Start, EndA), Alice));
+
+        var frames = FramesToReady(c, Run(Start, EndB), Alice);
+
+        Assert.True(frames <= alone, $"{frames} frames, alone {alone}");
+    }
+
+    [Fact]
+    public void Previews_with_another_start_actor_or_command_type_are_not_cancelled()
+    {
+        var c = new TestCommands();
+        var started = Register(c);
+        var otherStart = Route(new Cell(100, 200, 100), EndA);
+        var otherActor = Route(Start, EndA);
+        var run = Run(Start, EndA);
+        var batch = new Command.Batch(ValueList.From<Command>([Run(new Cell(100, 300, 100), EndA)]));
+        IsReady(c, otherStart, Alice);
+        IsReady(c, otherActor, Bob);
+        IsReady(c, run, Alice);
+        IsReady(c, batch, Alice);
+
+        IsReady(c, Route(Start, EndB), Alice);
+        FramesUntil(c, () => IsReady(c, otherStart, Alice) & IsReady(c, otherActor, Bob) & IsReady(c, run, Alice) & IsReady(c, batch, Alice));
+
+        Assert.Equal(5, started.Count);
+    }
+
+    [Fact]
+    public void Two_batches_asked_together_both_finish()
+    {
+        var c = new TestCommands();
+        Register(c);
+        var first = new Command.Batch(ValueList.From<Command>([Run(Start, EndA)]));
+        var second = new Command.Batch(ValueList.From<Command>([Run(Start, EndB)]));
+
+        FramesUntil(c, () => IsReady(c, first, Alice) & IsReady(c, second, Alice));
+    }
+
+    [Fact]
+    public void A_repeat_ask_cancels_nothing()
+    {
+        var c = new TestCommands();
+        Register(c);
+        IsReady(c, Route(Start, EndA), Alice);
+        FramesUntil(c, () => IsReady(c, Route(Start, EndB), Alice));
+
+        var d = new TestCommands();
+        Register(d);
+        FramesUntil(d, () => IsReady(d, Route(Start, EndA), Alice));
+        Assert.False(IsReady(d, Route(Start, EndB), Alice));
+        Assert.True(IsReady(d, Route(Start, EndA), Alice));
+        FramesUntil(d, () => IsReady(d, Route(Start, EndB), Alice));
     }
 
     [Fact]
