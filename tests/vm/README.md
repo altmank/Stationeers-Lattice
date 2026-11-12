@@ -6,7 +6,8 @@ Lattice's in-game checks run in a VM rig through the shared VM-run kit. This fol
 - `hooks\`: `prelaunch.ps1` (shots folder, shader bundle, build md5s, the base file for the bigbase runs), `onpoll.ps1`
   (the NVIDIA renderer or the run fails), `judge.ps1` (FAIL lines, the mode's timing lines, the bigbase verdict).
 - `judge.tests.ps1`, `prelaunch.tests.ps1`, `vm-run.tests.ps1`, `publish-bigbase.tests.ps1` and `fixtures\`: script tests.
-  `build.ps1` runs them (not with `-Perf`) under Windows PowerShell 5.1, the shell the hooks run in. They touch no game.
+  `build.ps1` runs them (not with `-Perf`) under PowerShell 7, the shell RigVM runs the hooks in. They touch no game.
+  The scriptblocks the hooks send into the VM guest run there under Windows PowerShell 5.1, so they keep 5.1 syntax.
 - `publish-bigbase.ps1`: files a finished `bigbase-build` run in the worlds library (`STATIONEERS_WORLDS` or `-LibraryRoot`).
 - `publish-builder-turns.ps1`: the same for a finished `builder-turns` run (its README and world.txt keys differ).
 - The plugin that starts a mode lives in `tests\Lattice.LiveChecks`; it is test-only and never shipped.
@@ -16,7 +17,7 @@ Lattice's in-game checks run in a VM rig through the shared VM-run kit. This fol
 Commit first: the kit builds the named ref, never uncommitted files.
 
 ```
-powershell -NoProfile -File <RigVM>\host\vm-run.ps1 start -Mod Lattice -Kind proof -Proof <run> -Ref <branch|sha>
+pwsh -NoProfile -File <RigVM>\host\vm-run.ps1 start -Mod Lattice -Kind proof -Proof <run> -Ref <branch|sha>
     [-World <library name>] [-Param bigbase=<tsv path>,held=<n>] [-ExpectedMinutes N] [-DryRun]
 vm-wait.ps1 -KitId <id>      (repeat until it ends)
 vm-result.ps1 -KitId <id>
