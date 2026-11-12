@@ -6,7 +6,16 @@ namespace Lattice.Tests.Slices;
 /// <summary>A clock that moves only when a test or a test job moves it.</summary>
 internal sealed class FakeClock : IClock
 {
-    public TimeSpan Now { get; private set; }
+    private TimeSpan _now;
+
+    /// <summary>Time every read of <see cref="Now"/> adds, so work that never advances the clock itself still takes time.</summary>
+    public TimeSpan Tick { get; set; }
+
+    public TimeSpan Now
+    {
+        get => _now += Tick;
+        private set => _now = value;
+    }
 
     public void Advance(TimeSpan by) => Now += by;
 }

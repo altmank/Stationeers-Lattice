@@ -32,6 +32,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
     private readonly HashSet<CommandId> _waitingIds = new();
     private readonly Queue<Submitted> _queue = new();
     private readonly Dictionary<(Command Command, Actor Actor), Previewed> _previews = new();
+    private readonly List<(Command Command, Actor Actor)> _overtaken = [];
     private Revision _previewsAt;
     private bool _applying;
 
@@ -94,6 +95,7 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
         var key = (command, actor);
         if (!_previews.TryGetValue(key, out var previewed))
         {
+            CancelOvertaken(command, actor);
             previewed = new Previewed(at);
             _previews.Add(key, previewed);
         }
@@ -140,6 +142,22 @@ internal sealed class CommandService(GhostBoard board, CommandExpanders expander
             previewed.Searching?.Cancel();
         _previews.Clear();
         _previewsAt = at;
+    }
+
+    // The actor's unfinished previews that a newer drag position replaces: cancelled and forgotten, so asking one again starts it again.
+    private void CancelOvertaken(Command command, Actor actor)
+    {
+        foreach (var (key, previewed) in _previews)
+        {
+            if (key.Actor != actor || previewed.Ready.IsSome || !DragStart.Overtakes(command, key.Command))
+                continue;
+            previewed.Searching?.Cancel();
+            _overtaken.Add(key);
+        }
+
+        foreach (var key in _overtaken)
+            _previews.Remove(key);
+        _overtaken.Clear();
     }
 
     private Parts PartsFor(Command command, Actor actor)

@@ -55,6 +55,47 @@ public sealed class PreviewFlowTests
         Assert.Equal(report.Pieces.Count, preview.WouldChange.Added.Count);
     }
 
+    private static Command.PlanRoute Route(PreviewBench bench, Cell to) =>
+        new(new RouteRequest(bench.Runs.Cable, At(2, 2, 2), to, new RouteToggles(false, false, false, false, false), Option<PlanId>.None, TestBoard.TestMaker));
+
+    /// <summary>A bench whose clock moves on every read, so a route search spans frames.</summary>
+    private static PreviewBench SlowBench()
+    {
+        var bench = new PreviewBench();
+        bench.Clock.Tick = TimeSpan.FromMilliseconds(0.25);
+        return bench.Start();
+    }
+
+    private static int FramesToReady(PreviewBench bench, Command command)
+    {
+        var frames = 0;
+        while (bench.Preview.Of(command, TestBoard.Alice) is not PreviewAnswer.Ready)
+        {
+            Assert.True(frames < 1000, "not ready within the frames given");
+            bench.Frame();
+            frames++;
+        }
+
+        return frames;
+    }
+
+    [Fact]
+    public void A_route_dragged_over_ten_ends_is_ready_for_the_last_one_as_soon_as_a_lone_preview_of_it_would_be()
+    {
+        var lone = SlowBench();
+        var alone = FramesToReady(lone, Route(lone, At(82, 2, 6)));
+        var bench = SlowBench();
+        for (var end = 1; end <= 10; end++)
+        {
+            bench.Preview.Of(Route(bench, At(2 + (end * 8), 2, 6)), TestBoard.Alice);
+            bench.Frame();
+        }
+
+        var frames = FramesToReady(bench, Route(bench, At(82, 2, 6)));
+
+        Assert.True(frames <= alone + 1, $"{frames} frames, alone {alone}");
+    }
+
     [Fact]
     public void An_agents_swap_dry_run_gives_the_change_set_findings_bill_and_effects_and_a_swap_keeps_its_network()
     {
