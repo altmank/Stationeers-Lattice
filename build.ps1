@@ -110,8 +110,9 @@ function Invoke-Deploy {
     }
     $owner = if ($LockOwner) { $LockOwner } else { "lattice-deploy $(Split-Path $PSScriptRoot -Leaf) pid $PID" }
     if ($takeLock) {
-        $lockArgs = @('-Owner', $owner, '-ExpectedMinutes', 5)
-        if ($LockItem) { $lockArgs += @('-Item', $LockItem) }
+        # A hashtable binds by name; an array of '-Owner', ... strings would reach a script as positional values.
+        $lockArgs = @{ Owner = $owner; ExpectedMinutes = 5 }
+        if ($LockItem) { $lockArgs.Item = $LockItem }
         & $LockScript acquire @lockArgs | ForEach-Object { Write-Host "   $_" }
         if ($LASTEXITCODE -ne 0) {
             Write-Host "== deploy failed: could not take the game lock (exit $LASTEXITCODE)" -ForegroundColor Red
