@@ -164,7 +164,7 @@ internal sealed class LatticeWorld : IGhostSystem
                 runtime.Log(ModuleLines.Off(status.Name, off.Why));
         if (ports.Modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
         {
-            runtime.Log("Lattice does not start for this world: the catalogue cannot be read.");
+            runtime.Log("Lattice isn't running in this world: it can't read this game's building pieces.");
             return Result<LatticeWorld, Reason>.Error(noCatalogue);
         }
 
@@ -176,7 +176,7 @@ internal sealed class LatticeWorld : IGhostSystem
         }
         catch (Exception error)
         {
-            runtime.Log($"Lattice does not start for this world: starting {world._starting.Value} failed. {error}");
+            runtime.Log($"Lattice isn't running in this world: starting {world._starting.Value} failed. {error}");
             world.End();
             return Result<LatticeWorld, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, EntryCodes.Rule, ValueMap
                 .Of("module", world._starting.Value)

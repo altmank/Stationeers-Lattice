@@ -41,12 +41,12 @@ internal sealed class LatticePlugin : BaseUnityPlugin
         var missing = members.Missing(EntryManifest.Module);
         if (missing.Count > 0)
         {
-            log($"Lattice is off for this game: the entry point's game members are missing: {Names(missing)}.");
+            log($"Lattice is off: this game version changed something it needs ({Names(missing)}). Update Lattice or wait for its update.");
             return;
         }
 
         if (SaveHooks.Install().TryGetError(out var noHooks))
-            log($"Lattice saving hooks not installed: {noHooks}");
+            log($"Lattice won't save your plans: it couldn't attach to the game's saving. {noHooks}");
         var networking = Networking.Register(log);
 
         var watcher = new GameObject("Lattice");
@@ -108,7 +108,7 @@ internal static class Networking
         }
         catch (Exception error)
         {
-            log($"Lattice sync is off: LaunchPadBooster has no mod networking ({error.GetType().Name}: {error.Message}).");
+            log($"Lattice multiplayer sync is off: StationeersLaunchPad's mod networking isn't available ({error.GetType().Name}: {error.Message}).");
             return false;
         }
     }

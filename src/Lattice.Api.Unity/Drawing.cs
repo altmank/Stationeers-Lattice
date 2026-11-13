@@ -108,7 +108,7 @@ public sealed record DrawOrder(int FadedWorld, int Ghosts, int Overlays, int See
 /// <param name="Colour">The text colour.</param>
 public sealed record TextStyle(TMP_FontAsset Font, float Size, Rgba Colour)
 {
-    /// <summary>Words for reason codes (<see cref="LabelText.FindingReason"/>); a code with no entry is shown as written.</summary>
+    /// <summary>Words for reason codes (<see cref="LabelText.FindingReason"/>); a code with no entry gets Lattice's own plain words, else a plain fallback; the code is never shown.</summary>
     public ValueMap<ReasonCode, Label> Wording { get; init; } = ValueMap<ReasonCode, Label>.Empty;
 }
 

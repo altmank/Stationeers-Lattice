@@ -1,16 +1,20 @@
 # Changelog
 
+## 0.22.21
+
+Fixed: hovering a ghost that can't be built says why in plain words, not a code.
+
 ## 0.22.20
 
-Changed: code prepared in idle frames after a load leaves base-library collections keyed by enums to their first use.
+Changed: less work is done just after a world loads, so it starts a little smoother.
 
-Fixed: a mod type that is missing a member, or a mod whose types only partly load, is skipped instead of stopping Lattice from starting.
+Fixed: a mod that doesn't load fully no longer stops Lattice from starting.
 
-Fixed: a cable, pipe or chute run's preview no longer gets stuck while you drag its end: a newer preview replaces the ones it overtook.
+Fixed: dragging the end of a cable, pipe or chute run no longer freezes its preview.
 
 ## 0.22.19
 
-Fixed: placing or loading a big plan stutters much less: its work is spread over frames, and the code it first runs is prepared in idle frames.
+Fixed: placing or loading a big plan stutters much less.
 
 Fixed: saving a big plan no longer causes a hitch.
 

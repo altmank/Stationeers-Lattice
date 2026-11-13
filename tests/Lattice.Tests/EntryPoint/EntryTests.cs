@@ -255,7 +255,7 @@ public sealed class EntryTests : IDisposable
         Assert.Equal("start-failed", why.Facts["problem"]);
         Assert.Contains("scan failed", why.Facts["error"]);
         Assert.False(LatticeSystem.Current.TryGet(out _));
-        Assert.Contains(_bench.Log, line => line.Contains("does not start"));
+        Assert.Contains(_bench.Log, line => line.Contains("isn't running in this world"));
     }
 
     [Fact]

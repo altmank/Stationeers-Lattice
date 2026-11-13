@@ -223,18 +223,16 @@ internal sealed class LabelWords(ILabelFacts facts, ILabelSurface surface)
                     Put(name.Value);
                 break;
             case LabelText.FindingReason:
-                var why = thing.Finding switch
+                switch (thing.Finding)
                 {
-                    Finding.WillFail fail => fail.Why,
-                    Finding.Warns warns => warns.Why,
-                    _ => null,
-                };
-                if (why is null)
-                    break;
-                if (style.Wording.TryGetValue(why.Code, out var worded))
-                    Put(worded.Value);
-                else
-                    Put(why.Code.Value);
+                    case Finding.WillFail fail:
+                        Put(DefaultWording.For(fail.Why, style, warns: false));
+                        break;
+                    case Finding.Warns warns:
+                        Put(DefaultWording.For(warns.Why, style, warns: true));
+                        break;
+                }
+
                 break;
             case LabelText.PlanTitle:
                 if (record is not null && facts.PlanTitle(record.Plan, out var title))

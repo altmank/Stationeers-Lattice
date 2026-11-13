@@ -109,7 +109,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         }
         catch (Exception error)
         {
-            _log($"Lattice does not start for this world: {error}");
+            _log($"Lattice isn't running in this world: it failed while starting. {error}");
             EndWorld();
         }
     }
@@ -122,7 +122,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         var modules = ModuleSwitches.Decide(LatticeModules.All, _members, seat, drawing: !GameManager.IsBatchMode);
         if (modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
         {
-            _log($"Lattice does not start for this world: the catalogue cannot be read. {noCatalogue}");
+            _log($"Lattice isn't running in this world: it can't read this game's building pieces. {noCatalogue}");
             return;
         }
 
@@ -141,7 +141,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         {
             if (!WorldBridge.Start().TryGet(out var bridge))
             {
-                _log("Lattice does not start for this world: the world bridge did not start.");
+                _log("Lattice isn't running in this world: it couldn't connect to the game world.");
                 return;
             }
 
@@ -179,8 +179,8 @@ internal sealed class WorldWatcher : MonoBehaviour
         foreach (var module in world.Modules)
             if (module.State is ModuleState.Off)
                 off++;
-        _log($"Lattice: catalogue listed in {(long)listing.Elapsed.TotalMilliseconds} ms ({readBefore} prefabs read before the world started): {CatalogueSummary.Of(world.Catalogue)}.");
-        _log($"Lattice: started for this world ({seat}, {(GameManager.IsBatchMode ? "dedicated" : "with a local player")}): {world.Modules.Count - off} modules on, {off} off.");
+        _log($"Lattice read this game's building pieces in {(long)listing.Elapsed.TotalMilliseconds} ms ({readBefore} were already read before the world started): {CatalogueSummary.Of(world.Catalogue)}.");
+        _log($"Lattice: started for this world ({seat}, {(GameManager.IsBatchMode ? "dedicated" : "with a local player")}): {world.Modules.Count - off} parts of Lattice running, {off} switched off.");
         if (modules.IsOn(LatticeModules.Render))
             OpenRender(world);
         world.Publish();

@@ -196,7 +196,7 @@ internal static class WorldPatches
         if (Current == null)
             return;
         Current = null;
-        Log($"Lattice world bridge off for this world: patch {patch} threw {e}");
+        Log($"Lattice turned off its connection to the game world because it didn't work with this game version (patch {patch}): {e}");
     };
 
     private static void Log(string text) => UnityEngine.Debug.LogError(text);

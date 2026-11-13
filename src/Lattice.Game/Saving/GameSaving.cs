@@ -54,7 +54,7 @@ internal sealed class GameSaving
             fingerprint => Option.Some(new SaveKey(Path.GetFullPath(path), fingerprint)),
             why =>
             {
-                log($"Lattice saving: the loaded save has no fingerprint ({why}); plans open at their newest lines.");
+                log($"Lattice can't tell which save this is ({why}); each plan opens with its newest changes.");
                 return Option.Some(new SaveKey(Path.GetFullPath(path), ""));
             });
         return new GameSaving(saving, saving.Open(key), newWorld: false, log);
@@ -88,9 +88,9 @@ internal sealed class GameSaving
             return;
         var after = SaveFiles.Fingerprint(path);
         if (!after.TryGet(out var fingerprint))
-            _log($"Lattice saving: no record for {path}: it has no fingerprint.");
+            _log($"Lattice can't tell which save this is, so it kept no plans for {path}: the save has no fingerprint.");
         else if (!SaveFiles.WasWritten(before, after))
-            _log($"Lattice saving: no record for {path}: the game did not write it.");
+            _log($"Lattice kept no plans for {path}: the game did not write that save.");
         else
             Saving.AfterGameSave(capture, new SaveKey(path, fingerprint), DateTimeOffset.Now);
     }
