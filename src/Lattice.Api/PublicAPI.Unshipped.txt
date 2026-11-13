@@ -2883,7 +2883,7 @@ static Lattice.Api.PiecePlacing.OnFaceMount.get -> Lattice.Api.PiecePlacing!
 Lattice.Api.AxisSnap.OnLine(int decimetres) -> bool
 Lattice.Api.PieceSnap.OnFaces.get -> bool
 Lattice.Api.PieceSnap.OnFaces.init -> void
-const Lattice.Api.ApiVersion.ContractPatch = 20 -> int
+const Lattice.Api.ApiVersion.ContractPatch = 21 -> int
 static Lattice.Api.ApiVersion.CurrentPatch.get -> int
 Lattice.Api.FlowChoice
 Lattice.Api.FlowChoice.At.get -> Lattice.Api.Cell
