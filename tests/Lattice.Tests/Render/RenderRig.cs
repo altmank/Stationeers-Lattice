@@ -3,6 +3,7 @@ using Lattice.Api;
 using Lattice.Core.Styles;
 using Lattice.Render;
 using Lattice.Render.Gpu;
+using Lattice.Tests.Logging;
 using Lattice.Tests.Styles;
 
 namespace Lattice.Tests.Render;
@@ -18,11 +19,15 @@ internal sealed class RenderRig
 
     public List<string> Log { get; } = new();
 
+    /// <summary>Every line with the level it was written at; <see cref="Log"/> holds the same lines without it.</summary>
+    public RecordedLog Recorded { get; }
+
     /// <summary>The bundle's material, one per key (the fill shaders with the icon pattern keyword, as the bundle's have), unless a key is left out to stand for the stand-in's gaps.</summary>
     public Dictionary<MaterialKey, FakeMaterial> Bundle { get; } = new();
 
     public RenderRig(bool bundle = true)
     {
+        Recorded = new RecordedLog(Log.Add);
         if (!bundle)
             return;
         foreach (var key in Lattice.Render.Materials.MaterialTable.LatticeKeys)
@@ -34,7 +39,7 @@ internal sealed class RenderRig
     /// <summary>Ports and joins for port and open-end marks; none draws no marks.</summary>
     public Lattice.Render.Marks.IMarkFacts? Facts { get; set; }
 
-    public RenderPorts Ports => new(Gpu, Camera, Pieces, key => Bundle.TryGetValue(key, out var m) ? Option.Some<IGpuMaterial>(m) : Option<IGpuMaterial>.None, Log.Add, Facts);
+    public RenderPorts Ports => new(Gpu, Camera, Pieces, key => Bundle.TryGetValue(key, out var m) ? Option.Some<IGpuMaterial>(m) : Option<IGpuMaterial>.None, Recorded.Sink, Facts);
 
     /// <summary>Drawing over the bench's styles, with frames run until its batches are built.</summary>
     public Renderer Over(StyleBench bench)

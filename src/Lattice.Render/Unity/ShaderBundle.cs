@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Lattice.Api;
+using Lattice.Core.Logging;
 using Lattice.Render.Gpu;
 using Lattice.Render.Materials;
 using UnityEngine;
@@ -43,9 +44,9 @@ internal sealed class ShaderBundle
     /// Loads the bundle and its materials, logging the device, Unity's version and each shader's support; the
     /// stand-in when the bundle is missing or holds no material; none at all when the game's shader is gone too.
     /// </summary>
-    public static ShaderBundle Load(string path, Action<string> log)
+    public static ShaderBundle Load(string path, LogSink log)
     {
-        log($"Lattice render: device {SystemInfo.graphicsDeviceType}, Unity {Application.unityVersion}.");
+        log.Info($"Lattice render: device {SystemInfo.graphicsDeviceType}, Unity {Application.unityVersion}.");
         var materials = new Dictionary<MaterialKey, IGpuMaterial>(16);
         var bundle = File.Exists(path) ? AssetBundle.LoadFromFile(path) : null;
         if (bundle != null)
@@ -57,20 +58,20 @@ internal sealed class ShaderBundle
             if (materials.Count > 0)
                 return new ShaderBundle(bundle, materials, new List<Material>(0));
             bundle.Unload(true);
-            log($"Lattice render: the shader bundle {path} holds no material Lattice knows.");
+            log.Warning($"Lattice render: the shader bundle {path} holds no material Lattice knows.");
         }
         else
-            log($"Lattice render: the shader bundle {path} did not load.");
+            log.Warning($"Lattice render: the shader bundle {path} did not load.");
 
         var made = new List<Material>(3);
         var shader = Shader.Find(StandInShader);
         if (shader == null)
         {
-            log($"Lattice render: no stand-in either (the game's shader {StandInShader} is gone).");
+            log.Error($"Lattice render: no stand-in either (the game's shader {StandInShader} is gone).");
             return new ShaderBundle(null, materials, made);
         }
 
-        log($"Lattice render: drawing with the stand-in ({StandInShader}): fills only.");
+        log.Info($"Lattice render: drawing with the stand-in ({StandInShader}): fills only.");
         foreach (var key in new[] { MaterialKeys.Ghost, MaterialKeys.Solid, MaterialKeys.Wire })
         {
             var material = new Material(shader) { name = "Lattice stand-in " + key.Value, enableInstancing = true };
@@ -95,16 +96,16 @@ internal sealed class ShaderBundle
             _bundle.Unload(true);
     }
 
-    private static void Take(AssetBundle bundle, MaterialKey key, Dictionary<MaterialKey, IGpuMaterial> into, Action<string> log)
+    private static void Take(AssetBundle bundle, MaterialKey key, Dictionary<MaterialKey, IGpuMaterial> into, LogSink log)
     {
         var material = bundle.LoadAsset<Material>(key.Value);
         if (material == null)
         {
-            log($"Lattice render: the bundle has no material {key.Value}.");
+            log.Warning($"Lattice render: the bundle has no material {key.Value}.");
             return;
         }
 
-        log($"Lattice render: material {key.Value}, shader {material.shader.name}, supported {material.shader.isSupported}.");
+        log.Info($"Lattice render: material {key.Value}, shader {material.shader.name}, supported {material.shader.isSupported}.");
         into[key] = new UnityMaterial(material);
     }
 }

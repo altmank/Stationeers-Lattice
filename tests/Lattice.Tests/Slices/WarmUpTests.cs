@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Lattice.Api;
+using Lattice.Core.Logging;
 using Lattice.Core.Slices;
 
 namespace Lattice.Tests.Slices;
@@ -79,7 +80,7 @@ public sealed class WarmUpTests
     {
         var compiled = new System.Collections.Generic.List<System.Reflection.MethodBase>();
         var logged = new System.Collections.Generic.List<string>();
-        sets.Log = logged.Add;
+        sets.Log = LogSink.To(logged.Add);
         var scheduler = Scheduler();
         var job = Job(WarmUp.Schedule(sets, scheduler, "slices-generics", typeof(Warm.Holder).Assembly, ["Lattice.Tests.Slices.Warm"], (method, _) => compiled.Add(method)));
         for (var i = 0; i < 10_000 && job.State == JobState.Running; i++)

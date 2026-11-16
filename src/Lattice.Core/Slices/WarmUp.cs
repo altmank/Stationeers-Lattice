@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lattice.Api;
+using Lattice.Core.Logging;
 
 namespace Lattice.Core.Slices;
 
@@ -161,7 +162,7 @@ internal sealed class WarmUp : ISlicedWork
         }
 
         _sets.Add(_set);
-        _sets.Log($"Lattice warm-up {_set}: {Compiled} methods compiled; left to first call: {Skipped} expected to compile too slowly, {SkippedValued} of them on generic types closed over value types.");
+        _sets.Log.Info($"Lattice warm-up {_set}: {Compiled} methods compiled; left to first call: {Skipped} expected to compile too slowly, {SkippedValued} of them on generic types closed over value types.");
         return StepOutcome.Done;
     }
 
@@ -533,5 +534,5 @@ internal sealed class WarmedSets
     }
 
     /// <summary>Where a finished set's summary goes; set once by the host.</summary>
-    internal Action<string> Log { get; set; } = static _ => { };
+    internal LogSink Log { get; set; } = LogSink.Silent;
 }

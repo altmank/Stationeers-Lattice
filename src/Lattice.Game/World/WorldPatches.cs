@@ -7,6 +7,7 @@ using HarmonyLib;
 using Lattice.Api;
 using Lattice.Core.Modules;
 using Lattice.Core.World;
+using Lattice.Game.EntryPoint;
 
 namespace Lattice.Game.World;
 
@@ -87,14 +88,14 @@ internal static class WorldPatches
         }
         catch (Exception e)
         {
-            Log($"Lattice world bridge: patching {(patched.Count < 1 ? "the first target" : "after " + patched[patched.Count - 1].Name)} failed, undoing every world patch: {e}");
+            PluginLog.Sink.Error($"Lattice world bridge: patching {(patched.Count < 1 ? "the first target" : "after " + patched[patched.Count - 1].Name)} failed, undoing every world patch: {e}");
             try
             {
                 harmony.UnpatchSelf();
             }
             catch (Exception undo)
             {
-                Log($"Lattice world bridge: undoing the world patches failed: {undo}");
+                PluginLog.Sink.Error($"Lattice world bridge: undoing the world patches failed: {undo}");
             }
 
             return Result<Unit, Reason>.Error(Reason.Of(
@@ -130,7 +131,7 @@ internal static class WorldPatches
             types.AddRange(TypesOf(assembly));
         var walk = TypeWalk.Run(types, type => SettingSettersOf(type, interfaceName));
         if (walk.SkippedLine() is { } line)
-            Log(line);
+            PluginLog.Sink.Warning(line);
         return [.. walk.Methods];
     }
 
@@ -196,10 +197,8 @@ internal static class WorldPatches
         if (Current == null)
             return;
         Current = null;
-        Log($"Lattice turned off its connection to the game world because it didn't work with this game version (patch {patch}): {e}");
+        PluginLog.Sink.Error($"Lattice turned off its connection to the game world because it didn't work with this game version (patch {patch}): {e}");
     };
-
-    private static void Log(string text) => UnityEngine.Debug.LogError(text);
 
     private static void AfterRegister(Structure structure)
     {

@@ -18,6 +18,11 @@ public sealed class ShippedSourceTests
     private static readonly Regex KeyRead =
         new(@"\b(KeyCode|KeyManager|UnityEngine\.Input\b|Input\s*\.\s*(GetKey|GetButton|anyKey|inputString)|Keyboard\.current|Event\.current|ImGui\.IsKey)");
 
+    // Unity's log skips LogOutput.log; a failure the player must see in the in-game console may keep one, with this on its line.
+    private const string ConsoleException = "in-game console";
+
+    private static readonly Regex UnityLog = new(@"\bDebug\s*\.\s*(Log\w*|unityLogger)\b");
+
     private static readonly Regex LinqUsing =
         new(@"^\s*(global\s+)?using\s+(static\s+)?System\.Linq\b", RegexOptions.Multiline);
 
@@ -56,6 +61,36 @@ public sealed class ShippedSourceTests
     [InlineData("case WorkInput.Ghosts ghosts:")]
     [InlineData("var input = support.Input with { World = world };")]
     public void The_key_scan_passes_lattice_input_records(string line) => Assert.DoesNotMatch(KeyRead, line);
+
+    [Fact]
+    public void No_source_writes_through_unitys_log()
+    {
+        var offenders = Directory.EnumerateFiles(Path.Combine(RepoRoot(), "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !IsBuildOutput(file) && !InShaderEditor(file))
+            .SelectMany(file => File.ReadLines(file).Where(UnityLogWrite).Select(line => $"{file}: {line.Trim()}"))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Theory]
+    [InlineData("UnityEngine.Debug.LogError($\"patching failed: {e}\");")]
+    [InlineData("Debug.Log(\"started\");")]
+    [InlineData("    Debug.LogWarning(text);")]
+    [InlineData("UnityEngine.Debug.unityLogger.Log(\"x\");")]
+    public void The_unity_log_scan_sees_a_write(string line) => Assert.True(UnityLogWrite(line));
+
+    [Theory]
+    [InlineData("PluginLog.Sink.Error($\"patching failed: {e}\");")]
+    [InlineData("Logger.LogInfo(text);")]
+    [InlineData("UnityEngine.Debug.LogError(text); // in-game console: the player must see this failure")]
+    public void The_unity_log_scan_passes_the_plugin_source_and_a_commented_console_exception(string line) => Assert.False(UnityLogWrite(line));
+
+    private static bool UnityLogWrite(string line) =>
+        UnityLog.IsMatch(line) && !line.Contains(ConsoleException, StringComparison.Ordinal);
+
+    private static bool InShaderEditor(string file) =>
+        file.Contains($"{Path.DirectorySeparatorChar}Shaders{Path.DirectorySeparatorChar}Editor{Path.DirectorySeparatorChar}");
 
     private static bool IsBuildOutput(string file) =>
         file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") ||

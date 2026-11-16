@@ -10,6 +10,7 @@ using Lattice.Core.Catalogue;
 using Lattice.Core.EntryPoint;
 using Lattice.Core.Executors;
 using Lattice.Core.Grid;
+using Lattice.Core.Logging;
 using Lattice.Core.Styles;
 using Lattice.Game.Catalogue;
 using Lattice.Game.Looks;
@@ -40,7 +41,7 @@ internal sealed class WorldWatcher : MonoBehaviour
     private static readonly Lattice.Core.Slices.WarmedSets Warmed = new();
 
     private CachedGameMembers _members = null!;
-    private Action<string> _log = static _ => { };
+    private LogSink _log = LogSink.Silent;
     private bool _networking;
     private bool _exportAsked;
     private bool _inWorld;
@@ -52,7 +53,7 @@ internal sealed class WorldWatcher : MonoBehaviour
     // The game's prefabs do not change within a process: meshes read for one world serve the next.
     private readonly GamePieceParts _pieceParts = new(new PieceMeshes());
 
-    public void Prepare(CachedGameMembers members, bool networking, Action<string> log)
+    public void Prepare(CachedGameMembers members, bool networking, LogSink log)
     {
         _members = members;
         _networking = networking;
@@ -109,7 +110,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         }
         catch (Exception error)
         {
-            _log($"Lattice isn't running in this world: it failed while starting. {error}");
+            _log.Error($"Lattice isn't running in this world: it failed while starting. {error}");
             EndWorld();
         }
     }
@@ -122,7 +123,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         var modules = ModuleSwitches.Decide(LatticeModules.All, _members, seat, drawing: !GameManager.IsBatchMode);
         if (modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
         {
-            _log($"Lattice isn't running in this world: it can't read this game's building pieces. {noCatalogue}");
+            _log.Error($"Lattice isn't running in this world: it can't read this game's building pieces. {noCatalogue}");
             return;
         }
 
@@ -141,7 +142,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         {
             if (!WorldBridge.Start().TryGet(out var bridge))
             {
-                _log("Lattice isn't running in this world: it couldn't connect to the game world.");
+                _log.Error("Lattice isn't running in this world: it couldn't connect to the game world.");
                 return;
             }
 
@@ -171,7 +172,7 @@ internal sealed class WorldWatcher : MonoBehaviour
         _world = world;
         if (saving is not null)
             saving.CatchUp = world.CatchUp;
-        Action<Reason> report = why => _log($"Lattice sync: {why}");
+        Action<Reason> report = why => _log.Warning($"Lattice sync: {why}");
         GameSync.Current = world.Host is { } host ? GameSync.ForHost(host, report)
             : world.Client is { } client ? GameSync.ForClient(client, report)
             : null;
@@ -179,8 +180,8 @@ internal sealed class WorldWatcher : MonoBehaviour
         foreach (var module in world.Modules)
             if (module.State is ModuleState.Off)
                 off++;
-        _log($"Lattice read this game's building pieces in {(long)listing.Elapsed.TotalMilliseconds} ms ({readBefore} were already read before the world started): {CatalogueSummary.Of(world.Catalogue)}.");
-        _log($"Lattice: started for this world ({seat}, {(GameManager.IsBatchMode ? "dedicated" : "with a local player")}): {world.Modules.Count - off} parts of Lattice running, {off} switched off.");
+        _log.Info($"Lattice read this game's building pieces in {(long)listing.Elapsed.TotalMilliseconds} ms ({readBefore} were already read before the world started): {CatalogueSummary.Of(world.Catalogue)}.");
+        _log.Info($"Lattice: started for this world ({seat}, {(GameManager.IsBatchMode ? "dedicated" : "with a local player")}): {world.Modules.Count - off} parts of Lattice running, {off} switched off.");
         if (modules.IsOn(LatticeModules.Render))
             OpenRender(world);
         world.Publish();
@@ -196,7 +197,7 @@ internal sealed class WorldWatcher : MonoBehaviour
             LatticeDrawing.Publish(render.Drawing);
         }
         else if (opened.TryGetError(out var why))
-            _log($"Lattice render: not drawing for this world: {why}");
+            _log.Error($"Lattice render: not drawing for this world: {why}");
     }
 
     private void EndWorld()
@@ -211,7 +212,7 @@ internal sealed class WorldWatcher : MonoBehaviour
             render?.End();
             world?.End();
             if (world is not null)
-                _log("Lattice: ended for this world.");
+                _log.Info("Lattice: ended for this world.");
         }
         finally
         {
