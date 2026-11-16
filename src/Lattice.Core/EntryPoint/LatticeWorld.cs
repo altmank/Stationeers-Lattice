@@ -165,7 +165,7 @@ internal sealed class LatticeWorld : IGhostSystem
                 runtime.Log.Warning(ModuleLines.Off(status.Name, off.Why));
         if (ports.Modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
         {
-            runtime.Log.Error("Lattice isn't running in this world: it can't read this game's building pieces.");
+            runtime.Log.Error($"Lattice isn't running in this world: it can't read this game's building pieces. {noCatalogue}");
             return Result<LatticeWorld, Reason>.Error(noCatalogue);
         }
 
