@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using Lattice.Api;
 using Lattice.Core.EntryPoint;
+using Lattice.Core.Logging;
 using Lattice.Core.Executors;
 using Lattice.Core.Grid;
 using Lattice.Core.Modules;
@@ -116,7 +117,7 @@ internal sealed class RealBaseBench : IDisposable
             World = Option.Some(new GamePorts(World, new FakeScan(World), World, _check)),
             Saving = Option.Some(new OpenedSaving(_saving, opened)),
         };
-        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(_log.Add) with { Clock = _clock, WarmUp = warmUp ? Warmed : null }));
+        Lattice = TestKitIds.Must(LatticeWorld.Start(ports, WorldRuntime.Threads(LogSink.To(_log.Add)) with { Clock = _clock, WarmUp = warmUp ? Warmed : null }));
         watch.Stop();
         return watch.Elapsed;
     }

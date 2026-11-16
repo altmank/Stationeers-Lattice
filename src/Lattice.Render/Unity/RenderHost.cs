@@ -1,6 +1,7 @@
 using System;
 using Lattice.Api;
 using Lattice.Core.EntryPoint;
+using Lattice.Core.Logging;
 using Lattice.Core.Slices;
 using Lattice.Core.Styles;
 using Lattice.Render.Drawing;
@@ -40,7 +41,7 @@ internal sealed class RenderHost : MonoBehaviour
     /// key has a material (the bundle and the stand-in both missing). <paramref name="pieces"/> reads the prefabs' meshes;
     /// <paramref name="font"/> is the game's text font, else TextMeshPro's default.
     /// </summary>
-    public static Result<RenderHost, Reason> Open(LatticeWorld world, IPieceParts pieces, TMP_FontAsset? font, Action<string> log)
+    public static Result<RenderHost, Reason> Open(LatticeWorld world, IPieceParts pieces, TMP_FontAsset? font, LogSink log)
     {
         if (Renderer.Off(world).TryGet(out var off) || world.StyleModule is not { } styles)
             return Result<RenderHost, Reason>.Error(off);
@@ -73,7 +74,7 @@ internal sealed class RenderHost : MonoBehaviour
         host.Drawing = new GhostDrawing(renderer, new UnityObjects(), () => camera.Current is { } c ? Option.Some(c) : Option<Camera>.None);
         styles.Projector = renderer.Labels;
         Application.onBeforeRender += host.BeforeCameras;
-        log($"Lattice render: drawing with {(bundle.Own ? "Lattice's shaders" : "the stand-in")} ({bundle.Count} materials).");
+        log.Info($"Lattice render: drawing with {(bundle.Own ? "Lattice's shaders" : "the stand-in")} ({bundle.Count} materials).");
         return Result<RenderHost, Reason>.Ok(host);
     }
 

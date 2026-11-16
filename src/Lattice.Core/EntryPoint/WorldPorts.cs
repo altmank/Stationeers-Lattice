@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Analysis;
 using Lattice.Core.Executors;
+using Lattice.Core.Logging;
 using Lattice.Core.Ports;
 using Lattice.Core.Saving;
 using Lattice.Core.Slices;
@@ -57,7 +58,7 @@ internal sealed record WorldRuntime(
     FrameBudgets Budgets,
     Func<string, IValidationWorker> Workers,
     Func<IRuleCalls> RuleCalls,
-    Action<string> Log)
+    LogSink Log)
 {
     /// <summary>The decided time limit of other mods' rules.</summary>
     public TimeSpan RuleLimit { get; init; } = RuleGuard.DefaultLimit;
@@ -69,7 +70,7 @@ internal sealed record WorldRuntime(
     public Func<IValidationWorker?> AnalyzerWorker { get; init; } = static () => null;
 
     /// <summary>The game's runtime: a stopwatch, the default budgets and Lattice's own named threads.</summary>
-    public static WorldRuntime Threads(Action<string> log) =>
+    public static WorldRuntime Threads(LogSink log) =>
         new(new StopwatchClock(), new SystemTime(), FrameBudgets.Default, static name => new ThreadWorker(name), static () => new RuleThreads(), log)
         {
             AnalyzerWorker = static () => new ThreadWorker("Lattice analyzers"),
@@ -82,7 +83,7 @@ internal sealed record WorldRuntime(
 /// included (source <c>event handler &lt;type&gt;</c>), so one that throws never keeps the others from running. Main
 /// thread.
 /// </summary>
-internal sealed class ModuleFaults(Action<string> log)
+internal sealed class ModuleFaults(LogSink log)
 {
     private readonly Dictionary<string, int> _counts = new();
 
@@ -105,7 +106,7 @@ internal sealed class ModuleFaults(Action<string> log)
         _counts.TryGetValue(source, out var count);
         _counts[source] = count + 1;
         if (count == 0)
-            log($"Lattice: {source} failed and goes on; later failures are counted. {error}");
+            log.Error($"Lattice: {source} failed and goes on; later failures are counted. {error}");
     }
 
     /// <summary>How many faults <paramref name="source"/> has had.</summary>
@@ -116,7 +117,7 @@ internal sealed class ModuleFaults(Action<string> log)
     {
         foreach (var source in _counts)
             if (source.Value > 1)
-                log($"Lattice: {source.Key} failed {source.Value} times in this world.");
+                log.Error($"Lattice: {source.Key} failed {source.Value} times in this world.");
     }
 }
 

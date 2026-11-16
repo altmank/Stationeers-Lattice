@@ -16,6 +16,7 @@ using Lattice.Core.World;
 using Lattice.TestKit;
 using Lattice.Tests.Board;
 using Lattice.Tests.Executors;
+using Lattice.Tests.Logging;
 using Lattice.Tests.Runs;
 using Lattice.Tests.Slices;
 using Lattice.Tests.Validation;
@@ -71,6 +72,7 @@ internal sealed class WorldBench : IDisposable
     {
         Root = Path.Combine(Path.GetTempPath(), "lattice-entry-" + Guid.NewGuid().ToString("N"));
         Runs = new RunBench(extraText);
+        Recorded = new RecordedLog(Log.Add);
     }
 
     public RunBench Runs { get; }
@@ -86,6 +88,9 @@ internal sealed class WorldBench : IDisposable
     public List<DisposableRuleCalls> RuleCalls { get; } = new();
 
     public List<string> Log { get; } = new();
+
+    /// <summary>Every line with the level it was written at; <see cref="Log"/> holds the same lines without it.</summary>
+    public RecordedLog Recorded { get; }
 
     public string Root { get; }
 
@@ -131,7 +136,7 @@ internal sealed class WorldBench : IDisposable
             Link = Option.Some<ISyncLink>(Link),
             Paints = Paints,
         };
-        var runtime = new WorldRuntime(Clock, new FixedTime(), FrameBudgets.Default, _ => Worker, NewRuleCalls, Log.Add);
+        var runtime = new WorldRuntime(Clock, new FixedTime(), FrameBudgets.Default, _ => Worker, NewRuleCalls, Recorded.Sink);
         var started = LatticeWorld.Start(ports, runtime);
         if (started.TryGet(out var world))
             World = world;

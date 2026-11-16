@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.EntryPoint;
+using Lattice.Core.Logging;
 using Lattice.Core.Slices;
 using Lattice.Core.Styles;
 using Lattice.Render.Claims;
@@ -25,7 +26,7 @@ internal static class RenderOrder
 /// ports, joins, flow and waited-for ghosts for <see cref="Style.Ports"/>, <see cref="Style.OpenEnds"/>,
 /// <see cref="Style.FlowArrows"/> and <see cref="Style.WaitsLinks"/>; without it no marks are drawn.
 /// </summary>
-internal sealed record RenderPorts(IGpu Gpu, ICameraView Camera, IPieceParts Pieces, Func<MaterialKey, Option<IGpuMaterial>> Materials, Action<string> Log, IMarkFacts? Facts = null);
+internal sealed record RenderPorts(IGpu Gpu, ICameraView Camera, IPieceParts Pieces, Func<MaterialKey, Option<IGpuMaterial>> Materials, LogSink Log, IMarkFacts? Facts = null);
 
 /// <summary>
 /// The clip as shader globals (material contract): set once a frame before any camera renders and never reset, so

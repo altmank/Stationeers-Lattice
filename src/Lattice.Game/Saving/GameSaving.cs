@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Lattice.Api;
+using Lattice.Core.Logging;
 using Lattice.Core.Saving;
 
 namespace Lattice.Game.Saving;
@@ -14,13 +15,13 @@ namespace Lattice.Game.Saving;
 /// </summary>
 internal sealed class GameSaving
 {
-    private readonly Action<string> _log;
+    private readonly LogSink _log;
     private bool _newWorld;
     private SaveCapture? _capture;
     private string? _savingTo;
     private Option<string> _before = Option<string>.None;
 
-    private GameSaving(PlanSaving saving, OpenedPlans opened, bool newWorld, Action<string> log)
+    private GameSaving(PlanSaving saving, OpenedPlans opened, bool newWorld, LogSink log)
     {
         Saving = saving;
         Opened = opened;
@@ -41,7 +42,7 @@ internal sealed class GameSaving
     /// <paramref name="savesRoot"/> (the game's <c>saves</c> folder). A loaded save with no fingerprint opens as a save
     /// with no record, reported.
     /// </summary>
-    public static GameSaving Open(Option<string> loadedSave, string savesRoot, Action<string> log)
+    public static GameSaving Open(Option<string> loadedSave, string savesRoot, LogSink log)
     {
         if (!loadedSave.TryGet(out var path))
         {
@@ -54,7 +55,7 @@ internal sealed class GameSaving
             fingerprint => Option.Some(new SaveKey(Path.GetFullPath(path), fingerprint)),
             why =>
             {
-                log($"Lattice can't tell which save this is ({why}); each plan opens with its newest changes.");
+                log.Warning($"Lattice can't tell which save this is ({why}); each plan opens with its newest changes.");
                 return Option.Some(new SaveKey(Path.GetFullPath(path), ""));
             });
         return new GameSaving(saving, saving.Open(key), newWorld: false, log);
@@ -66,7 +67,7 @@ internal sealed class GameSaving
         CatchUp();
         var path = Path.GetFullPath(Path.Combine(folder, file));
         if (Saving.FollowSave(path, _newWorld).TryGetError(out var why))
-            _log($"Lattice saving: the plans stay in {Saving.Folder.Root}: {why}");
+            _log.Warning($"Lattice saving: the plans stay in {Saving.Folder.Root}: {why}");
         else
             _newWorld = false;
 
@@ -88,9 +89,9 @@ internal sealed class GameSaving
             return;
         var after = SaveFiles.Fingerprint(path);
         if (!after.TryGet(out var fingerprint))
-            _log($"Lattice can't tell which save this is, so it kept no plans for {path}: the save has no fingerprint.");
+            _log.Warning($"Lattice can't tell which save this is, so it kept no plans for {path}: the save has no fingerprint.");
         else if (!SaveFiles.WasWritten(before, after))
-            _log($"Lattice kept no plans for {path}: the game did not write that save.");
+            _log.Warning($"Lattice kept no plans for {path}: the game did not write that save.");
         else
             Saving.AfterGameSave(capture, new SaveKey(path, fingerprint), DateTimeOffset.Now);
     }

@@ -5,6 +5,7 @@ using System.Text;
 using Assets.Scripts.Objects;
 using Lattice.Api;
 using Lattice.Core.Catalogue;
+using Lattice.Core.Logging;
 using UnityEngine;
 
 namespace Lattice.Game.Catalogue;
@@ -56,11 +57,11 @@ internal static class CatalogueExport
     /// When the game's command line carries the switch, writes the file once the prefabs are loaded (now, if they
     /// already are), logs the outcome and quits the game. Does nothing without the switch.
     /// </summary>
-    public static void RunIfAsked(Action<string> log)
+    public static void RunIfAsked(LogSink log)
     {
         if (!ExportSwitch.Parse(Environment.GetCommandLineArgs()).TryGet(out var asked))
         {
-            log($"{ExportSwitch.Name} needs a file after it; no catalogue written.");
+            log.Warning($"{ExportSwitch.Name} needs a file after it; no catalogue written.");
             return;
         }
 
@@ -81,13 +82,14 @@ internal static class CatalogueExport
         Prefab.OnPrefabsLoaded += OnLoaded;
     }
 
-    private static void Run(string path, Action<string> log)
+    private static void Run(string path, LogSink log)
     {
         var result = Write(path);
-        log(result.Match(
-            static ok => $"Catalogue written to {ok.Path}: {ok.Report.Read} pieces, {ok.Report.Refused.Count} refused, " +
-                         $"{ok.Report.WithoutKit.Count} without a kit, read in {(long)ok.LoadTime.TotalMilliseconds} ms.",
-            static error => $"Catalogue not written: {error.Facts["problem"]} ({error.Facts["file"]})."));
+        if (result.TryGet(out var ok))
+            log.Info($"Catalogue written to {ok.Path}: {ok.Report.Read} pieces, {ok.Report.Refused.Count} refused, " +
+                     $"{ok.Report.WithoutKit.Count} without a kit, read in {(long)ok.LoadTime.TotalMilliseconds} ms.");
+        else if (result.TryGetError(out var error))
+            log.Error($"Catalogue not written: {error.Facts["problem"]} ({error.Facts["file"]}).");
         Application.Quit();
     }
 }

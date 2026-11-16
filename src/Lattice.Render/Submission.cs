@@ -432,7 +432,7 @@ internal sealed class DrawState(RenderPorts ports)
         if (ports.Pieces.Of(key).TryGet(out var parts) && parts.Count > 0)
             piece = PieceDraw.Of(key, parts);
         else if (_unknown.Add(key))
-            ports.Log($"Lattice render: no meshes for piece {key}; its ghosts are not drawn.");
+            ports.Log.Warning($"Lattice render: no meshes for piece {key}; its ghosts are not drawn.");
         _pieces[key] = piece;
         return piece;
     }
@@ -1141,7 +1141,7 @@ internal sealed class Submission
         if (_materials.Icons.TryGet(icon, out var texture))
             return texture;
         if (_unknownIcons.Add(icon))
-            _ports.Log($"Lattice render: no icon registered as {icon.Value}; its icon pattern is not drawn.");
+            _ports.Log.Warning($"Lattice render: no icon registered as {icon.Value}; its icon pattern is not drawn.");
         return null;
     }
 
@@ -1152,7 +1152,7 @@ internal sealed class Submission
             return iconed;
         var key = fill.Combined ? MaterialTable.FillAndEdgeKey : fillKey;
         if (_noIconPattern.Add(key))
-            _ports.Log($"Lattice render: material {key.Value} has no LATTICE_ICON_PATTERN keyword; its icon patterns are not drawn.");
+            _ports.Log.Warning($"Lattice render: material {key.Value} has no LATTICE_ICON_PATTERN keyword; its icon patterns are not drawn.");
         return null;
     }
 

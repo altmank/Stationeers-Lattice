@@ -8,6 +8,7 @@ using Lattice.Api;
 using Lattice.Core.EntryPoint;
 using Lattice.Core.Executors;
 using Lattice.Core.Grid;
+using Lattice.Core.Logging;
 using Lattice.Core.Modules;
 using Lattice.Core.Ports;
 using Lattice.Core.Saving;
@@ -129,7 +130,7 @@ public sealed class TestWorld : IDisposable
         };
         var inline = new List<InlineWorker>(2);
         var log = new List<string>(16);
-        var runtime = scenario.WorkerThreads ? WorldRuntime.Threads(log.Add) : Inline(inline, log.Add);
+        var runtime = scenario.WorkerThreads ? WorldRuntime.Threads(LogSink.To(log.Add)) : Inline(inline, LogSink.To(log.Add));
         var started = LatticeWorld.Start(ports, runtime);
         if (!started.TryGet(out var lattice))
         {
@@ -266,7 +267,7 @@ public sealed class TestWorld : IDisposable
 
     private static Result<TestWorld, Reason> Refused(Reason why) => Result<TestWorld, Reason>.Error(why);
 
-    private static WorldRuntime Inline(List<InlineWorker> workers, Action<string> log)
+    private static WorldRuntime Inline(List<InlineWorker> workers, LogSink log)
     {
         var clock = new StepClock();
         return new WorldRuntime(clock, new FixedTime(), FrameBudgets.Default, _ => Add(workers), () => new InlineRuleCalls(clock), log);

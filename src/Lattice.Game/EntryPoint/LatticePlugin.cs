@@ -6,6 +6,7 @@ using LaunchPadBooster;
 using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.EntryPoint;
+using Lattice.Core.Logging;
 using Lattice.Core.Modules;
 using Lattice.Game.Saving;
 using Lattice.Game.Sync;
@@ -26,27 +27,28 @@ internal sealed class LatticePlugin : BaseUnityPlugin
 {
     private void Awake()
     {
-        Action<string> log = Logger.LogInfo;
+        var log = new LogSink(Logger.LogInfo, Logger.LogWarning, Logger.LogError);
+        PluginLog.Sink = log;
         var me = new LatticeCopy(LatticeVersion.Text, typeof(LatticePlugin).Assembly.Location);
         if (PluginStart.Claim(new AppDomainCopySlot(AppDomainCopySlot.Key), me) is CopyStart.StandsDown down)
         {
-            log(PluginStart.StandDownLine(me, down.Running));
+            log.Info(PluginStart.StandDownLine(me, down.Running));
             return;
         }
 
         foreach (var line in AssemblyCopies.Report(Loaded(), Own()))
-            log(line);
+            log.Info(line);
 
         var members = new CachedGameMembers();
         var missing = members.Missing(EntryManifest.Module);
         if (missing.Count > 0)
         {
-            log($"Lattice is off: this game version changed something it needs ({Names(missing)}). Update Lattice or wait for its update.");
+            log.Error($"Lattice is off: this game version changed something it needs ({Names(missing)}). Update Lattice or wait for its update.");
             return;
         }
 
         if (SaveHooks.Install().TryGetError(out var noHooks))
-            log($"Lattice won't save your plans: it couldn't attach to the game's saving. {noHooks}");
+            log.Error($"Lattice won't save your plans: it couldn't attach to the game's saving. {noHooks}");
         var networking = Networking.Register(log);
 
         var watcher = new GameObject("Lattice");
@@ -94,12 +96,21 @@ internal sealed class LatticePlugin : BaseUnityPlugin
 }
 
 /// <summary>
+/// The plugin's log source, for the static Harmony code that has no instance to hand a sink to. Set once by the
+/// plugin before any patch installs; lines go through BepInEx, so they reach LogOutput.log.
+/// </summary>
+internal static class PluginLog
+{
+    public static LogSink Sink { get; set; } = LogSink.Silent;
+}
+
+/// <summary>
 /// Lattice's own LaunchPadBooster mod: required on every peer at the same version (decided), carrying the sync
 /// messages. Without LaunchPadBooster's networking the sync module is off and the log says why.
 /// </summary>
 internal static class Networking
 {
-    public static bool Register(Action<string> log)
+    public static bool Register(LogSink log)
     {
         try
         {
@@ -108,7 +119,7 @@ internal static class Networking
         }
         catch (Exception error)
         {
-            log($"Lattice multiplayer sync is off: StationeersLaunchPad's mod networking isn't available ({error.GetType().Name}: {error.Message}).");
+            log.Warning($"Lattice multiplayer sync is off: StationeersLaunchPad's mod networking isn't available ({error.GetType().Name}: {error.Message}).");
             return false;
         }
     }

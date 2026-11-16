@@ -9,6 +9,7 @@ using Lattice.Core.Commands;
 using Lattice.Core.Executors;
 using Lattice.Core.FinishedPlans;
 using Lattice.Core.Inspector;
+using Lattice.Core.Logging;
 using Lattice.Core.Matching;
 using Lattice.Core.Openings;
 using Lattice.Core.Plans;
@@ -43,7 +44,7 @@ internal sealed class LatticeWorld : IGhostSystem
 {
     private readonly List<(string Name, Action Stop)> _stops = new(24);
     private readonly ModuleTable _modules;
-    private readonly Action<string> _log;
+    private readonly LogSink _log;
     private readonly Action _lapse;
     private readonly Action _placeStatus;
     private readonly Action _validationFrame;
@@ -161,10 +162,10 @@ internal sealed class LatticeWorld : IGhostSystem
     {
         foreach (var status in ports.Modules.Statuses)
             if (status.State is ModuleState.Off off)
-                runtime.Log(ModuleLines.Off(status.Name, off.Why));
+                runtime.Log.Warning(ModuleLines.Off(status.Name, off.Why));
         if (ports.Modules.Why(LatticeModules.Catalogue).TryGet(out var noCatalogue))
         {
-            runtime.Log("Lattice isn't running in this world: it can't read this game's building pieces.");
+            runtime.Log.Error("Lattice isn't running in this world: it can't read this game's building pieces.");
             return Result<LatticeWorld, Reason>.Error(noCatalogue);
         }
 
@@ -176,7 +177,7 @@ internal sealed class LatticeWorld : IGhostSystem
         }
         catch (Exception error)
         {
-            runtime.Log($"Lattice isn't running in this world: starting {world._starting.Value} failed. {error}");
+            runtime.Log.Error($"Lattice isn't running in this world: starting {world._starting.Value} failed. {error}");
             world.End();
             return Result<LatticeWorld, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, EntryCodes.Rule, ValueMap
                 .Of("module", world._starting.Value)
@@ -275,7 +276,7 @@ internal sealed class LatticeWorld : IGhostSystem
                 }
                 catch (Exception error)
                 {
-                    _log($"Lattice: ending {_stops[i].Name} failed. {error}");
+                    _log.Error($"Lattice: ending {_stops[i].Name} failed. {error}");
                 }
             }
 
@@ -354,7 +355,7 @@ internal sealed class LatticeWorld : IGhostSystem
             _completion = watcher;
             Stop(LatticeModules.Matching, watcher.End);
             Match = Option.Some(report);
-            runtime.Log($"Lattice: load matched {report.Judged} ghosts: {report.Done} done, {report.Started} started, {report.Stale} stale, {report.TargetGone} target gone, {report.Unjudged} not judged; {report.TurnFree.Count} turn-free pieces.");
+            runtime.Log.Info($"Lattice: load matched {report.Judged} ghosts: {report.Done} done, {report.Started} started, {report.Stale} stale, {report.TargetGone} target gone, {report.Unjudged} not judged; {report.TurnFree.Count} turn-free pieces.");
         }
 
         StructureSelection? selection = null;
@@ -541,7 +542,7 @@ internal sealed class LatticeWorld : IGhostSystem
         Commands = LocalCommands;
         _starting = LatticeModules.Sync;
         var link = on.IsOn(LatticeModules.Sync) && ports.Link.TryGet(out var l) ? l : null;
-        Action<Reason> reportSync = why => runtime.Log($"Lattice sync: {why}");
+        Action<Reason> reportSync = why => runtime.Log.Warning($"Lattice sync: {why}");
         if (host && link is not null)
         {
             var hostSync = new HostSync(LocalCommands, Ghosts, Scheduler, link, SyncLimits.Default, reportSync, _executors);

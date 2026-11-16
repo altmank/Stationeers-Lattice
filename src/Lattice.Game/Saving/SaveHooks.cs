@@ -7,6 +7,7 @@ using Lattice.Api;
 using Lattice.Core.Modules;
 using Lattice.Core.Saving;
 using Lattice.Core.World;
+using Lattice.Game.EntryPoint;
 using Lattice.Game.World;
 using Assets.Scripts.Serialization;
 
@@ -39,7 +40,7 @@ internal static class SaveHooks
         if (Current == null)
             return;
         Current = null;
-        UnityEngine.Debug.LogError($"Lattice turned off saving for this world because it didn't work with this game version (patch {patch}): {e}");
+        PluginLog.Sink.Error($"Lattice turned off saving for this world because it didn't work with this game version (patch {patch}): {e}");
     };
 
     /// <summary>The running world's saving; set when a world runs, cleared when it ends.</summary>
@@ -84,14 +85,14 @@ internal static class SaveHooks
         }
         catch (Exception e)
         {
-            UnityEngine.Debug.LogError($"Lattice saving: patching failed, undoing every saving patch: {e}");
+            PluginLog.Sink.Error($"Lattice saving: patching failed, undoing every saving patch: {e}");
             try
             {
                 harmony.UnpatchSelf();
             }
             catch (Exception undo)
             {
-                UnityEngine.Debug.LogError($"Lattice saving: undoing the saving patches failed: {undo}");
+                PluginLog.Sink.Error($"Lattice saving: undoing the saving patches failed: {undo}");
             }
 
             return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, SavingReasons.Saving,
