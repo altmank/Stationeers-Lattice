@@ -86,13 +86,17 @@ internal sealed class LatticePlugin : BaseUnityPlugin
     {
         try
         {
-            return VersionOf(typeof(HarmonyLib.Harmony).Assembly);
+            return HarmonyAssemblyVersion();
         }
         catch (Exception)
         {
             return "";
         }
     }
+
+    // Its own method, never inlined, so a missing Harmony fails inside HarmonyVersion's try.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string HarmonyAssemblyVersion() => VersionOf(typeof(HarmonyLib.Harmony).Assembly);
 
     private static ValueMap<string, string> Own() =>
         ValueMap.Of("Lattice.Api", typeof(LatticeSystem).Assembly.Location)
@@ -150,13 +154,17 @@ internal static class Networking
     {
         try
         {
-            return LatticePlugin.VersionOf(typeof(Mod).Assembly);
+            return BoosterAssemblyVersion();
         }
         catch (Exception)
         {
             return "";
         }
     }
+
+    // Its own method, never inlined, so a missing LaunchPadBooster fails inside BoosterVersion's try.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string BoosterAssemblyVersion() => LatticePlugin.VersionOf(typeof(Mod).Assembly);
 
     // Its own method, never inlined, so a missing LaunchPadBooster fails inside Register's try.
     [MethodImpl(MethodImplOptions.NoInlining)]
