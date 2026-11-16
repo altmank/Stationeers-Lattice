@@ -47,9 +47,16 @@ internal sealed class LatticePlugin : BaseUnityPlugin
             return;
         }
 
-        if (SaveHooks.Install().TryGetError(out var noHooks))
+        var hooks = SaveHooks.Install();
+        if (hooks.TryGetError(out var noHooks))
             log.Error($"Lattice won't save your plans: it couldn't attach to the game's saving. {noHooks}");
         var networking = Networking.Register(log);
+        log.Info(new LoadLine(
+            LatticeVersion.Text,
+            hooks.TryGet(out var patches) ? Option.Some(patches) : Option.None<int>(),
+            networking,
+            Networking.BoosterVersion(),
+            HarmonyVersion()).Text);
 
         var watcher = new GameObject("Lattice");
         DontDestroyOnLoad(watcher);
@@ -69,10 +76,27 @@ internal sealed class LatticePlugin : BaseUnityPlugin
         return ValueList.From(loaded);
     }
 
-    private static string VersionOf(System.Reflection.Assembly assembly) =>
+    internal static string VersionOf(System.Reflection.Assembly assembly) =>
         System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(assembly)?.InformationalVersion
         ?? assembly.GetName().Version?.ToString()
         ?? "";
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string HarmonyVersion()
+    {
+        try
+        {
+            return HarmonyAssemblyVersion();
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+
+    // Its own method, never inlined, so a missing Harmony fails inside HarmonyVersion's try.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string HarmonyAssemblyVersion() => VersionOf(typeof(HarmonyLib.Harmony).Assembly);
 
     private static ValueMap<string, string> Own() =>
         ValueMap.Of("Lattice.Api", typeof(LatticeSystem).Assembly.Location)
@@ -123,6 +147,24 @@ internal static class Networking
             return false;
         }
     }
+
+    /// <summary>The loaded LaunchPadBooster's version; blank when it isn't there.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static string BoosterVersion()
+    {
+        try
+        {
+            return BoosterAssemblyVersion();
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+
+    // Its own method, never inlined, so a missing LaunchPadBooster fails inside BoosterVersion's try.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string BoosterAssemblyVersion() => LatticePlugin.VersionOf(typeof(Mod).Assembly);
 
     // Its own method, never inlined, so a missing LaunchPadBooster fails inside Register's try.
     [MethodImpl(MethodImplOptions.NoInlining)]

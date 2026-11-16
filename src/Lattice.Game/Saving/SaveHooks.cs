@@ -35,6 +35,8 @@ internal static class SaveHooks
 
     private static Harmony? _harmony;
 
+    private static int _patches;
+
     private static readonly Action<string, Exception> OnFault = static (patch, e) =>
     {
         if (Current == null)
@@ -67,13 +69,13 @@ internal static class SaveHooks
     }
 
     /// <summary>Checks every member and patches; refused, with nothing patched, when a member is missing or a patch fails.</summary>
-    public static Result<Unit, Reason> Install()
+    public static Result<int, Reason> Install()
     {
         if (_harmony != null)
-            return Result<Unit, Reason>.Ok(Unit.Value);
+            return Result<int, Reason>.Ok(_patches);
         var missing = GameMembers.Missing(SavingManifest.Module);
         if (missing.Count > 0)
-            return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, SavingReasons.Saving,
+            return Result<int, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, SavingReasons.Saving,
                 ValueMap<string, string>.Empty.With("module", SavingManifest.Module.Name.Value).With("missing", missing.Count.ToString())));
 
         var harmony = new Harmony(HarmonyId);
@@ -95,12 +97,15 @@ internal static class SaveHooks
                 PluginLog.Sink.Error($"Lattice saving: undoing the saving patches failed: {undo}");
             }
 
-            return Result<Unit, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, SavingReasons.Saving,
+            return Result<int, Reason>.Error(Reason.Of(ReasonCodes.ModuleMissing, SavingReasons.Saving,
                 ValueMap<string, string>.Empty.With("module", SavingManifest.Module.Name.Value).With("problem", e.Message)));
         }
 
         _harmony = harmony;
-        return Result<Unit, Reason>.Ok(Unit.Value);
+        _patches = 0;
+        foreach (var _ in harmony.GetPatchedMethods())
+            _patches++;
+        return Result<int, Reason>.Ok(_patches);
     }
 
     private static MethodBase Method(GameMember.Method method) =>

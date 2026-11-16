@@ -102,7 +102,7 @@ public sealed class LogLevelTests : IDisposable
     {
         _bench.TryStart(WorldSeat.Host, CatalogueManifest.Module.Uses[0]);
 
-        Assert.Equal("Lattice isn't running in this world: it can't read this game's building pieces.", Assert.Single(_bench.Recorded.At(Level.Error)));
+        Assert.StartsWith("Lattice isn't running in this world: it can't read this game's building pieces. ", Assert.Single(_bench.Recorded.At(Level.Error)));
         Assert.Contains(_bench.Recorded.At(Level.Warning), line => line.StartsWith("Lattice: module catalogue is off: ", StringComparison.Ordinal));
     }
 

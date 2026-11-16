@@ -8,6 +8,8 @@ Changed: Lattice's warnings and errors now show as warnings and errors in the Be
 
 Changed: Lattice writes fewer lines to the log when it loads.
 
+Changed: the log says once, at load, which Lattice version started and whether saving and multiplayer are on.
+
 ## 0.22.21
 
 Fixed: hovering a ghost that can't be built says why in plain words, not a code.
