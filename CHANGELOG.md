@@ -2,13 +2,13 @@
 
 ## Unreleased
 
-Changed: the log says once, at load, which Lattice version started and whether saving and multiplayer are on.
-
 Changed: a multiplayer peer sending bad messages no longer fills the log: each problem is logged once, then at most every five minutes with a count.
 
 Changed: Lattice's warnings and errors now show as warnings and errors in the BepInEx log.
 
 Changed: Lattice writes fewer lines to the log when it loads.
+
+Changed: the log says once, at load, which Lattice version started and whether saving and multiplayer are on.
 
 ## 0.22.21
 
