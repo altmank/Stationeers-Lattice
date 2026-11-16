@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Lattice.Api;
 using Lattice.Core.Board;
 using Lattice.Core.Executors;
+using Lattice.Core.Slices;
 
 namespace Lattice.Core.Sync;
 
@@ -51,13 +52,13 @@ internal sealed class ClientSync : ICommands
     /// Sync for a client's board, and for the executors' mirror when <paramref name="executors"/> is given;
     /// <c>report</c> takes what it drops (a message it cannot read or fit).
     /// </summary>
-    public ClientSync(IReplicaBoard board, ISyncLink link, SyncLimits limits, Action<Reason> report, ExecutorMirror? executors = null)
+    public ClientSync(IReplicaBoard board, ISyncLink link, SyncLimits limits, Action<Reason> report, ExecutorMirror? executors = null, IClock? clock = null)
     {
         _board = board;
         _executors = executors;
         _link = link;
         _limits = limits;
-        _report = report;
+        _report = new ReportGate(report, clock ?? new StopwatchClock(), ReportGate.DefaultWindow).Report;
     }
 
     /// <summary>Whether the host's join has arrived.</summary>

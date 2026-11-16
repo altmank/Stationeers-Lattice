@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Changed: a multiplayer peer sending bad messages no longer fills the log: each problem is logged once, then at most every five minutes with a count.
+
 Changed: Lattice's warnings and errors now show as warnings and errors in the BepInEx log.
 
 ## 0.22.21
