@@ -74,7 +74,7 @@ internal sealed class RenderHost : MonoBehaviour
         host.Drawing = new GhostDrawing(renderer, new UnityObjects(), () => camera.Current is { } c ? Option.Some(c) : Option<Camera>.None);
         styles.Projector = renderer.Labels;
         Application.onBeforeRender += host.BeforeCameras;
-        log.Info($"Lattice render: drawing with {(bundle.Own ? "Lattice's shaders" : "the stand-in")} ({bundle.Count} materials).");
+        log.Info(bundle.Summary.Line());
         return Result<RenderHost, Reason>.Ok(host);
     }
 

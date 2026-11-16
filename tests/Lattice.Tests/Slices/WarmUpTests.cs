@@ -54,6 +54,19 @@ public sealed class WarmUpTests
     }
 
     [Fact]
+    public void Each_finished_set_writes_one_Info_line_with_its_counts_and_nothing_else()
+    {
+        var lines = new System.Collections.Generic.List<string>();
+        sets.Log = LogSink.To(lines.Add);
+        var (work, _, _) = Run("slices-logged", TimeSpan.FromMilliseconds(0.1), TimeSpan.FromMilliseconds(0.1));
+
+        var line = Assert.Single(lines);
+        Assert.StartsWith("Lattice warm-up slices-logged: ", line);
+        Assert.Contains($"{work.Compiled} methods compiled", line);
+        Assert.Contains($"{work.Skipped} expected to compile too slowly", line);
+    }
+
+    [Fact]
     public void A_runtime_whose_compile_costs_over_a_millisecond_a_method_never_stretches_a_frame_past_the_budget_and_one_method()
     {
         var clock = new TickingClock(TimeSpan.Zero);
