@@ -54,14 +54,14 @@ internal sealed class HostSync : ISlicedWork, IDisposable
     /// </summary>
     public HostSync(
         CommandService commands, GhostBoard board, FrameScheduler scheduler, ISyncLink link, SyncLimits limits, Action<Reason> report,
-        WorldExecutors? executors = null)
+        WorldExecutors? executors = null, IClock? clock = null)
     {
         _commands = commands;
         _board = board;
         _scheduler = scheduler;
         _link = link;
         _limits = limits;
-        _report = report;
+        _report = new ReportGate(report, clock ?? new StopwatchClock(), ReportGate.DefaultWindow).Report;
         _onChanged = OnChanged;
         _onAnswered = OnAnswered;
         board.Events.Changed += _onChanged;
